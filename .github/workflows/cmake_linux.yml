@@ -2,6 +2,8 @@ name: CMake (Linux)
 
 on:
 
+  workflow_dispatch:
+
   push:
     paths:
       - src/**
