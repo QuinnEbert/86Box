@@ -146,6 +146,7 @@ int
 machine_available(int m)
 {
     int             ret = 0;
+    device_clear_missing_roms();
     const device_t *dev = machine_get_device(m);
 
     if (dev != NULL)
