@@ -2,6 +2,7 @@ name: CodeQL Analysis (Linux)
 
 on:
 
+  workflow_dispatch:
   push:
     paths:
       - src/**
