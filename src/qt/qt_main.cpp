@@ -605,7 +605,7 @@ main(int argc, char *argv[])
             "86Box could not find any usable ROM images.<br><br>"
             "Please <a href=\"https://github.com/86Box/roms/releases/latest\">download</a> "
             "a ROM set and extract it into one of the following directories:<ul>%1</ul>")
-                             .arg(romDirs.join());
+                             .arg(romDirs.join(QString()));
 
         QMessageBox fatalbox(QMessageBox::Icon::Critical, QObject::tr("No ROMs found"),
                              msg, QMessageBox::Ok);

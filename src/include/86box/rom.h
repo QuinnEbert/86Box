@@ -18,6 +18,8 @@
 #ifndef EMU_ROM_H
 #define EMU_ROM_H
 
+#include <86box/mem.h>
+
 #define FLAG_INT                                  1
 #define FLAG_INV                                  2
 #define FLAG_AUX                                  4
