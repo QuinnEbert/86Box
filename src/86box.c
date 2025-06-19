@@ -1141,6 +1141,7 @@ pc_init_modules(void)
     }
     if (c == 0) {
         /* No usable ROMs found, aborting. */
+        fprintf(stderr, "No usable ROM sets found. Missing ROM files may be the reason.\n");
         return 0;
     }
     pc_log("A total of %d ROM sets have been loaded.\n", c);
@@ -1157,6 +1158,10 @@ pc_init_modules(void)
         } else {
             wcsncpy(msg, temp, sizeof_w(msg));
         }
+
+        char cmsg[1024] = { 0 };
+        wcstombs(cmsg, msg, sizeof(cmsg) - 1);
+        fprintf(stderr, "%s\n", cmsg);
         c       = 0;
         machine = -1;
         while (machine_get_internal_name_ex(c) != NULL) {
@@ -1179,6 +1184,9 @@ pc_init_modules(void)
         memset(tempc, 0, sizeof(tempc));
         device_get_name(video_card_getdevice(gfxcard[0]), 0, tempc);
         swprintf(temp, sizeof_w(temp), plat_get_string(STRING_HW_NOT_AVAILABLE_VIDEO), tempc);
+        char ctemp[512] = { 0 };
+        wcstombs(ctemp, temp, sizeof(ctemp) - 1);
+        fprintf(stderr, "%s\n", ctemp);
         c = 0;
         while (video_get_internal_name(c) != NULL) {
             gfxcard[0] = -1;
@@ -1202,6 +1210,9 @@ pc_init_modules(void)
             char tempc[512] = { 0 };
             device_get_name(video_card_getdevice(gfxcard[i]), 0, tempc);
             swprintf(temp, sizeof_w(temp), plat_get_string(STRING_HW_NOT_AVAILABLE_VIDEO2), tempc);
+            char ctemp2[512] = { 0 };
+            wcstombs(ctemp2, temp, sizeof(ctemp2) - 1);
+            fprintf(stderr, "%s\n", ctemp2);
             ui_msgbox_header(MBX_INFO, plat_get_string(STRING_HW_NOT_AVAILABLE_TITLE), temp);
             gfxcard[i] = 0;
         }
