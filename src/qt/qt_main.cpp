@@ -50,6 +50,7 @@ extern "C" {
 #include <86box/plat.h>
 #include <86box/ui.h>
 #include <86box/video.h>
+#include <86box/rom.h>
 #ifdef DISCORD
 #   include <86box/discord.h>
 #endif
@@ -592,9 +593,19 @@ main(int argc, char *argv[])
 #endif
 
     if (!pc_init_modules()) {
+        QStringList romDirs;
+        for (rom_path_t *rom_path = &rom_paths; rom_path != nullptr; rom_path = rom_path->next) {
+            romDirs << QStringLiteral("<li>%1</li>").arg(QString::fromLocal8Bit(rom_path->path));
+        }
+
+        QString msg = QObject::tr(
+            "86Box could not find any usable ROM images.<br><br>"
+            "Please <a href=\"https://github.com/86Box/roms/releases/latest\">download</a> "
+            "a ROM set and extract it into one of the following directories:<ul>%1</ul>")
+                             .arg(romDirs.join());
+
         QMessageBox fatalbox(QMessageBox::Icon::Critical, QObject::tr("No ROMs found"),
-                             QObject::tr("86Box could not find any usable ROM images.\n\nPlease <a href=\"https://github.com/86Box/roms/releases/latest\">download</a> a ROM set and extract it into the \"roms\" directory."),
-                             QMessageBox::Ok);
+                             msg, QMessageBox::Ok);
         fatalbox.setTextFormat(Qt::TextFormat::RichText);
         fatalbox.exec();
         return 6;
