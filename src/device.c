@@ -951,6 +951,28 @@ machine_get_config_string(char *str)
     return ret;
 }
 
+static char missing_roms[1024];
+
+static void append_missing_rom(const char *fn)
+{
+    if (!fn || !*fn)
+        return;
+
+    if (missing_roms[0])
+        strncat(missing_roms, "\n", sizeof(missing_roms) - strlen(missing_roms) - 1);
+    strncat(missing_roms, fn, sizeof(missing_roms) - strlen(missing_roms) - 1);
+}
+
+void device_clear_missing_roms(void)
+{
+    missing_roms[0] = '\0';
+}
+
+const char *device_get_missing_roms(void)
+{
+    return missing_roms;
+}
+
 int
 machine_device_available(const device_t *dev)
 {
@@ -966,8 +988,12 @@ machine_device_available(const device_t *dev)
                    (bios->internal_name != NULL) &&
                    (bios->files_no != 0)) {
                 int i = 0;
-                for (uint8_t bf = 0; bf < bios->files_no; bf++)
-                    i += !!rom_present(bios->files[bf]);
+                for (uint8_t bf = 0; bf < bios->files_no; bf++) {
+                    if (rom_present(bios->files[bf]))
+                        i++;
+                    else
+                        append_missing_rom(bios->files[bf]);
+                }
                 if (i == bios->files_no)
                     roms_present++;
                 bios++;

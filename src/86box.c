@@ -1148,11 +1148,20 @@ pc_init_modules(void)
     /* Load the ROMs for the selected machine. */
     if (!machine_available(machine)) {
         swprintf(temp, sizeof_w(temp), plat_get_string(STRING_HW_NOT_AVAILABLE_MACHINE), machine_getname());
+        wchar_t msg[1024] = { 0 };
+        const char *missing = device_get_missing_roms();
+        if (missing && missing[0]) {
+            wchar_t wmissing[1024] = { 0 };
+            mbstowcs(wmissing, missing, 1023);
+            swprintf(msg, sizeof_w(msg), L"%ls\nMissing ROM files:\n%ls", temp, wmissing);
+        } else {
+            wcsncpy(msg, temp, sizeof_w(msg));
+        }
         c       = 0;
         machine = -1;
         while (machine_get_internal_name_ex(c) != NULL) {
             if (machine_available(c)) {
-                ui_msgbox_header(MBX_INFO, plat_get_string(STRING_HW_NOT_AVAILABLE_TITLE), temp);
+                ui_msgbox_header(MBX_INFO, plat_get_string(STRING_HW_NOT_AVAILABLE_TITLE), msg);
                 machine = c;
                 config_save();
                 break;
