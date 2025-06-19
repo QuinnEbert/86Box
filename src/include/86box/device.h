@@ -240,6 +240,8 @@ extern int         machine_get_config_int(char *str);
 extern const char *machine_get_config_string(char *str);
 
 extern int         machine_device_available(const device_t *dev);
+extern void        device_clear_missing_roms(void);
+extern const char *device_get_missing_roms(void);
 
 extern const device_t device_none;
 extern const device_t device_internal;
