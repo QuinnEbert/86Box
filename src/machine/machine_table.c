@@ -17687,3 +17687,39 @@ machine_get_typical_cpu_name(int m)
     }
     return "Unknown";
 }
+
+const char *
+machine_get_supported_cpu_names(int m)
+{
+    static char buf[256];
+    char       *p         = buf;
+    size_t      remaining = sizeof(buf);
+    buf[0]               = '\0';
+
+    for (int i = 0; cpu_families[i].package; i++) {
+        if (cpu_family_is_eligible(&cpu_families[i], m)) {
+            const char *name  = cpu_families[i].name;
+            const char *start = name;
+
+            if (strncmp(name, "Intel", 5) == 0 || strncmp(name, "AMD", 3) == 0 ||
+                strncmp(name, "Cyrix", 5) == 0) {
+                const char *space = strchr(name, ' ');
+                if (space)
+                    start = space + 1;
+            }
+
+            size_t len = strcspn(start, "(");
+            while (len && isspace((unsigned char)start[len - 1]))
+                len--;
+
+            int written = snprintf(p, remaining, "%s%.*s", (p == buf) ? "" : "/",
+                                   (int)len, start);
+            if (written < 0 || (size_t)written >= remaining)
+                break;
+            p += written;
+            remaining -= written;
+        }
+    }
+
+    return buf;
+}
