@@ -213,7 +213,7 @@ int      video_fullscreen_scale_maximized       = 0;              /* (C) Whether
 int      do_auto_pause                          = 0;              /* (C) Auto-pause the emulator on focus
                                                                          loss */
 int      turbo_mode                             = 0;              /* Run emulator at maximum speed */
-int      turbo_slow_cycles                      = 0;              /* Delay cycles between turbo steps */
+int      turbo_slow_cycles                      = 0;              /* Cycle skip count when turbo is off */
 int      hook_enabled                           = 1;              /* (C) Keyboard hook is enabled */
 int      test_mode                              = 0;              /* (C) Test mode */
 char     uuid[MAX_UUID_LEN]                     = { '\0' };       /* (C) UUID or machine identifier */
@@ -1600,7 +1600,7 @@ exec_mode_string(void)
     if (turbo_mode)
         return L"Turbo";
     if (turbo_slow_cycles > 0)
-        return L"Slow turbo";
+        return L"Cycle skip";
     return L"Normal";
 }
 
