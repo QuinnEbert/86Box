@@ -13,12 +13,36 @@ jobs:
   upload-release:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    concurrency:
+      group: release-artifacts-${{ github.event.workflow_run.head_sha }}
+      cancel-in-progress: true
     steps:
-      - name: Download artifacts from run
-        uses: actions/download-artifact@v4
+      - name: Wait for all builds to finish
+        uses: WyriHaximus/github-action-wait-for-status@v2
         with:
-          run-id: ${{ github.event.workflow_run.id }}
-          path: artifacts
+          ignoreActions: "Release Artifacts"
+          checkInterval: 30
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download artifacts from builds
+        run: |
+          mkdir -p artifacts
+          workflows=(cmake_linux.yml cmake_macos.yml cmake_windows_msys2.yml)
+          for wf in "${workflows[@]}"; do
+            id=$(gh api \
+              /repos/${GITHUB_REPOSITORY}/actions/workflows/$wf/runs \
+              -f head_sha=${{ github.event.workflow_run.head_sha }} \
+              -f status=completed \
+              -q '.workflow_runs[0].id')
+            if [ -z "$id" ]; then
+              echo "No run found for $wf" >&2
+              exit 1
+            fi
+            gh run download "$id" -D artifacts
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Prepare release archives
         run: |
