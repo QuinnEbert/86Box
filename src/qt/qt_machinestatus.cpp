@@ -23,14 +23,17 @@ extern "C" {
 #include <86box/timer.h>
 #include <86box/86box.h>
 #include <86box/device.h>
+#include <86box/video.h>
 #include <86box/cartridge.h>
 #include <86box/cassette.h>
 #include <86box/cdrom.h>
 #include <86box/cdrom_interface.h>
 #include <86box/fdd.h>
+#include <86box/fdc_ext.h>
 #include <86box/hdc.h>
 #include <86box/scsi.h>
 #include <86box/scsi_device.h>
+#include <86box/sound.h>
 #include <86box/zip.h>
 #include <86box/mo.h>
 #include <86box/plat.h>
@@ -52,12 +55,14 @@ extern volatile int fdcinited;
 #include <QMenu>
 #include <QScreen>
 #include <QString>
+#include <QStringList>
 
 #include "qt_mediamenu.hpp"
 #include "qt_mainwindow.hpp"
 #include "qt_soundgain.hpp"
 #include "qt_progsettings.hpp"
 #include "qt_iconindicators.hpp"
+#include "qt_deviceconfig.hpp"
 
 extern "C" {
 #include "../cpu/cpu.h"
@@ -313,6 +318,7 @@ struct MachineStatus::States {
     std::unique_ptr<ClickableLabel>            sound;
     std::unique_ptr<QLabel>                    speed;
     std::unique_ptr<QLabel>                    ram;
+    std::unique_ptr<QLabel>                    hardware;
     std::unique_ptr<QLabel>                    text;
 };
 
@@ -598,6 +604,7 @@ MachineStatus::refresh(QStatusBar *sbar)
         sbar->removeWidget(d->net[i].label.get());
     }
     sbar->removeWidget(d->sound.get());
+    sbar->removeWidget(d->hardware.get());
     sbar->removeWidget(d->text.get());
     sbar->removeWidget(d->speed.get());
     sbar->removeWidget(d->ram.get());
@@ -850,6 +857,10 @@ MachineStatus::refresh(QStatusBar *sbar)
     }
     sbar->addWidget(d->ram.get());
 
+    d->hardware = std::make_unique<QLabel>();
+    d->hardware->setText(buildHardwareSummary());
+    sbar->addWidget(d->hardware.get());
+
     d->text = std::make_unique<QLabel>();
     sbar->addWidget(d->text.get());
 
@@ -920,4 +931,65 @@ MachineStatus::updateTip(int tag)
     }
 
     refreshEmptyIcons();
+}
+
+QString
+MachineStatus::buildHardwareSummary()
+{
+    QStringList sections;
+
+    QStringList videos;
+    for (int i = 0; i < GFXCARD_MAX; ++i) {
+        if (gfxcard[i] != VID_NONE) {
+            const device_t *dev = video_card_getdevice(gfxcard[i]);
+            videos << DeviceConfig::DeviceName(dev, video_get_internal_name(gfxcard[i]), 1);
+        }
+    }
+    if (!videos.isEmpty())
+        sections << tr("Video: %1").arg(videos.join(QLatin1String(", ")));
+
+    QStringList sounds;
+    for (int i = 0; i < SOUND_CARD_MAX; ++i) {
+        if (sound_card_current[i] != SOUND_NONE) {
+            const device_t *dev = sound_card_getdevice(sound_card_current[i]);
+            sounds << DeviceConfig::DeviceName(dev, sound_card_get_internal_name(sound_card_current[i]), 1);
+        }
+    }
+    if (!sounds.isEmpty())
+        sections << tr("Sound: %1").arg(sounds.join(QLatin1String(", ")));
+
+    QStringList storage;
+    for (int i = 0; i < FDC_MAX; ++i) {
+        if (fdc_current[i] != FDC_NONE)
+            storage << DeviceConfig::DeviceName(fdc_card_getdevice(fdc_current[i]), fdc_card_get_internal_name(fdc_current[i]), 1);
+    }
+    for (int i = 0; i < HDC_MAX; ++i) {
+        if (hdc_current[i] != HDC_NONE)
+            storage << DeviceConfig::DeviceName(hdc_get_device(hdc_current[i]), hdc_get_internal_name(hdc_current[i]), 1);
+    }
+    for (int i = 0; i < SCSI_CARD_MAX; ++i) {
+        if (scsi_card_current[i] != 0)
+            storage << DeviceConfig::DeviceName(scsi_card_getdevice(scsi_card_current[i]), scsi_card_get_internal_name(scsi_card_current[i]), 1);
+    }
+    if (!storage.isEmpty())
+        sections << tr("Storage: %1").arg(storage.join(QLatin1String(", ")));
+
+    QStringList disks;
+    auto shortSize = [](qulonglong mb) {
+        if (mb >= 1024ull * 1024ull)
+            return QString::number(mb / (1024ull * 1024ull)) + QLatin1String("T");
+        if (mb >= 1024ull)
+            return QString::number(mb / 1024ull) + QLatin1String("G");
+        return QString::number(mb) + QLatin1String("M");
+    };
+    for (int i = 0; i < HDD_NUM; ++i) {
+        if (hdd[i].fn[0] != 0) {
+            qulonglong mb = ((qulonglong)hdd[i].hpc * (qulonglong)hdd[i].spt * (qulonglong)hdd[i].tracks * 512ull) / 1048576ull;
+            disks << QStringLiteral("HD%1:%2").arg(i).arg(shortSize(mb));
+        }
+    }
+    if (!disks.isEmpty())
+        sections << tr("Disks: %1").arg(disks.join(QLatin1String(" ")));
+
+    return sections.join(QLatin1String(" | "));
 }
