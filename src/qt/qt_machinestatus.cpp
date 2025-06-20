@@ -846,7 +846,8 @@ MachineStatus::refresh(QStatusBar *sbar)
     sbar->addWidget(d->sound.get());
 
     d->speed = std::make_unique<QLabel>();
-    d->speed->setText(QString::number(cpu_s->rspeed) + QLatin1String(" mHz"));
+    double mhz = static_cast<double>(cpu_s->rspeed) / 1000000.0;
+    d->speed->setText(QString::number(mhz, 'f', 2) + QLatin1String(" MHz"));
     sbar->addWidget(d->speed.get());
 
     d->ram = std::make_unique<QLabel>();
