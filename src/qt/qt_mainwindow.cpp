@@ -655,6 +655,9 @@ MainWindow::MainWindow(QWidget *parent)
     if (do_auto_pause > 0) {
         ui->actionAuto_pause->setChecked(true);
     }
+    if (turbo_mode > 0) {
+        ui->actionTurbo_mode->setChecked(true);
+    }
 
 #ifdef Q_OS_MACOS
     ui->actionCtrl_Alt_Del->setShortcutVisibleInContextMenu(true);
@@ -1081,6 +1084,13 @@ void
 MainWindow::on_actionPause_triggered()
 {
     plat_pause(dopause ^ 1);
+}
+
+void
+MainWindow::on_actionTurbo_mode_triggered()
+{
+    turbo_mode ^= 1;
+    ui->actionTurbo_mode->setChecked(turbo_mode > 0 ? true : false);
 }
 
 void

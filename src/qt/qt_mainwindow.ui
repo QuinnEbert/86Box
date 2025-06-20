@@ -75,6 +75,7 @@
     <addaction name="menuTablet_tool"/>
     <addaction name="separator"/>
     <addaction name="actionPause"/>
+    <addaction name="actionTurbo_mode"/>
     <addaction name="separator"/>
     <addaction name="actionHard_Reset"/>
     <addaction name="actionCtrl_Alt_Del"/>
@@ -353,6 +354,14 @@
    </property>
    <property name="iconVisibleInMenu">
     <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionTurbo_mode">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Turbo mode</string>
    </property>
   </action>
   <action name="actionExit">
