@@ -305,6 +305,9 @@ struct MachineStatus::States {
         for (auto &n : net) {
             n.pixmaps = &pixmaps.net;
         }
+
+        hardware = nullptr;
+        storage  = nullptr;
     }
 
     std::array<StateEmpty, 2>                  cartridge;
@@ -318,7 +321,8 @@ struct MachineStatus::States {
     std::unique_ptr<ClickableLabel>            sound;
     std::unique_ptr<QLabel>                    speed;
     std::unique_ptr<QLabel>                    ram;
-    std::unique_ptr<QLabel>                    hardware;
+    QLabel*                                   hardware;
+    QLabel*                                   storage;
     std::unique_ptr<QLabel>                    text;
 };
 
@@ -604,7 +608,6 @@ MachineStatus::refresh(QStatusBar *sbar)
         sbar->removeWidget(d->net[i].label.get());
     }
     sbar->removeWidget(d->sound.get());
-    sbar->removeWidget(d->hardware.get());
     sbar->removeWidget(d->text.get());
     sbar->removeWidget(d->speed.get());
     sbar->removeWidget(d->ram.get());
@@ -858,9 +861,12 @@ MachineStatus::refresh(QStatusBar *sbar)
     }
     sbar->addWidget(d->ram.get());
 
-    d->hardware = std::make_unique<QLabel>();
-    d->hardware->setText(buildHardwareSummary());
-    sbar->addWidget(d->hardware.get());
+    d->hardware = sbar->findChild<QLabel*>(QStringLiteral("statusHardwareLabel"));
+    d->storage  = sbar->findChild<QLabel*>(QStringLiteral("statusStorageLabel"));
+    if (d->hardware)
+        d->hardware->setText(buildHardwareSummary());
+    if (d->storage)
+        d->storage->setText(buildStorageSummary());
 
     d->text = std::make_unique<QLabel>();
     sbar->addWidget(d->text.get());
@@ -959,21 +965,6 @@ MachineStatus::buildHardwareSummary()
     if (!sounds.isEmpty())
         sections << tr("Sound: %1").arg(sounds.join(QLatin1String(", ")));
 
-    QStringList storage;
-    for (int i = 0; i < FDC_MAX; ++i) {
-        if (fdc_current[i] != FDC_NONE)
-            storage << DeviceConfig::DeviceName(fdc_card_getdevice(fdc_current[i]), fdc_card_get_internal_name(fdc_current[i]), 1);
-    }
-    for (int i = 0; i < HDC_MAX; ++i) {
-        if (hdc_current[i] != HDC_NONE)
-            storage << DeviceConfig::DeviceName(hdc_get_device(hdc_current[i]), hdc_get_internal_name(hdc_current[i]), 1);
-    }
-    for (int i = 0; i < SCSI_CARD_MAX; ++i) {
-        if (scsi_card_current[i] != 0)
-            storage << DeviceConfig::DeviceName(scsi_card_getdevice(scsi_card_current[i]), scsi_card_get_internal_name(scsi_card_current[i]), 1);
-    }
-    if (!storage.isEmpty())
-        sections << tr("Storage: %1").arg(storage.join(QLatin1String(", ")));
 
     QStringList disks;
     auto shortSize = [](qulonglong mb) {
@@ -991,6 +982,30 @@ MachineStatus::buildHardwareSummary()
     }
     if (!disks.isEmpty())
         sections << tr("Disks: %1").arg(disks.join(QLatin1String(" ")));
+
+    return sections.join(QLatin1String(" | "));
+}
+
+QString
+MachineStatus::buildStorageSummary()
+{
+    QStringList sections;
+
+    QStringList storage;
+    for (int i = 0; i < FDC_MAX; ++i) {
+        if (fdc_current[i] != FDC_NONE)
+            storage << DeviceConfig::DeviceName(fdc_card_getdevice(fdc_current[i]), fdc_card_get_internal_name(fdc_current[i]), 1);
+    }
+    for (int i = 0; i < HDC_MAX; ++i) {
+        if (hdc_current[i] != HDC_NONE)
+            storage << DeviceConfig::DeviceName(hdc_get_device(hdc_current[i]), hdc_get_internal_name(hdc_current[i]), 1);
+    }
+    for (int i = 0; i < SCSI_CARD_MAX; ++i) {
+        if (scsi_card_current[i] != 0)
+            storage << DeviceConfig::DeviceName(scsi_card_getdevice(scsi_card_current[i]), scsi_card_get_internal_name(scsi_card_current[i]), 1);
+    }
+    if (!storage.isEmpty())
+        sections << tr("Storage: %1").arg(storage.join(QLatin1String(", ")));
 
     return sections.join(QLatin1String(" | "));
 }

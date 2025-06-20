@@ -240,7 +240,33 @@
    <addaction name="menuTools"/>
    <addaction name="menuAbout"/>
   </widget>
-  <widget class="QStatusBar" name="statusbar"/>
+  <widget class="QStatusBar" name="statusbar">
+   <widget class="QWidget" name="statusContainer">
+    <layout class="QVBoxLayout" name="statusLayout">
+     <property name="spacing">
+      <number>0</number>
+     </property>
+     <property name="leftMargin">
+      <number>0</number>
+     </property>
+     <property name="topMargin">
+      <number>0</number>
+     </property>
+     <property name="rightMargin">
+      <number>0</number>
+     </property>
+     <property name="bottomMargin">
+      <number>0</number>
+     </property>
+     <item>
+      <widget class="QLabel" name="statusHardwareLabel"/>
+     </item>
+     <item>
+      <widget class="QLabel" name="statusStorageLabel"/>
+     </item>
+    </layout>
+   </widget>
+  </widget>
   <widget class="QToolBar" name="toolBar">
    <property name="contextMenuPolicy">
     <enum>Qt::PreventContextMenu</enum>
