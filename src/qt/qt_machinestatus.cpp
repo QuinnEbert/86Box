@@ -51,12 +51,17 @@ extern volatile int fdcinited;
 #include <QStatusBar>
 #include <QMenu>
 #include <QScreen>
+#include <QString>
 
 #include "qt_mediamenu.hpp"
 #include "qt_mainwindow.hpp"
 #include "qt_soundgain.hpp"
 #include "qt_progsettings.hpp"
 #include "qt_iconindicators.hpp"
+
+extern "C" {
+#include "../cpu/cpu.h"
+}
 
 #include <array>
 
@@ -306,6 +311,8 @@ struct MachineStatus::States {
     std::array<StateActive, HDD_BUS_USB>       hdds;
     std::array<StateEmptyActive, NET_CARD_MAX> net;
     std::unique_ptr<ClickableLabel>            sound;
+    std::unique_ptr<QLabel>                    speed;
+    std::unique_ptr<QLabel>                    ram;
     std::unique_ptr<QLabel>                    text;
 };
 
@@ -591,6 +598,9 @@ MachineStatus::refresh(QStatusBar *sbar)
         sbar->removeWidget(d->net[i].label.get());
     }
     sbar->removeWidget(d->sound.get());
+    sbar->removeWidget(d->text.get());
+    sbar->removeWidget(d->speed.get());
+    sbar->removeWidget(d->ram.get());
 
     if (cassette_enable) {
         d->cassette.label = std::make_unique<ClickableLabel>();
@@ -827,6 +837,19 @@ MachineStatus::refresh(QStatusBar *sbar)
 
     d->sound->setToolTip(tr("Sound"));
     sbar->addWidget(d->sound.get());
+
+    d->speed = std::make_unique<QLabel>();
+    d->speed->setText(QString::number(cpu_s->rspeed) + QLatin1String(" mHz"));
+    sbar->addWidget(d->speed.get());
+
+    d->ram = std::make_unique<QLabel>();
+    if (mem_size < 1536) {
+        d->ram->setText(QString::number(mem_size) + QLatin1String(" KB"));
+    } else {
+        d->ram->setText(QString::number(mem_size / 1024) + QLatin1String(" MB"));
+    }
+    sbar->addWidget(d->ram.get());
+
     d->text = std::make_unique<QLabel>();
     sbar->addWidget(d->text.get());
 
