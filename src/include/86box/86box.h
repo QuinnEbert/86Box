@@ -163,7 +163,7 @@ extern int    fixed_size_y;
 extern int    sound_muted;                  /* (C) Is sound muted? */
 extern int    do_auto_pause;                /* (C) Auto-pause the emulator on focus loss */
 extern int    turbo_mode;                   /* Run emulator at maximum speed */
-extern int    turbo_slow_cycles;            /* Delay cycles between turbo steps */
+extern int    turbo_slow_cycles;            /* Cycle skip count when turbo is off */
 extern int    auto_paused;
 extern double mouse_sensitivity;            /* (C) Mouse sensitivity scale */
 #ifdef _Atomic

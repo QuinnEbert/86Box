@@ -668,13 +668,13 @@ MainWindow::MainWindow(QWidget *parent)
         case 1:
             ui->actionSlow_Turbo_1_cycle->setChecked(true);
             break;
-        case 2:
+        case 5:
             ui->actionSlow_Turbo_2_cycles->setChecked(true);
             break;
-        case 3:
+        case 10:
             ui->actionSlow_Turbo_3_cycles->setChecked(true);
             break;
-        case 4:
+        case 25:
             ui->actionSlow_Turbo_4_cycles->setChecked(true);
             break;
     }
@@ -1135,19 +1135,19 @@ MainWindow::on_actionSlow_Turbo_1_cycle_triggered()
 void
 MainWindow::on_actionSlow_Turbo_2_cycles_triggered()
 {
-    update_slow_turbo_checkboxes(ui, ui->actionSlow_Turbo_2_cycles, 2);
+    update_slow_turbo_checkboxes(ui, ui->actionSlow_Turbo_2_cycles, 5);
 }
 
 void
 MainWindow::on_actionSlow_Turbo_3_cycles_triggered()
 {
-    update_slow_turbo_checkboxes(ui, ui->actionSlow_Turbo_3_cycles, 3);
+    update_slow_turbo_checkboxes(ui, ui->actionSlow_Turbo_3_cycles, 10);
 }
 
 void
 MainWindow::on_actionSlow_Turbo_4_cycles_triggered()
 {
-    update_slow_turbo_checkboxes(ui, ui->actionSlow_Turbo_4_cycles, 4);
+    update_slow_turbo_checkboxes(ui, ui->actionSlow_Turbo_4_cycles, 25);
 }
 
 void
