@@ -52,6 +52,7 @@ extern volatile int fdcinited;
 #include <QLabel>
 #include <QTimer>
 #include <QStatusBar>
+#include <QVBoxLayout>
 #include <QMenu>
 #include <QScreen>
 #include <QString>
@@ -306,8 +307,9 @@ struct MachineStatus::States {
             n.pixmaps = &pixmaps.net;
         }
 
-        hardware = nullptr;
-        storage  = nullptr;
+        hardware        = nullptr;
+        storage         = nullptr;
+        hardwareWidget  = nullptr;
     }
 
     std::array<StateEmpty, 2>                  cartridge;
@@ -321,6 +323,7 @@ struct MachineStatus::States {
     std::unique_ptr<ClickableLabel>            sound;
     std::unique_ptr<QLabel>                    speed;
     std::unique_ptr<QLabel>                    ram;
+    std::unique_ptr<QWidget>                   hardwareWidget;
     QLabel*                                   hardware;
     QLabel*                                   storage;
     std::unique_ptr<QLabel>                    text;
@@ -861,12 +864,19 @@ MachineStatus::refresh(QStatusBar *sbar)
     }
     sbar->addWidget(d->ram.get());
 
-    d->hardware = sbar->findChild<QLabel*>(QStringLiteral("statusHardwareLabel"));
-    d->storage  = sbar->findChild<QLabel*>(QStringLiteral("statusStorageLabel"));
-    if (d->hardware)
-        d->hardware->setText(buildHardwareSummary());
-    if (d->storage)
-        d->storage->setText(buildStorageSummary());
+    d->hardwareWidget = std::make_unique<QWidget>();
+    auto vlayout       = new QVBoxLayout(d->hardwareWidget.get());
+    vlayout->setSpacing(0);
+    vlayout->setContentsMargins(0, 0, 0, 0);
+
+    d->hardware = new QLabel(d->hardwareWidget.get());
+    d->storage  = new QLabel(d->hardwareWidget.get());
+    vlayout->addWidget(d->hardware);
+    vlayout->addWidget(d->storage);
+
+    d->hardware->setText(buildHardwareSummary());
+    d->storage->setText(buildStorageSummary());
+    sbar->addWidget(d->hardwareWidget.get());
 
     d->text = std::make_unique<QLabel>();
     sbar->addWidget(d->text.get());
