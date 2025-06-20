@@ -161,13 +161,13 @@ jobs:
     #if: github.event_name != 'pull_request'
 
     steps:
+      - uses: actions/checkout@v4
+        name: Reattach git context
+
       - uses: actions/download-artifact@v4
         name: Download all artifacts
         with:
           path: dist            # dist/ARTIFACT_NAME/…
-
-      - uses: actions/checkout@v4
-        name: Reattach git context
 
       - name: Show gathered files
         run: |
@@ -207,7 +207,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cd dist
+          cd /home/runner/work/86Box/86Box/dist/
           for dir in */ ; do
             dir="${dir%/}"
             zip -r "${dir}.zip" "$dir"
