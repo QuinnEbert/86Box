@@ -70,7 +70,7 @@
     </widget>
     <widget class="QMenu" name="menuSlow_turbo">
      <property name="title">
-      <string>Slow Turbo</string>
+      <string>Cycle Skip</string>
      </property>
      <addaction name="actionSlow_Turbo_Off"/>
      <addaction name="actionSlow_Turbo_1_cycle"/>
@@ -390,7 +390,7 @@
       <bool>true</bool>
      </property>
      <property name="text">
-      <string>1 Cycle</string>
+      <string>1 Cycle Skip</string>
      </property>
     </action>
     <action name="actionSlow_Turbo_2_cycles">
@@ -398,7 +398,7 @@
       <bool>true</bool>
      </property>
      <property name="text">
-      <string>2 Cycles</string>
+      <string>5 Cycle Skip</string>
      </property>
     </action>
     <action name="actionSlow_Turbo_3_cycles">
@@ -406,7 +406,7 @@
       <bool>true</bool>
      </property>
      <property name="text">
-      <string>3 Cycles</string>
+      <string>10 Cycle Skip</string>
      </property>
     </action>
     <action name="actionSlow_Turbo_4_cycles">
@@ -414,7 +414,7 @@
       <bool>true</bool>
      </property>
      <property name="text">
-      <string>4 Cycles</string>
+      <string>25 Cycle Skip</string>
      </property>
     </action>
   <action name="actionExit">
