@@ -20,6 +20,8 @@
 #include <stdint.h>
 #include <string.h>
 #include <wchar.h>
+#include <ctype.h>
+#include <stdlib.h>
 #include <86box/86box.h>
 #include "cpu.h"
 #include <86box/mem.h>
@@ -17643,4 +17645,45 @@ const char *
 machine_get_nvr_name(void)
 {
     return machine_get_nvr_name_ex(machine);
+}
+
+int
+machine_get_type_year(int type)
+{
+    const char *name = machine_types[type].name;
+    if ((name != NULL) && name[0] == '[' && isdigit((unsigned char)name[1]))
+        return atoi(name + 1);
+    return 0;
+}
+
+const char *
+machine_get_typical_cpu_name(int m)
+{
+    static char buf[64];
+    uint32_t    pkg = machines[m].cpu.package;
+
+    for (int i = 0; cpu_families[i].package; i++) {
+        if (cpu_families[i].package & pkg) {
+            const char *name = cpu_families[i].name;
+            const char *start = name;
+
+            /* Skip manufacturer prefix if present */
+            if (strncmp(name, "Intel", 5) == 0 || strncmp(name, "AMD", 3) == 0 ||
+                strncmp(name, "Cyrix", 5) == 0)
+            {
+                const char *space = strchr(name, ' ');
+                if (space)
+                    start = space + 1;
+            }
+
+            /* Remove details in parentheses */
+            size_t len = strcspn(start, "(");
+            while (len && isspace((unsigned char)start[len - 1]))
+                len--;
+
+            snprintf(buf, sizeof(buf), "%.*s", (int)len, start);
+            return buf;
+        }
+    }
+    return "Unknown";
 }
