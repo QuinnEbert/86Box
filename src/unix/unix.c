@@ -581,6 +581,18 @@ main_thread(UNUSED(void *param))
                 nvr_dosave = 0;
                 frames     = 0;
             }
+        } else if (turbo_slow_cycles > 0 && !dopause) {
+            static int slow_counter = 0;
+            if (slow_counter == 0) {
+                pc_run();
+                if (++frames >= 200 && nvr_dosave) {
+                    nvr_save();
+                    nvr_dosave = 0;
+                    frames     = 0;
+                }
+            }
+            if (++slow_counter > turbo_slow_cycles)
+                slow_counter = 0;
         } else if (drawits > 0 && !dopause) {
             /* Yes, so do one frame now. */
             drawits -= 10;
