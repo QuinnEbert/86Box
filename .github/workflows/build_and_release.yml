@@ -1,0 +1,283 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        build:
+          - name: Debug
+            preset: dev_debug
+            slug: -Debug
+          - name: Dev
+            preset: development
+            slug: -Dev
+        dynarec:
+          - name: ODR
+            new: off
+            slug: -ODR
+          - name: NDR
+            new: on
+            slug: -NDR
+        ui:
+          - name: SDL GUI
+            qt: off
+            static: on
+            slug: ''
+            packages: ''
+          - name: Qt GUI
+            qt: on
+            slug: -Qt
+            packages: >-
+              qtbase5-dev
+              qtbase5-private-dev
+              qttools5-dev
+              qttranslations5-l10n
+              libevdev-dev
+              libxkbcommon-x11-dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential ninja-build libfreetype-dev libsdl2-dev libpng-dev libc6-dev librtmidi-dev libopenal-dev libslirp-dev libfluidsynth-dev libvdeplug-dev libserialport-dev ${{ matrix.ui.packages }}
+
+      - name: Configure CMake
+        run: >-
+          cmake -G Ninja -S . -B build --preset ${{ matrix.build.preset }}
+          --toolchain ./cmake/flags-gcc-x86_64.cmake
+          -D NEW_DYNAREC=${{ matrix.dynarec.new }}
+          -D CMAKE_INSTALL_PREFIX=./build/artifacts
+          -D QT=${{ matrix.ui.qt }}
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Generate package
+        run: cmake --install build
+
+      - name: Archive artifact
+        run: |
+          zip -r "${{ runner.temp }}/artifact.zip" build/artifacts
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: '86Box${{ matrix.ui.slug }}${{ matrix.dynarec.slug }}${{ matrix.build.slug }}-UbuntuJammy-x86_64'
+          path: '${{ runner.temp }}/artifact.zip'
+
+  build-macos-intel:
+    runs-on: macos-13
+    strategy:
+      fail-fast: false
+      matrix:
+        build:
+          - name: Debug
+            preset: dev_debug
+            slug: -Debug
+          - name: Dev
+            preset: development
+            slug: -Dev
+        dynarec:
+          - name: ODR
+            new: off
+            slug: -ODR
+          - name: NDR
+            new: on
+            slug: -NDR
+        ui:
+          - name: SDL GUI
+            qt: off
+            static: on
+            slug: ''
+            packages: ''
+          - name: Qt GUI
+            qt: on
+            slug: -Qt
+            packages: qt@5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew install ninja sdl2 rtmidi openal-soft fluidsynth libslirp vde libserialport ${{ matrix.ui.packages }}
+
+      - name: Configure CMake
+        run: >-
+          cmake -G Ninja -S . -B build --preset ${{ matrix.build.preset }}
+          --toolchain ./cmake/flags-gcc-x86_64.cmake
+          -D NEW_DYNAREC=${{ matrix.dynarec.new }}
+          -D CMAKE_INSTALL_PREFIX=./build/artifacts
+          -D QT=${{ matrix.ui.qt }}
+          -D Qt5_ROOT=$(brew --prefix qt@5)
+          -D Qt5LinguistTools_ROOT=$(brew --prefix qt@5)
+          -D OpenAL_ROOT=$(brew --prefix openal-soft)
+          -D LIBSERIALPORT_ROOT=$(brew --prefix libserialport)
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Generate package
+        run: cmake --install build
+
+      - name: Archive artifact
+        run: |
+          zip -r "${{ runner.temp }}/artifact.zip" build/artifacts
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: '86Box${{ matrix.ui.slug }}${{ matrix.dynarec.slug }}${{ matrix.build.slug }}-macOS-x86_64'
+          path: '${{ runner.temp }}/artifact.zip'
+
+  build-macos-arm:
+    runs-on: macos-14
+    strategy:
+      fail-fast: false
+      matrix:
+        build:
+          - name: Debug
+            preset: dev_debug
+            slug: -Debug
+          - name: Dev
+            preset: development
+            slug: -Dev
+        dynarec:
+          - name: NDR
+            new: on
+            slug: -NDR
+        ui:
+          - name: SDL GUI
+            qt: off
+            static: on
+            slug: ''
+            packages: ''
+          - name: Qt GUI
+            qt: on
+            slug: -Qt
+            packages: qt@5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew install ninja sdl2 rtmidi openal-soft fluidsynth libslirp libserialport ${{ matrix.ui.packages }}
+
+      - name: Configure CMake
+        run: >-
+          cmake -G Ninja -S . -B build --preset ${{ matrix.build.preset }}
+          --toolchain ./cmake/llvm-macos-aarch64.cmake
+          -D NEW_DYNAREC=${{ matrix.dynarec.new }}
+          -D CMAKE_INSTALL_PREFIX=./build/artifacts
+          -D QT=${{ matrix.ui.qt }}
+          -D Qt5_ROOT=$(brew --prefix qt@5)
+          -D Qt5LinguistTools_ROOT=$(brew --prefix qt@5)
+          -D OpenAL_ROOT=$(brew --prefix openal-soft)
+          -D LIBSERIALPORT_ROOT=$(brew --prefix libserialport)
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Generate package
+        run: cmake --install build
+
+      - name: Archive artifact
+        run: |
+          zip -r "${{ runner.temp }}/artifact.zip" build/artifacts
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: '86Box${{ matrix.ui.slug }}${{ matrix.dynarec.slug }}${{ matrix.build.slug }}-macOS-arm64'
+          path: '${{ runner.temp }}/artifact.zip'
+
+  build-windows:
+    runs-on: ${{ matrix.environment.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        build:
+          - name: Dev Debug
+            preset: dev_debug
+            slug: -Dev-Debug
+          - name: Dev
+            preset: development
+            slug: -Dev
+        dynarec:
+          - name: ODR
+            new: off
+          - name: NDR
+            new: on
+            slug: -NDR
+        environment:
+          - msystem: MINGW64
+            toolchain: ./cmake/flags-gcc-x86_64.cmake
+            slug: -64
+            runner: windows-2022
+          - msystem: CLANGARM64
+            toolchain: ./cmake/flags-gcc-aarch64.cmake
+            slug: -arm64
+            runner: windows-2022
+        exclude:
+          - dynarec:
+              new: off
+            environment:
+              msystem: CLANGARM64
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install MSYS2 packages
+        shell: bash
+        run: |
+          C:/msys64/usr/bin/bash -lc "pacman --noconfirm -Syuu"
+          C:/msys64/usr/bin/bash -lc "pacman --noconfirm -S --needed base-devel"
+          C:/msys64/usr/bin/bash -lc "pacman --noconfirm -S --needed mingw-w64-${{ matrix.environment.msystem,, }}-toolchain mingw-w64-${{ matrix.environment.msystem,, }}-cmake mingw-w64-${{ matrix.environment.msystem,, }}-ninja mingw-w64-${{ matrix.environment.msystem,, }}-pkgconf mingw-w64-${{ matrix.environment.msystem,, }}-freetype mingw-w64-${{ matrix.environment.msystem,, }}-SDL2 mingw-w64-${{ matrix.environment.msystem,, }}-zlib mingw-w64-${{ matrix.environment.msystem,, }}-libpng mingw-w64-${{ matrix.environment.msystem,, }}-openal mingw-w64-${{ matrix.environment.msystem,, }}-rtmidi mingw-w64-${{ matrix.environment.msystem,, }}-libslirp mingw-w64-${{ matrix.environment.msystem,, }}-fluidsynth mingw-w64-${{ matrix.environment.msystem,, }}-libserialport mingw-w64-${{ matrix.environment.msystem,, }}-qt5-static mingw-w64-${{ matrix.environment.msystem,, }}-vulkan-headers mingw-w64-${{ matrix.environment.msystem,, }}-openmp"
+
+      - name: Configure CMake
+        shell: bash
+        run: |
+          C:/msys64/usr/bin/bash -lc "cmake -G Ninja -S . -B build --preset ${{ matrix.build.preset }} --toolchain ${{ matrix.environment.toolchain }} -D NEW_DYNAREC=${{ matrix.dynarec.new }} -D CMAKE_INSTALL_PREFIX=./build/artifacts"
+
+      - name: Build
+        shell: bash
+        run: |
+          C:/msys64/usr/bin/bash -lc "cmake --build build"
+
+      - name: Generate package
+        shell: bash
+        run: |
+          C:/msys64/usr/bin/bash -lc "cmake --install build"
+
+      - name: Archive artifact
+        shell: powershell
+        run: |
+          Compress-Archive -Path build/artifacts/* -DestinationPath $env:RUNNER_TEMP/artifact.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: '86Box${{ matrix.dynarec.slug }}${{ matrix.build.slug }}-Windows${{ matrix.environment.slug }}'
+          path: '${{ runner.temp }}/artifact.zip'
+
+  release:
+    needs: [build-linux, build-macos-intel, build-macos-arm, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+
+      - name: Gather archives
+        run: |
+          mkdir -p gathered
+          for d in release/*; do
+            mv "$d"/* gathered/
+          done
+
+      - name: Create Release
+        run: |
+          gh release create "auto-${{ github.sha }}" gathered/* --title "Automated build" --notes "Automated build for ${GITHUB_SHA}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
