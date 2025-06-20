@@ -33,26 +33,13 @@ jobs:
               content="$d"
             fi
 
-            target=""
-            if [ -f "$content/86Box.exe" ]; then
-              target="$content/86Box.exe"
-            elif [ -f "$content/bin/86Box.exe" ]; then
-              target="$content/bin/86Box.exe"
-            elif [ -f "$content/86Box" ]; then
-              target="$content/86Box"
-            elif [ -f "$content/bin/86Box" ]; then
-              target="$content/bin/86Box"
-            elif [ -d "$content/86Box.app" ]; then
-              target="$content/86Box.app"
-            fi
-
-            if [ -z "$target" ]; then
-              echo "Unable to find binary in $content" >&2
+            if [ ! -e "$content" ]; then
+              echo "No content found in $d" >&2
               continue
             fi
 
             tmpdir=$(mktemp -d)
-            cp -r "$target" "$tmpdir/"
+            cp -r "$content"/* "$tmpdir/"
             (cd "$tmpdir" && zip -r "$cwd/release/${name}.zip" .)
             rm -rf "$tmpdir"
           done
