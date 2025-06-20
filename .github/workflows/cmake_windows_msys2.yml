@@ -170,7 +170,9 @@ jobs:
         name: Reattach git context
 
       - name: Show gathered files
-        run: ls -R dist
+        run: |
+          cd /home/runner/work/86Box/86Box/dist/
+          ls -lah
 
       # ─── build a tag name ───────────────────────────
       - id: vars
