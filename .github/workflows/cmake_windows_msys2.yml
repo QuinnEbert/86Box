@@ -1,7 +1,7 @@
 name: CMake (Windows, msys2)
 
 on:
-
+  # manual kick or any push that touches build-related stuff
   workflow_dispatch:
   push:
     paths:
@@ -24,14 +24,15 @@ on:
       - "!**/Makefile*"
 
 jobs:
-
+# ──────────────────────────────────────────────────────────────────
+# 1️⃣  MATRIX BUILD (unchanged except for comment tweaks)
+# ──────────────────────────────────────────────────────────────────
   msys2:
     name: "${{ matrix.build.name }}, ${{ matrix.dynarec.name }}, ${{ matrix.environment.msystem }}"
-
     runs-on: ${{ matrix.environment.runner }}
 
     env:
-      BUILD_WRAPPER_OUT_DIR: build_wrapper_output_directory # Directory where build-wrapper output will be placed
+      BUILD_WRAPPER_OUT_DIR: build_wrapper_output_directory
 
     defaults:
       run:
@@ -41,92 +42,103 @@ jobs:
       fail-fast: true
       matrix:
         build:
-          - name: Dev Debug
-            preset: dev_debug
-            slug: -Dev-Debug
-          - name: Dev
-            preset: development
-            slug: -Dev
+          - { name: Dev Debug, preset: dev_debug, slug: -Dev-Debug }
+          - { name: Dev,       preset: development, slug: -Dev }
         dynarec:
-          - name: ODR
-            new: off
-          - name: NDR
-            new: on
-            slug: -NDR
+          - { name: ODR, new: off          }       # old dynarec
+          - { name: NDR, new: on,  slug: -NDR }    # new dynarec
         environment:
-          - msystem: MINGW64
-            toolchain: ./cmake/flags-gcc-x86_64.cmake
-            slug: "-64"
-            runner: windows-2022
-          - msystem: CLANGARM64
-            toolchain: ./cmake/flags-gcc-aarch64.cmake
-            slug: -arm64
-            runner: windows-11-arm
+          - { msystem: MINGW64,    toolchain: ./cmake/flags-gcc-x86_64.cmake, slug: "-64",    runner: windows-2022 }
+          - { msystem: CLANGARM64, toolchain: ./cmake/flags-gcc-aarch64.cmake, slug: -arm64, runner: windows-11-arm }
         exclude:
-          - dynarec:
-              new: off
-            environment:
-              msystem: CLANGARM64
+          - dynarec: { new: off }
+            environment: { msystem: CLANGARM64 }   # ODR unavailable on ARM
 
     steps:
-      - name: Prepare MSYS2 environment
-        uses: msys2/setup-msys2@v2
+      - uses: msys2/setup-msys2@v2
+        name: Prepare MSYS2 environment
         with:
           release: true
           update: true
           msystem: ${{ matrix.environment.msystem }}
           pacboy: >-
-            ninja:p
-            cmake:p
-            gcc:p
-            pkgconf:p
-            freetype:p
-            SDL2:p
-            zlib:p
-            libpng:p
-            openal:p
-            rtmidi:p
-            libslirp:p
-            fluidsynth:p
-            libserialport:p
-            qt5-static:p
-            vulkan-headers:p
-            openmp:p
+            ninja:p cmake:p gcc:p pkgconf:p freetype:p SDL2:p zlib:p libpng:p
+            openal:p rtmidi:p libslirp:p fluidsynth:p libserialport:p qt5-static:p
+            vulkan-headers:p openmp:p
 
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
-
-      # - name: Install sonar-scanner and build-wrapper
-      #   uses: SonarSource/sonarcloud-github-c-cpp@v3
+      - uses: actions/checkout@v4
+        name: Checkout repository
+        with: { fetch-depth: 0 }
 
       - name: Configure CMake
-        run: >-
+        run: >
           cmake -G Ninja -S . -B build --preset ${{ matrix.build.preset }}
           --toolchain ${{ matrix.environment.toolchain }}
           -D NEW_DYNAREC=${{ matrix.dynarec.new }}
           -D CMAKE_INSTALL_PREFIX=./build/artifacts
 
-      # - name: Build
-      #   run: |
-      #     .sonar/build-wrapper-win-x86/build-wrapper-win-x86-64.exe --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} cmake --build build
-
       - name: Build
         run: cmake --build build
-
-      # - name: Run sonar-scanner
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      #   run: |
-      #     .sonar/sonar-scanner-5.0.1.3006-windows/bin/sonar-scanner.bat --define sonar.cfamily.build-wrapper-output="${{ env.BUILD_WRAPPER_OUT_DIR }}"
 
       - name: Generate package
         run: cmake --install build
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
+        name: Upload artifact
         with:
-          name: '86Box${{ matrix.dynarec.slug }}${{ matrix.build.slug }}-Windows${{ matrix.environment.slug }}-gha${{ github.run_number }}'
+          name: 86Box${{ matrix.dynarec.slug }}${{ matrix.build.slug }}-Windows${{ matrix.environment.slug }}-gha${{ github.run_number }}
           path: build/artifacts/**
+
+# ──────────────────────────────────────────────────────────────────
+# 2️⃣  RELEASE JOB  (everything below is new)
+# ──────────────────────────────────────────────────────────────────
+  release:
+    name: Publish Windows Release
+    needs: msys2
+    runs-on: ubuntu-latest
+
+    # Only fire on manual run or a tag push (skip for normal PRs)
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - uses: actions/download-artifact@v4
+        name: Download all artifacts
+        with:
+          path: dist
+
+      - name: Show gathered files
+        run: ls -R dist
+
+      # Decide tag & title (manual runs get auto tag, tag pushes reuse the tag)
+      - id: vars
+        name: Calculate tag
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}"      >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=autobuild-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/create-release@v1
+        id: create
+        name: Create GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.vars.outputs.tag }}
+          release_name: "Windows nightly – ${{ steps.vars.outputs.tag }}"
+          draft: false
+          prerelease: false
+
+      # Upload every ZIP we just downloaded (6 of them) as assets
+      - name: Install GitHub CLI
+        run: sudo apt-get update -y && sudo apt-get install -y gh
+
+      - name: Upload assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for file in $(find dist -type f -name '*.zip'); do
+            echo "Uploading $file"
+            gh release upload "${{ steps.vars.outputs.tag }}" "$file" --clobber
+          done
