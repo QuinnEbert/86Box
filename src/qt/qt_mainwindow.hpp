@@ -77,6 +77,7 @@ private slots:
     void on_actionExit_triggered();
     void on_actionAuto_pause_triggered();
     void on_actionPause_triggered();
+    void on_actionTurbo_mode_triggered();
     void on_actionCtrl_Alt_Del_triggered();
     void on_actionCtrl_Alt_Esc_triggered();
     void on_actionHard_Reset_triggered();

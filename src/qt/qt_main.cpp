@@ -449,7 +449,26 @@ main_thread_fn()
 #endif
             drawits += static_cast<int>(new_time - old_time);
         old_time = new_time;
-        if (drawits > 0 && !dopause) {
+        if (turbo_mode && !dopause) {
+#ifdef USE_INSTRUMENT
+            uint64_t start_time = elapsed_timer.nsecsElapsed();
+#endif
+            pc_run();
+#ifdef USE_INSTRUMENT
+            if (instru_enabled) {
+                uint64_t elapsed_us       = (elapsed_timer.nsecsElapsed() - start_time) / 1000;
+                uint64_t total_elapsed_ms = (uint64_t) ((double) tsc / cpu_s->rspeed * 1000);
+                printf("[instrument] %llu, %llu\n", total_elapsed_ms, elapsed_us);
+                if (instru_run_ms && total_elapsed_ms >= instru_run_ms)
+                    break;
+            }
+#endif
+            if (++frames >= 200 && nvr_dosave) {
+                qt_nvr_save();
+                nvr_dosave = 0;
+                frames     = 0;
+            }
+        } else if (drawits > 0 && !dopause) {
             /* Yes, so do one frame now. */
             drawits -= 10;
             if (drawits > 50)

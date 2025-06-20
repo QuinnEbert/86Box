@@ -563,7 +563,14 @@ main_thread(UNUSED(void *param))
 #endif
             drawits += (new_time - old_time);
         old_time = new_time;
-        if (drawits > 0 && !dopause) {
+        if (turbo_mode && !dopause) {
+            pc_run();
+            if (++frames >= 200 && nvr_dosave) {
+                nvr_save();
+                nvr_dosave = 0;
+                frames     = 0;
+            }
+        } else if (drawits > 0 && !dopause) {
             /* Yes, so do one frame now. */
             drawits -= 10;
             if (drawits > 50)
