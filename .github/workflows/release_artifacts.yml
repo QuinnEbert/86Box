@@ -45,3 +45,13 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           overwrite_files: true
           append_body: true
+
+      - name: Remove source code archives
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag=gha-${{ github.event.workflow_run.head_sha }}
+          for id in $(gh release view "$tag" --json assets \
+            -q '.assets[] | select(.name | startswith("Source code")) | .id'); do
+            gh api -X DELETE /repos/${{ github.repository }}/releases/assets/$id
+          done
