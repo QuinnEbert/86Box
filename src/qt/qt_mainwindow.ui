@@ -68,6 +68,16 @@
      <addaction name="actionPen"/>
      <addaction name="actionCursor_Puck"/>
     </widget>
+    <widget class="QMenu" name="menuSlow_turbo">
+     <property name="title">
+      <string>Slow Turbo</string>
+     </property>
+     <addaction name="actionSlow_Turbo_Off"/>
+     <addaction name="actionSlow_Turbo_1_cycle"/>
+     <addaction name="actionSlow_Turbo_2_cycles"/>
+     <addaction name="actionSlow_Turbo_3_cycles"/>
+     <addaction name="actionSlow_Turbo_4_cycles"/>
+    </widget>
     <addaction name="actionAuto_pause"/>
     <addaction name="separator"/>
     <addaction name="actionKeyboard_requires_capture"/>
@@ -76,6 +86,7 @@
     <addaction name="separator"/>
     <addaction name="actionPause"/>
     <addaction name="actionTurbo_mode"/>
+    <addaction name="menuSlow_turbo"/>
     <addaction name="separator"/>
     <addaction name="actionHard_Reset"/>
     <addaction name="actionCtrl_Alt_Del"/>
@@ -358,14 +369,54 @@
     <bool>false</bool>
    </property>
   </action>
-  <action name="actionTurbo_mode">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Turbo mode</string>
-   </property>
-  </action>
+    <action name="actionTurbo_mode">
+     <property name="checkable">
+      <bool>true</bool>
+     </property>
+     <property name="text">
+      <string>Turbo mode</string>
+     </property>
+    </action>
+    <action name="actionSlow_Turbo_Off">
+     <property name="checkable">
+      <bool>true</bool>
+     </property>
+     <property name="text">
+      <string>Off</string>
+     </property>
+    </action>
+    <action name="actionSlow_Turbo_1_cycle">
+     <property name="checkable">
+      <bool>true</bool>
+     </property>
+     <property name="text">
+      <string>1 Cycle</string>
+     </property>
+    </action>
+    <action name="actionSlow_Turbo_2_cycles">
+     <property name="checkable">
+      <bool>true</bool>
+     </property>
+     <property name="text">
+      <string>2 Cycles</string>
+     </property>
+    </action>
+    <action name="actionSlow_Turbo_3_cycles">
+     <property name="checkable">
+      <bool>true</bool>
+     </property>
+     <property name="text">
+      <string>3 Cycles</string>
+     </property>
+    </action>
+    <action name="actionSlow_Turbo_4_cycles">
+     <property name="checkable">
+      <bool>true</bool>
+     </property>
+     <property name="text">
+      <string>4 Cycles</string>
+     </property>
+    </action>
   <action name="actionExit">
    <property name="text">
     <string>Exit</string>
