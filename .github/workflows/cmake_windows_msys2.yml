@@ -1,7 +1,6 @@
 name: CMake (Windows, msys2)
 
 on:
-  # manual kick or any push that touches build-related stuff
   workflow_dispatch:
   push:
     paths:
@@ -24,9 +23,9 @@ on:
       - "!**/Makefile*"
 
 jobs:
-# ──────────────────────────────────────────────────────────────────
-# 1️⃣  MATRIX BUILD (unchanged except for comment tweaks)
-# ──────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
+# 1️⃣  MATRIX BUILD (unchanged)
+# ────────────────────────────────────────────────────────────────
   msys2:
     name: "${{ matrix.build.name }}, ${{ matrix.dynarec.name }}, ${{ matrix.environment.msystem }}"
     runs-on: ${{ matrix.environment.runner }}
@@ -45,14 +44,14 @@ jobs:
           - { name: Dev Debug, preset: dev_debug, slug: -Dev-Debug }
           - { name: Dev,       preset: development, slug: -Dev }
         dynarec:
-          - { name: ODR, new: off          }       # old dynarec
-          - { name: NDR, new: on,  slug: -NDR }    # new dynarec
+          - { name: ODR, new: off          }           # old dynarec
+          - { name: NDR, new: on,  slug: -NDR }        # new dynarec
         environment:
           - { msystem: MINGW64,    toolchain: ./cmake/flags-gcc-x86_64.cmake, slug: "-64",    runner: windows-2022 }
           - { msystem: CLANGARM64, toolchain: ./cmake/flags-gcc-aarch64.cmake, slug: -arm64, runner: windows-11-arm }
         exclude:
-          - dynarec: { new: off }
-            environment: { msystem: CLANGARM64 }   # ODR unavailable on ARM
+          - dynarec:   { new: off }
+            environment: { msystem: CLANGARM64 }       # ODR unavailable on ARM
 
     steps:
       - uses: msys2/setup-msys2@v2
@@ -89,56 +88,63 @@ jobs:
           name: 86Box${{ matrix.dynarec.slug }}${{ matrix.build.slug }}-Windows${{ matrix.environment.slug }}-gha${{ github.run_number }}
           path: build/artifacts/**
 
-# ──────────────────────────────────────────────────────────────────
-# 2️⃣  RELEASE JOB  (everything below is new)
-# ──────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
+# 2️⃣  RELEASE JOB  – zips each artifact, then uploads
+# ────────────────────────────────────────────────────────────────
   release:
     name: Publish Windows Release
     needs: msys2
     runs-on: ubuntu-latest
 
-    # Don't only fire on manual run or a tag push (skip for normal PRs)
-    #if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+    # Run on manual dispatch or any push (skip only on PRs)
+    #if: github.event_name != 'pull_request'
 
     steps:
       - uses: actions/download-artifact@v4
         name: Download all artifacts
         with:
-          path: dist
+          path: dist            # dist/ARTIFACT_NAME/…
 
       - name: Show gathered files
         run: ls -R dist
 
-      # Decide tag & title (manual runs get auto tag, tag pushes reuse the tag)
+      # ─── build a tag name ───────────────────────────
       - id: vars
-        name: Calculate tag
+        name: Decide tag
         run: |
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            echo "tag=${GITHUB_REF#refs/tags/}"      >> "$GITHUB_OUTPUT"
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
           else
             echo "tag=autobuild-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
           fi
 
+      # ─── create the release shell ───────────────────
       - uses: actions/create-release@v1
         id: create
         name: Create GitHub release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ steps.vars.outputs.tag }}
+          tag_name:      ${{ steps.vars.outputs.tag }}
           release_name: "Windows nightly – ${{ steps.vars.outputs.tag }}"
           draft: false
           prerelease: false
 
-      # Upload every ZIP we just downloaded (6 of them) as assets
-      - name: Install GitHub CLI
-        run: sudo apt-get update -y && sudo apt-get install -y gh
+      # ─── install zip + gh cli ───────────────────────
+      - name: Install zip & gh
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y zip gh
 
-      - name: Upload assets
+      # ─── zip each artifact dir and upload ───────────
+      - name: Zip and upload assets
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          for file in $(find dist -type f -name '*.zip'); do
-            echo "Uploading $file"
-            gh release upload "${{ steps.vars.outputs.tag }}" "$file" --clobber
+          cd dist
+          for dir in */ ; do
+            dir="${dir%/}"
+            zip -r "${dir}.zip" "$dir"
+            echo "Uploading ${dir}.zip"
+            gh release upload "${{ steps.vars.outputs.tag }}" "${dir}.zip" --clobber
           done
