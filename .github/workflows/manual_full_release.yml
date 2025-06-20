@@ -1,0 +1,232 @@
+name: Manual Full Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag name for the release'
+        required: false
+jobs:
+  linux:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        build:
+          - preset: dev_debug
+            slug: -Debug
+          - preset: development
+            slug: -Dev
+        dynarec:
+          - new: off
+            slug: -ODR
+          - new: on
+            slug: -NDR
+        ui:
+          - qt: off
+            slug: ''
+            packages: ''
+          - qt: on
+            slug: -Qt
+            packages: >-
+              qtbase5-dev
+              qtbase5-private-dev
+              qttools5-dev
+              qttranslations5-l10n
+              libevdev-dev
+              libxkbcommon-x11-dev
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential ninja-build libfreetype-dev libsdl2-dev libpng-dev libc6-dev librtmidi-dev libopenal-dev libslirp-dev libfluidsynth-dev libvdeplug-dev libserialport-dev ${{ matrix.ui.packages }}
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configure CMake
+        run: >-
+          cmake -G Ninja -S . -B build --preset ${{ matrix.build.preset }} --toolchain ./cmake/flags-gcc-x86_64.cmake -D NEW_DYNAREC=${{ matrix.dynarec.new }} -D CMAKE_INSTALL_PREFIX=./build/artifacts -D QT=${{ matrix.ui.qt }}
+      - name: Build
+        run: cmake --build build
+      - name: Install
+        run: cmake --install build
+      - name: Package
+        id: pack
+        run: |
+          ART="86Box${{ matrix.ui.slug }}${{ matrix.dynarec.slug }}${{ matrix.build.slug }}-UbuntuJammy-x86_64"
+          zip -r "${ART}.zip" build/artifacts
+          echo "name=${ART}" >> "$GITHUB_OUTPUT"
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.pack.outputs.name }}
+          path: ${{ steps.pack.outputs.name }}.zip
+
+  macos_x86:
+    runs-on: macos-13
+    strategy:
+      fail-fast: false
+      matrix:
+        build:
+          - preset: dev_debug
+            slug: -Debug
+          - preset: development
+            slug: -Dev
+        dynarec:
+          - new: off
+            slug: -ODR
+          - new: on
+            slug: -NDR
+        ui:
+          - qt: off
+            slug: ''
+            packages: ''
+          - qt: on
+            slug: -Qt
+            packages: 'qt@5'
+    steps:
+      - name: Install dependencies
+        run: brew install ninja sdl2 rtmidi openal-soft fluidsynth libslirp vde libserialport ${{ matrix.ui.packages }}
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configure CMake
+        run: >-
+          cmake -G Ninja -S . -B build --preset ${{ matrix.build.preset }} --toolchain ./cmake/flags-gcc-x86_64.cmake -D NEW_DYNAREC=${{ matrix.dynarec.new }} -D CMAKE_INSTALL_PREFIX=./build/artifacts -D QT=${{ matrix.ui.qt }} -D Qt5_ROOT=$(brew --prefix qt@5) -D Qt5LinguistTools_ROOT=$(brew --prefix qt@5) -D OpenAL_ROOT=$(brew --prefix openal-soft) -D LIBSERIALPORT_ROOT=$(brew --prefix libserialport)
+      - name: Build
+        run: cmake --build build
+      - name: Install
+        run: cmake --install build
+      - name: Package
+        id: pack
+        run: |
+          ART="86Box${{ matrix.ui.slug }}${{ matrix.dynarec.slug }}${{ matrix.build.slug }}-macOS-x86_64"
+          zip -r "${ART}.zip" build/artifacts
+          echo "name=${ART}" >> "$GITHUB_OUTPUT"
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.pack.outputs.name }}
+          path: ${{ steps.pack.outputs.name }}.zip
+
+  macos_arm:
+    runs-on: macos-14
+    strategy:
+      fail-fast: false
+      matrix:
+        build:
+          - preset: dev_debug
+            slug: -Debug
+          - preset: development
+            slug: -Dev
+        dynarec:
+          - new: on
+            slug: -NDR
+        ui:
+          - qt: off
+            slug: ''
+            packages: ''
+          - qt: on
+            slug: -Qt
+            packages: 'qt@5'
+    steps:
+      - name: Install dependencies
+        run: brew install ninja sdl2 rtmidi openal-soft fluidsynth libslirp libserialport ${{ matrix.ui.packages }}
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configure CMake
+        run: >-
+          cmake -G Ninja -S . -B build --preset ${{ matrix.build.preset }} --toolchain ./cmake/llvm-macos-aarch64.cmake -D NEW_DYNAREC=${{ matrix.dynarec.new }} -D CMAKE_INSTALL_PREFIX=./build/artifacts -D QT=${{ matrix.ui.qt }} -D Qt5_ROOT=$(brew --prefix qt@5) -D Qt5LinguistTools_ROOT=$(brew --prefix qt@5) -D OpenAL_ROOT=$(brew --prefix openal-soft) -D LIBSERIALPORT_ROOT=$(brew --prefix libserialport)
+      - name: Build
+        run: cmake --build build
+      - name: Install
+        run: cmake --install build
+      - name: Package
+        id: pack
+        run: |
+          ART="86Box${{ matrix.ui.slug }}${{ matrix.dynarec.slug }}${{ matrix.build.slug }}-macOS-arm64"
+          zip -r "${ART}.zip" build/artifacts
+          echo "name=${ART}" >> "$GITHUB_OUTPUT"
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.pack.outputs.name }}
+          path: ${{ steps.pack.outputs.name }}.zip
+
+  windows:
+    runs-on: ${{ matrix.environment.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        build:
+          - preset: dev_debug
+            slug: -Dev-Debug
+          - preset: development
+            slug: -Dev
+        dynarec:
+          - new: off
+            slug: -ODR
+          - new: on
+            slug: -NDR
+        environment:
+          - msystem: MINGW64
+            toolchain: ./cmake/flags-gcc-x86_64.cmake
+            slug: -64
+            runner: windows-2022
+          - msystem: CLANGARM64
+            toolchain: ./cmake/flags-gcc-aarch64.cmake
+            slug: -arm64
+            runner: windows-11-arm
+        exclude:
+          - dynarec:
+              new: off
+            environment:
+              msystem: CLANGARM64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install MSYS2 packages
+        shell: bash
+        run: |
+          C:/msys64/usr/bin/bash.exe -lc "pacman -Sy --noconfirm && pacman -S --noconfirm mingw-w64-${{ matrix.environment.msystem,, }}-ninja mingw-w64-${{ matrix.environment.msystem,, }}-cmake mingw-w64-${{ matrix.environment.msystem,, }}-gcc mingw-w64-${{ matrix.environment.msystem,, }}-pkgconf mingw-w64-${{ matrix.environment.msystem,, }}-freetype mingw-w64-${{ matrix.environment.msystem,, }}-SDL2 mingw-w64-${{ matrix.environment.msystem,, }}-zlib mingw-w64-${{ matrix.environment.msystem,, }}-libpng mingw-w64-${{ matrix.environment.msystem,, }}-openal mingw-w64-${{ matrix.environment.msystem,, }}-rtmidi mingw-w64-${{ matrix.environment.msystem,, }}-libslirp mingw-w64-${{ matrix.environment.msystem,, }}-fluidsynth mingw-w64-${{ matrix.environment.msystem,, }}-libserialport mingw-w64-${{ matrix.environment.msystem,, }}-qt5-static mingw-w64-${{ matrix.environment.msystem,, }}-vulkan-headers mingw-w64-${{ matrix.environment.msystem,, }}-openmp"
+      - name: Configure CMake
+        shell: bash
+        run: |
+          C:/msys64/usr/bin/bash.exe -lc "cmake -G Ninja -S . -B build --preset ${{ matrix.build.preset }} --toolchain ${{ matrix.environment.toolchain }} -D NEW_DYNAREC=${{ matrix.dynarec.new }} -D CMAKE_INSTALL_PREFIX=./build/artifacts"
+      - name: Build
+        shell: bash
+        run: |
+          C:/msys64/usr/bin/bash.exe -lc "cmake --build build"
+      - name: Install
+        shell: bash
+        run: |
+          C:/msys64/usr/bin/bash.exe -lc "cmake --install build"
+      - name: Package
+        id: pack
+        shell: bash
+        run: |
+          ART="86Box${{ matrix.dynarec.slug }}${{ matrix.build.slug }}-Windows${{ matrix.environment.slug }}"
+          C:/msys64/usr/bin/bash.exe -lc "zip -r ${ART}.zip build/artifacts"
+          echo "name=${ART}" >> "$GITHUB_OUTPUT"
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.pack.outputs.name }}
+          path: ${{ steps.pack.outputs.name }}.zip
+
+  release:
+    runs-on: ubuntu-22.04
+    needs: [linux, macos_x86, macos_arm, windows]
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Create release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.event.inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="manual-${{ github.run_number }}"
+          fi
+          gh release create "$TAG" artifacts/*/*.zip --title "$TAG" --notes "Automated build" --target master
+
