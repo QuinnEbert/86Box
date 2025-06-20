@@ -176,7 +176,12 @@ SettingsMachine::on_comboBoxMachineType_currentIndexChanged(int index)
         for (int i = 0; i < machine_count(); ++i) {
             if ((machine_get_type(i) == ui->comboBoxMachineType->currentData().toInt()) &&
                 machine_available(i)) {
-                int row = Models::AddEntry(model, machines[i].name, i);
+                QString name = QString::fromUtf8(machines[i].name);
+                int     year = machine_get_type_year(machine_get_type(i));
+                if (year >= 1990)
+                    name += QString(" (%1)").arg(machine_get_typical_cpu_name(i));
+
+                int row = Models::AddEntry(model, name, i);
                 if (i == machine)
                     selectedMachineRow = row - removeRows;
             }

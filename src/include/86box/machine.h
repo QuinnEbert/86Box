@@ -366,6 +366,8 @@ extern int         machine_count(void);
 extern int         machine_available(int m);
 extern const char *machine_getname(void);
 extern const char *machine_getname_ex(int m);
+extern int         machine_get_type_year(int type);
+extern const char *machine_get_typical_cpu_name(int m);
 extern const char *machine_get_internal_name(void);
 extern const char *machine_get_nvr_name(void);
 extern int         machine_get_machine_from_internal_name(const char *s);
