@@ -160,6 +160,8 @@ keyb_filter(BMessage *message, BHandler **target, BMessageFilter *filter)
 static BMessageFilter *filter;
 #endif
 
+static void update_slow_turbo_checkboxes(Ui::MainWindow *ui, QAction *selected, int value);
+
 extern void     qt_mouse_capture(int);
 extern "C" void qt_blit(int x, int y, int w, int h, int monitor_index);
 
@@ -676,7 +678,31 @@ MainWindow::MainWindow(QWidget *parent)
     }
     if (turbo_mode > 0) {
         ui->actionTurbo_mode->setChecked(true);
+        ui->menuSlow_turbo->setEnabled(false);
     }
+    switch (turbo_slow_cycles) {
+        default:
+            ui->actionSlow_Turbo_Off->setChecked(true);
+            break;
+        case 1:
+            ui->actionSlow_Turbo_1_cycle->setChecked(true);
+            break;
+        case 2:
+            ui->actionSlow_Turbo_2_cycles->setChecked(true);
+            break;
+        case 3:
+            ui->actionSlow_Turbo_3_cycles->setChecked(true);
+            break;
+        case 4:
+            ui->actionSlow_Turbo_4_cycles->setChecked(true);
+            break;
+    }
+    actGroup = new QActionGroup(this);
+    actGroup->addAction(ui->actionSlow_Turbo_Off);
+    actGroup->addAction(ui->actionSlow_Turbo_1_cycle);
+    actGroup->addAction(ui->actionSlow_Turbo_2_cycles);
+    actGroup->addAction(ui->actionSlow_Turbo_3_cycles);
+    actGroup->addAction(ui->actionSlow_Turbo_4_cycles);
 
 #ifdef Q_OS_MACOS
     ui->actionCtrl_Alt_Del->setShortcutVisibleInContextMenu(true);
@@ -1110,6 +1136,37 @@ MainWindow::on_actionTurbo_mode_triggered()
 {
     turbo_mode ^= 1;
     ui->actionTurbo_mode->setChecked(turbo_mode > 0 ? true : false);
+    ui->menuSlow_turbo->setEnabled(turbo_mode == 0);
+}
+
+void
+MainWindow::on_actionSlow_Turbo_Off_triggered()
+{
+    update_slow_turbo_checkboxes(ui, ui->actionSlow_Turbo_Off, 0);
+}
+
+void
+MainWindow::on_actionSlow_Turbo_1_cycle_triggered()
+{
+    update_slow_turbo_checkboxes(ui, ui->actionSlow_Turbo_1_cycle, 1);
+}
+
+void
+MainWindow::on_actionSlow_Turbo_2_cycles_triggered()
+{
+    update_slow_turbo_checkboxes(ui, ui->actionSlow_Turbo_2_cycles, 2);
+}
+
+void
+MainWindow::on_actionSlow_Turbo_3_cycles_triggered()
+{
+    update_slow_turbo_checkboxes(ui, ui->actionSlow_Turbo_3_cycles, 3);
+}
+
+void
+MainWindow::on_actionSlow_Turbo_4_cycles_triggered()
+{
+    update_slow_turbo_checkboxes(ui, ui->actionSlow_Turbo_4_cycles, 4);
 }
 
 void
@@ -1701,6 +1758,18 @@ update_scaled_checkboxes(Ui::MainWindow *ui, QAction *selected)
             video_force_resize_set_monitor(1, i);
     }
     config_save();
+}
+
+static void
+update_slow_turbo_checkboxes(Ui::MainWindow *ui, QAction *selected, int value)
+{
+    ui->actionSlow_Turbo_Off->setChecked(ui->actionSlow_Turbo_Off == selected);
+    ui->actionSlow_Turbo_1_cycle->setChecked(ui->actionSlow_Turbo_1_cycle == selected);
+    ui->actionSlow_Turbo_2_cycles->setChecked(ui->actionSlow_Turbo_2_cycles == selected);
+    ui->actionSlow_Turbo_3_cycles->setChecked(ui->actionSlow_Turbo_3_cycles == selected);
+    ui->actionSlow_Turbo_4_cycles->setChecked(ui->actionSlow_Turbo_4_cycles == selected);
+
+    turbo_slow_cycles = value;
 }
 
 void
