@@ -82,7 +82,6 @@ public slots:
     void refreshIcons();
     void updateSoundIcon();
     QString buildHardwareSummary();
-    QString buildStorageSummary();
 
 private:
     struct States;
