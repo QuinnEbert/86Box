@@ -138,7 +138,7 @@ hdd_is_valid(int c)
 double
 hdd_seek_get_time(hard_disk_t *hdd, uint32_t dst_addr, uint8_t operation, uint8_t continuous, double max_seek_time)
 {
-    if (!hdd->speed_preset)
+    if (!hdd->speed_preset || !hdd->rpm)
         return HDD_OVERHEAD_TIME;
 
     const hdd_zone_t *zone = NULL;
@@ -263,7 +263,7 @@ hdd_timing_write(hard_disk_t *hdd, uint32_t addr, uint32_t len)
     double   seek_time = 0.0;
     uint32_t flush_needed;
 
-    if (!hdd->speed_preset)
+    if (!hdd->speed_preset || !hdd->rpm)
         return HDD_OVERHEAD_TIME;
 
     hdd_readahead_update(hdd);
@@ -301,7 +301,7 @@ hdd_timing_read(hard_disk_t *hdd, uint32_t addr, uint32_t len)
 {
     double seek_time = 0.0;
 
-    if (!hdd->speed_preset)
+    if (!hdd->speed_preset || !hdd->rpm)
         return HDD_OVERHEAD_TIME;
 
     hdd_readahead_update(hdd);
@@ -542,6 +542,7 @@ static hdd_preset_t hdd_speed_presets[] = {
     { .name = "[ATA-5] Seagate U8 - 17.2gb",                      .internal_name = "ST317221A", .model = "ST317221A", .zones =  16,  .avg_spt = 289, .heads = 3, .rpm = 5400, .full_stroke_ms = 25, .track_seek_ms = 1.5,   .rcache_num_seg =  16, .rcache_seg_size =  512, .max_multiple =  32 },
     { .name = "[ATA-5] Western Digital Caviar 102AA",             .internal_name = "WD102AA", .model = "WDC WD102AA-00ANA0", .zones =  16,  .avg_spt = 295, .heads = 8, .rpm = 5400, .full_stroke_ms = 12, .track_seek_ms = 1.5,   .rcache_num_seg =  16, .rcache_seg_size =  512, .max_multiple =  32 },
     { .name = "[ATA-5] Western Digital Expert",                   .internal_name = "WD135BA", .model = "WDC WD135BA-60AK", .zones =  16,  .avg_spt = 350, .heads = 6, .rpm = 7200, .full_stroke_ms = 15, .track_seek_ms = 2,   .rcache_num_seg =  16, .rcache_seg_size =  1920, .max_multiple =  32 },
+    { .name = "[Special] QUINNEHD (no speed limit)",               .internal_name = "quinnehd", .model = "QUINNEHD", .rcache_num_seg = 16, .rcache_seg_size = 128, .max_multiple = 32 },
    // clang-format on
 };
 
@@ -602,7 +603,7 @@ hdd_preset_apply(int hdd_id)
     if (preset->model)
         hd->model = preset->model;
 
-    if (!hd->speed_preset)
+    if (!hd->speed_preset || !preset->rpm)
         return;
 
     hd->phy_heads = preset->heads;
