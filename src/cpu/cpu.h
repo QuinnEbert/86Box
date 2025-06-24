@@ -713,6 +713,8 @@ extern void cpu_set_isa_speed(int speed);
 extern void cpu_set_pci_speed(int speed);
 extern void cpu_set_isa_pci_div(int div);
 extern void cpu_set_agp_speed(int speed);
+extern int  ndr_virtualize_mode;
+extern void cpu_set_ndr_virtualize(int enable);
 
 extern void cpu_CPUID(void);
 extern void cpu_RDMSR(void);

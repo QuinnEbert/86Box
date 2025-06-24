@@ -445,6 +445,7 @@ main_thread_fn()
     while (!is_quit && cpu_thread_run) {
         /* See if it is time to run a frame of code. */
         const uint64_t new_time = elapsed_timer.elapsed();
+        cpu_set_ndr_virtualize(turbo_mode || turbo_slow_cycles > 0);
 #ifdef USE_GDBSTUB
         if (gdbstub_next_asap && (drawits <= 0))
             drawits = 10;
