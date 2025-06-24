@@ -214,6 +214,7 @@ int      do_auto_pause                          = 0;              /* (C) Auto-pa
                                                                          loss */
 int      turbo_mode                             = 0;              /* Run emulator at maximum speed */
 int      turbo_slow_cycles                      = 0;              /* Cycle skip count when turbo is off */
+int      virtualized_cpu                        = 0;              /* Use virtualized CPU when allowed */
 int      hook_enabled                           = 1;              /* (C) Keyboard hook is enabled */
 int      test_mode                              = 0;              /* (C) Test mode */
 char     uuid[MAX_UUID_LEN]                     = { '\0' };       /* (C) UUID or machine identifier */
