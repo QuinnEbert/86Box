@@ -556,6 +556,7 @@ main_thread(UNUSED(void *param))
     while (!is_quit && cpu_thread_run) {
         /* See if it is time to run a frame of code. */
         new_time = SDL_GetTicks();
+        cpu_set_ndr_virtualize(turbo_mode || turbo_slow_cycles > 0);
 #ifdef USE_GDBSTUB
         if (gdbstub_next_asap && (drawits <= 0))
             drawits = 10;
