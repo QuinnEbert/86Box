@@ -271,6 +271,13 @@ CPU          *cpu_s;
 
 uint8_t do_translate  = 0;
 uint8_t do_translate2 = 0;
+int      ndr_virtualize_mode = 0;
+
+void
+cpu_set_ndr_virtualize(int enable)
+{
+    ndr_virtualize_mode = enable;
+}
 
 void (*cpu_exec)(int32_t cycs);
 
