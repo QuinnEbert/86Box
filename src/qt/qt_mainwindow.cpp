@@ -705,6 +705,9 @@ MainWindow::MainWindow(QWidget *parent)
     actGroup->addAction(ui->actionSlow_Turbo_3_cycles);
     actGroup->addAction(ui->actionSlow_Turbo_4_cycles);
 
+    ui->actionVirtualized_CPU->setEnabled(turbo_mode || turbo_slow_cycles > 0);
+    ui->actionVirtualized_CPU->setChecked(virtualized_cpu > 0);
+
 #ifdef Q_OS_MACOS
     ui->actionCtrl_Alt_Del->setShortcutVisibleInContextMenu(true);
     ui->actionTake_screenshot->setShortcutVisibleInContextMenu(true);
@@ -1138,7 +1141,13 @@ MainWindow::on_actionTurbo_mode_triggered()
     turbo_mode ^= 1;
     ui->actionTurbo_mode->setChecked(turbo_mode > 0 ? true : false);
     ui->menuSlow_turbo->setEnabled(turbo_mode == 0);
-    cpu_set_ndr_virtualize(turbo_mode || turbo_slow_cycles > 0);
+    const bool allowed = turbo_mode || turbo_slow_cycles > 0;
+    ui->actionVirtualized_CPU->setEnabled(allowed);
+    if (!allowed) {
+        virtualized_cpu = 0;
+        ui->actionVirtualized_CPU->setChecked(false);
+    }
+    cpu_set_ndr_virtualize(virtualized_cpu && allowed);
 }
 
 void
@@ -1169,6 +1178,14 @@ void
 MainWindow::on_actionSlow_Turbo_4_cycles_triggered()
 {
     update_slow_turbo_checkboxes(ui, ui->actionSlow_Turbo_4_cycles, 25);
+}
+
+void
+MainWindow::on_actionVirtualized_CPU_triggered()
+{
+    virtualized_cpu ^= 1;
+    ui->actionVirtualized_CPU->setChecked(virtualized_cpu > 0 ? true : false);
+    cpu_set_ndr_virtualize(virtualized_cpu && (turbo_mode || turbo_slow_cycles > 0));
 }
 
 void
@@ -1772,7 +1789,13 @@ update_slow_turbo_checkboxes(Ui::MainWindow *ui, QAction *selected, int value)
     ui->actionSlow_Turbo_4_cycles->setChecked(ui->actionSlow_Turbo_4_cycles == selected);
 
     turbo_slow_cycles = value;
-    cpu_set_ndr_virtualize(turbo_mode || turbo_slow_cycles > 0);
+    cpu_set_ndr_virtualize(virtualized_cpu && (turbo_mode || turbo_slow_cycles > 0));
+    const bool allowed = turbo_mode || turbo_slow_cycles > 0;
+    ui->actionVirtualized_CPU->setEnabled(allowed);
+    if (!allowed) {
+        virtualized_cpu = 0;
+        ui->actionVirtualized_CPU->setChecked(false);
+    }
 }
 
 void
