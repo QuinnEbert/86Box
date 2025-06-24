@@ -1387,7 +1387,7 @@ ide_write_data(ide_t *ide, const uint16_t val)
                 const double xfer_time = ide_get_xfer_time(ide, 512);
                 const double wait_time = seek_time + xfer_time;
                 if (ide->command == WIN_WRITE_MULTIPLE) {
-                    if (hdd[ide->hdd_num].speed_preset == 0) {
+                    if (hdd[ide->hdd_num].speed_preset == 0 || hdd[ide->hdd_num].rpm == 0) {
                         ide->pending_delay = 0;
                         ide_callback(ide);
                     } else if ((ide->blockcount + 1) >= ide->blocksize || ide->tf->secount == 1) {
@@ -1746,7 +1746,7 @@ ide_writeb(uint16_t addr, uint8_t val, void *priv)
                         ide->sc->callback = 100.0 * IDE_TIME;
                         ide_set_callback(ide, 100.0 * IDE_TIME);
                     } else {
-                        if (hdd[ide->hdd_num].speed_preset == 0)
+                        if (hdd[ide->hdd_num].speed_preset == 0 || hdd[ide->hdd_num].rpm == 0)
                             ide_set_callback(ide, 100.0 * IDE_TIME);
                         else {
                             double seek_time = hdd_seek_get_time(&hdd[ide->hdd_num], (val & 0x60) ?
@@ -1795,7 +1795,7 @@ ide_writeb(uint16_t addr, uint8_t val, void *priv)
                                                                ide_get_sector(ide), sec_count);
                             double xfer_time = ide_get_xfer_time(ide, 512 * sec_count);
                             wait_time        = seek_time > xfer_time ? seek_time : xfer_time;
-                        } else if ((val == WIN_READ_MULTIPLE) && (hdd[ide->hdd_num].speed_preset == 0)) {
+                        } else if ((val == WIN_READ_MULTIPLE) && (hdd[ide->hdd_num].speed_preset == 0 || hdd[ide->hdd_num].rpm == 0)) {
                            ide_set_callback(ide, 200.0 * IDE_TIME);
                            ide->do_initial_read = 1;
                            break;
@@ -1995,7 +1995,7 @@ ide_read_data(ide_t *ide)
                     ide_next_sector(ide);
                     ide->tf->atastat = BSY_STAT | READY_STAT | DSC_STAT;
                     if (ide->command == WIN_READ_MULTIPLE) {
-                        if (hdd[ide->hdd_num].speed_preset == 0)
+                        if (hdd[ide->hdd_num].speed_preset == 0 || hdd[ide->hdd_num].rpm == 0)
                             ide_callback(ide);
                         else if (!ide->blockcount) {
                             uint32_t cnt = ide->tf->secount ?
