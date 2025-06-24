@@ -158,26 +158,23 @@ jobs:
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
           else
-            echo "tag=autobuild-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+            echo "tag=autobuild-$(git rev-parse --short "$GITHUB_SHA")" >> "$GITHUB_OUTPUT"
           fi
-
-      # ─── create the release shell ───────────────────
-      - uses: actions/create-release@v1
-        id: create
-        name: Create GitHub release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name:      ${{ steps.vars.outputs.tag }}
-          release_name: "Linux nightly – ${{ steps.vars.outputs.tag }}"
-          draft: false
-          prerelease: false
 
       # ─── install zip + gh cli ───────────────────────
       - name: Install zip & gh
         run: |
           sudo apt-get update -y
           sudo apt-get install -y zip gh
+
+      # ─── ensure a single release ────────────────────
+      - name: Ensure GitHub release exists
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ steps.vars.outputs.tag }}"
+          gh release view "$tag" >/dev/null 2>&1 || \
+          gh release create "$tag" --title "86Box nightly – $tag" --notes ""
 
       # ─── zip each artifact dir and upload ───────────
       - name: Zip and upload assets
