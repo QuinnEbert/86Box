@@ -129,9 +129,12 @@ extern bool cpu_thread_running;
 #    include "cocoa_keyboard.hpp"
 // The namespace is required to avoid clashing typedefs; we only use this
 // header for its #defines anyway.
+#    pragma push_macro("cycles")
+#    undef cycles
 namespace IOKit {
 #    include <IOKit/hidsystem/IOLLEvent.h>
 }
+#    pragma pop_macro("cycles")
 #endif
 
 #ifdef __HAIKU__
