@@ -210,3 +210,69 @@ jobs:
         with:
           name: '86Box${{ matrix.ui.slug }}${{ matrix.dynarec.slug }}${{ matrix.build.slug }}-macOS-arm64-gha${{ github.run_number }}'
           path: build/artifacts/**
+
+# ────────────────────────────────────────────────────────────────
+# 2️⃣  RELEASE JOB  – zips each artifact, then uploads
+# ────────────────────────────────────────────────────────────────
+  release:
+    name: Publish macOS Release
+    needs: [macos13-x86_64, macos14-arm64]
+    runs-on: ubuntu-latest
+
+    # Run on manual dispatch or any push (skip only on PRs)
+    #if: github.event_name != 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+        name: Reattach git context
+
+      - uses: actions/download-artifact@v4
+        name: Download all artifacts
+        with:
+          path: dist            # dist/ARTIFACT_NAME/…
+
+      - name: Show gathered files
+        run: |
+          cd /home/runner/work/86Box/86Box/dist/
+          ls -lah
+
+      # ─── build a tag name ───────────────────────────
+      - id: vars
+        name: Decide tag
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=autobuild-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ─── create the release shell ───────────────────
+      - uses: actions/create-release@v1
+        id: create
+        name: Create GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name:      ${{ steps.vars.outputs.tag }}
+          release_name: "macOS nightly – ${{ steps.vars.outputs.tag }}"
+          draft: false
+          prerelease: false
+
+      # ─── install zip + gh cli ───────────────────────
+      - name: Install zip & gh
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y zip gh
+
+      # ─── zip each artifact dir and upload ───────────
+      - name: Zip and upload assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd /home/runner/work/86Box/86Box/dist/
+          for dir in */ ; do
+            dir="${dir%/}"
+            zip -r "${dir}.zip" "$dir"
+            echo "Uploading ${dir}.zip"
+            gh release upload "${{ steps.vars.outputs.tag }}" "${dir}.zip" --clobber
+          done
