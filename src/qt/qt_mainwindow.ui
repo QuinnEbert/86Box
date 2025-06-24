@@ -87,6 +87,7 @@
     <addaction name="actionPause"/>
     <addaction name="actionTurbo_mode"/>
     <addaction name="menuSlow_turbo"/>
+    <addaction name="actionVirtualized_CPU"/>
     <addaction name="separator"/>
     <addaction name="actionHard_Reset"/>
     <addaction name="actionCtrl_Alt_Del"/>
@@ -415,7 +416,15 @@
       <string>25 Cycle Skip</string>
      </property>
     </action>
-  <action name="actionExit">
+    <action name="actionVirtualized_CPU">
+     <property name="checkable">
+      <bool>true</bool>
+     </property>
+     <property name="text">
+      <string>Virtualized CPU</string>
+     </property>
+    </action>
+    <action name="actionExit">
    <property name="text">
     <string>Exit</string>
    </property>
