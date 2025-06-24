@@ -35,6 +35,7 @@
 
 extern "C" {
 #include <86box/86box.h>
+#include "cpu.h"
 #include <86box/config.h>
 #include <86box/keyboard.h>
 #include <86box/plat.h>
@@ -1137,6 +1138,7 @@ MainWindow::on_actionTurbo_mode_triggered()
     turbo_mode ^= 1;
     ui->actionTurbo_mode->setChecked(turbo_mode > 0 ? true : false);
     ui->menuSlow_turbo->setEnabled(turbo_mode == 0);
+    cpu_set_ndr_virtualize(turbo_mode || turbo_slow_cycles > 0);
 }
 
 void
@@ -1770,6 +1772,7 @@ update_slow_turbo_checkboxes(Ui::MainWindow *ui, QAction *selected, int value)
     ui->actionSlow_Turbo_4_cycles->setChecked(ui->actionSlow_Turbo_4_cycles == selected);
 
     turbo_slow_cycles = value;
+    cpu_set_ndr_virtualize(turbo_mode || turbo_slow_cycles > 0);
 }
 
 void
