@@ -53,6 +53,7 @@ extern volatile int fdcinited;
 #include <QTimer>
 #include <QStatusBar>
 #include <QVBoxLayout>
+#include <QFileInfo>
 #include <QMenu>
 #include <QScreen>
 #include <QString>
@@ -309,6 +310,7 @@ struct MachineStatus::States {
 
         hardware        = nullptr;
         storage         = nullptr;
+        attachments     = nullptr;
         hardwareWidget  = nullptr;
     }
 
@@ -326,6 +328,7 @@ struct MachineStatus::States {
     std::unique_ptr<QWidget>                   hardwareWidget;
     QLabel*                                   hardware;
     QLabel*                                   storage;
+    QLabel*                                   attachments;
     std::unique_ptr<QLabel>                    text;
 };
 
@@ -869,13 +872,16 @@ MachineStatus::refresh(QStatusBar *sbar)
     vlayout->setSpacing(0);
     vlayout->setContentsMargins(0, 0, 0, 0);
 
-    d->hardware = new QLabel(d->hardwareWidget.get());
-    d->storage  = new QLabel(d->hardwareWidget.get());
+    d->hardware    = new QLabel(d->hardwareWidget.get());
+    d->storage     = new QLabel(d->hardwareWidget.get());
+    d->attachments = new QLabel(d->hardwareWidget.get());
     vlayout->addWidget(d->hardware);
     vlayout->addWidget(d->storage);
+    vlayout->addWidget(d->attachments);
 
     d->hardware->setText(buildHardwareSummary());
     d->storage->setText(buildStorageSummary());
+    d->attachments->setText(buildAttachmentSummary());
     sbar->addWidget(d->hardwareWidget.get());
 
     d->text = std::make_unique<QLabel>();
@@ -1016,6 +1022,38 @@ MachineStatus::buildStorageSummary()
     }
     if (!storage.isEmpty())
         sections << tr("Storage: %1").arg(storage.join(QLatin1String(", ")));
+
+    return sections.join(QLatin1String(" | "));
+}
+
+QString
+MachineStatus::buildAttachmentSummary()
+{
+    QStringList sections;
+
+    QStringList floppies;
+    for (int i = 0; i < FDD_NUM; ++i) {
+        if (floppyfns[i][0] != 0)
+            floppies << QFileInfo(QString::fromUtf8(floppyfns[i])).fileName();
+    }
+    if (!floppies.isEmpty())
+        sections << tr("Floppy: %1").arg(floppies.join(QLatin1String(", ")));
+
+    QStringList disks;
+    for (int i = 0; i < HDD_NUM; ++i) {
+        if (hdd[i].fn[0] != 0)
+            disks << QFileInfo(QString::fromUtf8(hdd[i].fn)).fileName();
+    }
+    if (!disks.isEmpty())
+        sections << tr("Disk: %1").arg(disks.join(QLatin1String(", ")));
+
+    QStringList cds;
+    for (int i = 0; i < CDROM_NUM; ++i) {
+        if (cdrom[i].image_path[0] != 0)
+            cds << QFileInfo(QString::fromUtf8(cdrom[i].image_path)).fileName();
+    }
+    if (!cds.isEmpty())
+        sections << tr("CD-ROM: %1").arg(cds.join(QLatin1String(", ")));
 
     return sections.join(QLatin1String(" | "));
 }
