@@ -741,11 +741,8 @@ exec386_dynarec(int32_t cycs)
 
     int32_t cyc_period = cycs / 2000; /*5us*/
 
-    if (ndr_virtualize_mode) {
-        exec386_dynarec_dyn();
-        cycles_main -= cycs;
-        return;
-    }
+    if (ndr_virtualize_mode)
+        cyc_period = cycs;
 
 #    ifdef USE_ACYCS
     acycs = 0;
