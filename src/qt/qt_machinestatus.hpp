@@ -83,6 +83,7 @@ public slots:
     void updateSoundIcon();
     QString buildHardwareSummary();
     QString buildStorageSummary();
+    QString buildAttachmentSummary();
 
 private:
     struct States;
