@@ -132,6 +132,9 @@ jobs:
   release:
     name: Publish Windows Release
     needs: msys2
+    concurrency:
+      group: release-${{ github.sha }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
 
     # Run on manual dispatch or any push (skip only on PRs)

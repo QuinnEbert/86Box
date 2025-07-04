@@ -187,6 +187,9 @@ jobs:
   release:
     name: Publish macOS Release
     needs: [macos13-x86_64, macos14-arm64]
+    concurrency:
+      group: release-${{ github.sha }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
 
     # Run on manual dispatch or any push (skip only on PRs)
