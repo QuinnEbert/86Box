@@ -33,12 +33,7 @@ jobs:
     name: "${{ matrix.build.name }}, ${{ matrix.dynarec.name }}, ${{ matrix.environment.msystem }}"
     runs-on: ${{ matrix.environment.runner }}
 
-<<<<<<< HEAD
-=======
-    env:
-      BUILD_WRAPPER_OUT_DIR: build_wrapper_output_directory
 
->>>>>>> b2323e210 (An almost certainly broken attempt to automate windows release)
     defaults:
       run:
         shell: msys2 {0}
@@ -47,7 +42,6 @@ jobs:
       fail-fast: true
       matrix:
         build:
-<<<<<<< HEAD
 #          - name: Regular
 #            preset: regular
           - name: Debug
@@ -93,16 +87,6 @@ jobs:
             toolchain: ./cmake/flags-gcc-aarch64.cmake
             slug: -arm64
             runner: windows-11-arm
-=======
-          - { name: Dev Debug, preset: dev_debug, slug: -Dev-Debug }
-          - { name: Dev,       preset: development, slug: -Dev }
-        dynarec:
-          - { name: ODR, new: off          }           # old dynarec
-          - { name: NDR, new: on,  slug: -NDR }        # new dynarec
-        environment:
-          - { msystem: MINGW64,    toolchain: ./cmake/flags-gcc-x86_64.cmake, slug: "-64",    runner: windows-2022 }
-          - { msystem: CLANGARM64, toolchain: ./cmake/flags-gcc-aarch64.cmake, slug: -arm64, runner: windows-11-arm }
->>>>>>> b2323e210 (An almost certainly broken attempt to automate windows release)
         exclude:
           - dynarec:   { new: off }
             environment: { msystem: CLANGARM64 }       # ODR unavailable on ARM
@@ -119,17 +103,10 @@ jobs:
             openal:p rtmidi:p libslirp:p fluidsynth:p libserialport:p qt5-static:p
             vulkan-headers:p openmp:p
 
-<<<<<<< HEAD
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
-=======
-      - uses: actions/checkout@v4
-        name: Checkout repository
-        with: { fetch-depth: 0 }
->>>>>>> b2323e210 (An almost certainly broken attempt to automate windows release)
-
       - name: Configure CMake
         run: >
           cmake -G Ninja -S . -B build --preset ${{ matrix.build.preset }}
