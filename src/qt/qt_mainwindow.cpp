@@ -166,6 +166,7 @@ static BMessageFilter *filter;
 #endif
 
 static void update_slow_turbo_checkboxes(Ui::MainWindow *ui, QAction *selected, int value);
+static void update_virtualized_tooltip(Ui::MainWindow *ui);
 
 extern void     qt_mouse_capture(int);
 extern "C" void qt_blit(int x, int y, int w, int h, int monitor_index);
@@ -691,6 +692,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     ui->actionVirtualized_CPU->setEnabled(turbo_mode || turbo_slow_cycles > 0);
     ui->actionVirtualized_CPU->setChecked(virtualized_cpu > 0);
+    update_virtualized_tooltip(ui);
 
 #ifdef Q_OS_MACOS
     ui->actionCtrl_Alt_Del->setShortcutVisibleInContextMenu(true);
@@ -1131,6 +1133,7 @@ MainWindow::on_actionTurbo_mode_triggered()
         virtualized_cpu = 0;
         ui->actionVirtualized_CPU->setChecked(false);
     }
+    update_virtualized_tooltip(ui);
 #ifndef __APPLE__
     cpu_set_ndr_virtualize(virtualized_cpu && allowed);
 #endif
@@ -1174,6 +1177,7 @@ MainWindow::on_actionVirtualized_CPU_triggered()
 #ifndef __APPLE__
     cpu_set_ndr_virtualize(virtualized_cpu && (turbo_mode || turbo_slow_cycles > 0));
 #endif
+    update_virtualized_tooltip(ui);
 }
 
 void
@@ -1786,6 +1790,16 @@ update_slow_turbo_checkboxes(Ui::MainWindow *ui, QAction *selected, int value)
         virtualized_cpu = 0;
         ui->actionVirtualized_CPU->setChecked(false);
     }
+    update_virtualized_tooltip(ui);
+}
+
+static void
+update_virtualized_tooltip(Ui::MainWindow *ui)
+{
+    if (virtualized_cpu)
+        ui->actionVirtualized_CPU->setToolTip(QObject::tr("Virtualized CPU active - caching relaxed"));
+    else
+        ui->actionVirtualized_CPU->setToolTip(QObject::tr("Loosen caching in turbo mode for performance"));
 }
 
 void
