@@ -420,10 +420,13 @@
      <property name="checkable">
       <bool>true</bool>
      </property>
-     <property name="text">
-      <string>Virtualized CPU</string>
-     </property>
-    </action>
+    <property name="text">
+     <string>Virtualized CPU</string>
+    </property>
+    <property name="toolTip">
+     <string>Loosen caching in turbo mode for performance</string>
+    </property>
+   </action>
     <action name="actionExit">
    <property name="text">
     <string>Exit</string>

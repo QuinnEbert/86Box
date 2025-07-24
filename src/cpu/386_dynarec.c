@@ -12,6 +12,21 @@
 #    define INFINITY (__builtin_inff())
 #endif
 
+#if defined(__GNUC__) || defined(__clang__)
+#    define ALWAYS_INLINE static inline __attribute__((always_inline))
+#else
+#    define ALWAYS_INLINE static inline
+#endif
+
+#ifndef VIRT_TB_MULT
+#    define VIRT_TB_MULT 4
+#endif
+#if defined(__GNUC__)
+#    define HAVE_LABELS_AS_VALUES 1
+#else
+#    define HAVE_LABELS_AS_VALUES 0
+#endif
+
 #define HAVE_STDARG_H
 #include <86box/86box.h>
 #include "cpu.h"
@@ -82,6 +97,22 @@ fetch_ea_32_long(uint32_t rmdat)
     if (cpu_rm == 4) {
         uint8_t sib = rmdat >> 8;
 
+#if HAVE_LABELS_AS_VALUES
+        static void *mod_dispatch[3] = { &&mod0, &&mod1, &&mod2 };
+        goto        *mod_dispatch[cpu_mod];
+mod0:
+        cpu_state.eaaddr = cpu_state.regs[sib & 7].l;
+        cpu_state.pc++;
+        goto mod_end;
+mod1:
+        cpu_state.pc++;
+        cpu_state.eaaddr = ((uint32_t) (int8_t) getbyte()) + cpu_state.regs[sib & 7].l;
+        goto mod_end;
+mod2:
+        cpu_state.eaaddr = (fastreadl(cs + cpu_state.pc + 1)) + cpu_state.regs[sib & 7].l;
+        cpu_state.pc += 5;
+mod_end:;
+#else
         switch (cpu_mod) {
             case 0:
                 cpu_state.eaaddr = cpu_state.regs[sib & 7].l;
@@ -96,6 +127,7 @@ fetch_ea_32_long(uint32_t rmdat)
                 cpu_state.pc += 5;
                 break;
         }
+#endif
         /*SIB byte present*/
         if ((sib & 7) == 5 && !cpu_mod)
             cpu_state.eaaddr = getlong();
@@ -139,6 +171,20 @@ fetch_ea_16_long(uint32_t rmdat)
     if (!cpu_mod && cpu_rm == 6) {
         cpu_state.eaaddr = getword();
     } else {
+#if HAVE_LABELS_AS_VALUES
+        static void *mod_dispatch16[3] = { &&mod0_16, &&mod1_16, &&mod2_16 };
+        goto        *mod_dispatch16[cpu_mod];
+mod0_16:
+        cpu_state.eaaddr = 0;
+        goto mod_end_16;
+mod1_16:
+        cpu_state.eaaddr = (uint16_t) (int8_t) (rmdat >> 8);
+        cpu_state.pc++;
+        goto mod_end_16;
+mod2_16:
+        cpu_state.eaaddr = getword();
+mod_end_16:;
+#else
         switch (cpu_mod) {
             case 0:
                 cpu_state.eaaddr = 0;
@@ -151,6 +197,7 @@ fetch_ea_16_long(uint32_t rmdat)
                 cpu_state.eaaddr = getword();
                 break;
         }
+#endif
         cpu_state.eaaddr += (*mod1add[0][cpu_rm]) + (*mod1add[1][cpu_rm]);
         if (mod1seg[cpu_rm] == &ss && !cpu_state.ssegs) {
             easeg            = ss;
@@ -270,7 +317,7 @@ update_tsc(void)
     }
 }
 
-static __inline void
+ALWAYS_INLINE
 exec386_dynarec_int(void)
 {
     cpu_block_end = 0;
@@ -372,11 +419,11 @@ block_ended:
     cpu_end_block_after_ins = 0;
 }
 
-#if defined(__linux__) && !defined(__clang__) && defined(USE_NEW_DYNAREC)
-static inline void __attribute__((optimize("O2")))
-#else
-static __inline void
-#endif
+#    if defined(__linux__) && !defined(__clang__) && defined(USE_NEW_DYNAREC)
+ALWAYS_INLINE __attribute__((optimize("O2")))
+#    else
+ALWAYS_INLINE
+#    endif
 exec386_dynarec_dyn(void)
 {
     uint32_t start_pc  = 0;
@@ -390,9 +437,9 @@ exec386_dynarec_dyn(void)
     int valid_block = 0;
 
 #    ifdef USE_NEW_DYNAREC
-    if (!cpu_state.abrt)
+    if (LIKELY(!cpu_state.abrt))
 #    else
-    if (block && !cpu_state.abrt)
+    if (block && LIKELY(!cpu_state.abrt))
 #    endif
     {
         page_t *page = &pages[phys_addr >> 12];
@@ -407,8 +454,7 @@ exec386_dynarec_dyn(void)
             int      byte_offset = (phys_addr >> PAGE_BYTE_MASK_SHIFT) & PAGE_BYTE_MASK_OFFSET_MASK;
             uint64_t byte_mask   = 1ULL << (PAGE_BYTE_MASK_MASK & 0x3f);
 
-            if ((page->code_present_mask & mask) ||
-                ((page->mem != page_ff) && (page->byte_code_present_mask[byte_offset] & byte_mask)))
+            if ((page->code_present_mask & mask) || ((page->mem != page_ff) && (page->byte_code_present_mask[byte_offset] & byte_mask)))
 #    else
             if (page->code_present_mask[(phys_addr >> PAGE_MASK_INDEX_SHIFT) & PAGE_MASK_INDEX_MASK] & mask)
 #    endif
@@ -427,7 +473,7 @@ exec386_dynarec_dyn(void)
             }
         }
 
-        if (valid_block && (block->page_mask & *block->dirty_mask)) {
+        if (UNLIKELY(!ndr_virtualize_mode) && valid_block && (block->page_mask & *block->dirty_mask)) {
 #    ifdef USE_NEW_DYNAREC
             codegen_check_flush(page, page->dirty_mask, phys_addr);
             if (block->pc == BLOCK_PC_INVALID)
@@ -441,7 +487,7 @@ exec386_dynarec_dyn(void)
                 valid_block = 0;
 #    endif
         }
-        if (valid_block && block->page_mask2) {
+        if (UNLIKELY(!ndr_virtualize_mode) && valid_block && block->page_mask2) {
             /* We don't want the second page to cause a page
                fault at this stage - that would break any
                code crossing a page boundary where the first
@@ -458,7 +504,7 @@ exec386_dynarec_dyn(void)
 
             if ((block->phys_2 ^ phys_addr_2) & ~0xfff)
                 valid_block = 0;
-            else if (block->page_mask2 & *block->dirty_mask2) {
+            else if (UNLIKELY(!ndr_virtualize_mode) && (block->page_mask2 & *block->dirty_mask2)) {
 #    ifdef USE_NEW_DYNAREC
                 codegen_check_flush(page_2, page_2->dirty_mask, phys_addr_2);
                 if (block->pc == BLOCK_PC_INVALID)
@@ -474,14 +520,14 @@ exec386_dynarec_dyn(void)
             }
         }
 #    ifdef USE_NEW_DYNAREC
-        if (valid_block && (block->flags & CODEBLOCK_IN_DIRTY_LIST)) {
+        if (UNLIKELY(!ndr_virtualize_mode) && valid_block && (block->flags & CODEBLOCK_IN_DIRTY_LIST)) {
             block->flags &= ~CODEBLOCK_WAS_RECOMPILED;
             if (block->flags & CODEBLOCK_BYTE_MASK)
                 block->flags |= CODEBLOCK_NO_IMMEDIATES;
             else
                 block->flags |= CODEBLOCK_BYTE_MASK;
         }
-        if (valid_block && (block->flags & CODEBLOCK_WAS_RECOMPILED) && (block->flags & CODEBLOCK_STATIC_TOP) && block->TOP != (cpu_state.TOP & 7))
+        if (UNLIKELY(!ndr_virtualize_mode) && valid_block && (block->flags & CODEBLOCK_WAS_RECOMPILED) && (block->flags & CODEBLOCK_STATIC_TOP) && block->TOP != (cpu_state.TOP & 7))
 #    else
         if (valid_block && block->was_recompiled && (block->flags & CODEBLOCK_STATIC_TOP) && block->TOP != cpu_state.TOP)
 #    endif
@@ -498,9 +544,9 @@ exec386_dynarec_dyn(void)
     }
 
 #    ifdef USE_NEW_DYNAREC
-    if (valid_block && (block->flags & CODEBLOCK_WAS_RECOMPILED))
+    if (UNLIKELY(!ndr_virtualize_mode) && valid_block && (block->flags & CODEBLOCK_WAS_RECOMPILED))
 #    else
-    if (valid_block && block->was_recompiled)
+    if (UNLIKELY(!ndr_virtualize_mode) && valid_block && block->was_recompiled)
 #    endif
     {
         void (*code)(void) = (void *) &block->data[BLOCK_START];
@@ -522,7 +568,7 @@ exec386_dynarec_dyn(void)
     } else if (valid_block && !cpu_state.abrt) {
 #    ifdef USE_NEW_DYNAREC
         start_pc                 = cs + cpu_state.pc;
-        const int max_block_size = (block->flags & CODEBLOCK_BYTE_MASK) ? ((128 - 25) - (start_pc & 0x3f)) : 1000;
+        const int max_block_size = (block->flags & CODEBLOCK_BYTE_MASK) ? ((128 - 25) - (start_pc & 0x3f)) : (ndr_virtualize_mode ? (1000 * VIRT_TB_MULT) : 1000);
 #    else
         start_pc = cpu_state.pc;
 #    endif
@@ -574,14 +620,14 @@ exec386_dynarec_dyn(void)
                 cpu_state.pc &= 0xffff;
 #    endif
 
-                /* Cap source code at 4000 bytes per block; this
-                   will prevent any block from spanning more than
-                   2 pages. In practice this limit will never be
-                   hit, as host block size is only 2kB*/
+            /* Cap source code at 4000 bytes per block; this
+               will prevent any block from spanning more than
+               2 pages. In practice this limit will never be
+               hit, as host block size is only 2kB*/
 #    ifdef USE_NEW_DYNAREC
             if (((cs + cpu_state.pc) - start_pc) >= max_block_size)
 #    else
-            if ((cpu_state.pc - start_pc) > 1000)
+            if ((cpu_state.pc - start_pc) > (ndr_virtualize_mode ? (1000 * VIRT_TB_MULT) : 1000))
 #    endif
                 CPU_BLOCK_END();
 
@@ -630,7 +676,7 @@ exec386_dynarec_dyn(void)
         /* Mark block but do not recompile */
 #    ifdef USE_NEW_DYNAREC
         start_pc                 = cs + cpu_state.pc;
-        const int max_block_size = (block->flags & CODEBLOCK_BYTE_MASK) ? ((128 - 25) - (start_pc & 0x3f)) : 1000;
+        const int max_block_size = (block->flags & CODEBLOCK_BYTE_MASK) ? ((128 - 25) - (start_pc & 0x3f)) : (ndr_virtualize_mode ? (1000 * VIRT_TB_MULT) : 1000);
 #    else
         start_pc = cpu_state.pc;
 #    endif
@@ -676,14 +722,14 @@ exec386_dynarec_dyn(void)
                 cpu_state.pc &= 0xffff;
 #    endif
 
-                /* Cap source code at 4000 bytes per block; this
-                   will prevent any block from spanning more than
-                   2 pages. In practice this limit will never be
-                   hit, as host block size is only 2kB */
+            /* Cap source code at 4000 bytes per block; this
+               will prevent any block from spanning more than
+               2 pages. In practice this limit will never be
+               hit, as host block size is only 2kB */
 #    ifdef USE_NEW_DYNAREC
             if (((cs + cpu_state.pc) - start_pc) >= max_block_size)
 #    else
-            if ((cpu_state.pc - start_pc) > 1000)
+            if ((cpu_state.pc - start_pc) > (ndr_virtualize_mode ? (1000 * VIRT_TB_MULT) : 1000))
 #    endif
                 CPU_BLOCK_END();
 
@@ -754,114 +800,142 @@ exec386_dynarec(int32_t cycs)
         cycles += cyc_period;
         cycles_start = cycles;
 
-        while (cycles > 0) {
-#    ifndef USE_NEW_DYNAREC
-            oldcs           = CS;
-            cpu_state.oldpc = cpu_state.pc;
-            oldcpl          = CPL;
-            cpu_state.op32  = use32;
-
-            cycdiff = 0;
-#    endif
-            oldcyc = oldcyc2 = cycles;
-            cycles_old       = cycles;
-            oldtsc           = tsc;
-            tsc_old          = tsc;
-            if ((!CACHE_ON()) || cpu_override_dynarec) /*Interpret block*/
-            {
+        if (ndr_virtualize_mode) {
+            oldcyc     = cycles;
+            cycles_old = cycles;
+            oldtsc     = tsc;
+            tsc_old    = tsc;
+            if ((!CACHE_ON()) || cpu_override_dynarec)
                 exec386_dynarec_int();
-            } else {
+            else
                 exec386_dynarec_dyn();
-            }
-
-            if (cpu_init) {
-                cpu_init = 0;
-                resetx86();
-            }
-
-            if (cpu_state.abrt) {
-                flags_rebuild();
-                tempi          = cpu_state.abrt & ABRT_MASK;
-                cpu_state.abrt = 0;
-                x86_doabrt(tempi);
-                if (cpu_state.abrt) {
-                    cpu_state.abrt = 0;
-                    cpu_state.pc   = cpu_state.oldpc;
-#    ifndef USE_NEW_DYNAREC
-                    CS = oldcs;
-#    endif
-                    pmodeint(8, 0);
-                    if (cpu_state.abrt) {
-                        cpu_state.abrt = 0;
-                        softresetx86();
-                        cpu_set_edx();
-#    ifdef ENABLE_386_DYNAREC_LOG
-                        x386_dynarec_log("Triple fault - reset\n");
-#    endif
-                    }
-                }
-            }
-
-            if (new_ne) {
-#    ifndef USE_NEW_DYNAREC
-                oldcs = CS;
-#    endif
-                cpu_state.oldpc = cpu_state.pc;
-                new_ne = 0;
-                x86_int(16);
-            }
-
-            if (smi_line)
-                enter_smm_check(0);
-            else if (nmi && nmi_enable && nmi_mask) {
-#    ifndef USE_NEW_DYNAREC
-                oldcs = CS;
-#    endif
-                cpu_state.oldpc = cpu_state.pc;
-                x86_int(2);
-                nmi_enable = 0;
-#    ifdef OLD_NMI_BEHAVIOR
-                if (nmi_auto_clear) {
-                    nmi_auto_clear = 0;
-                    nmi            = 0;
-                }
-#    else
-                nmi = 0;
-#    endif
-            } else if ((cpu_state.flags & I_FLAG) && pic.int_pending) {
-                vector = picinterrupt();
-                if (vector != -1) {
-#    ifndef USE_NEW_DYNAREC
-                    oldcs = CS;
-#    endif
-                    cpu_state.oldpc = cpu_state.pc;
-                    x86_int(vector);
-                }
-            }
-
+            cycles  = 0;
             cycdiff = oldcyc - cycles;
             delta   = tsc - oldtsc;
             if (delta > 0) {
-                /* TSC has changed, this means interim timer processing has happened,
-                   see how much we still need to add. */
                 cycdiff -= delta;
                 if (cycdiff > 0)
                     tsc += cycdiff;
             } else {
-                /* TSC has not changed. */
                 tsc += cycdiff;
             }
-
             if (cycdiff > 0) {
                 if (TIMER_VAL_LESS_THAN_VAL(timer_target, (uint32_t) tsc))
                     timer_process();
             }
-
 #    ifdef USE_GDBSTUB
             if (gdbstub_instruction())
                 return;
 #    endif
-        }
+        } else
+            while (cycles > 0) {
+#    ifndef USE_NEW_DYNAREC
+                oldcs           = CS;
+                cpu_state.oldpc = cpu_state.pc;
+                oldcpl          = CPL;
+                cpu_state.op32  = use32;
+
+                cycdiff = 0;
+#    endif
+                oldcyc = oldcyc2 = cycles;
+                cycles_old       = cycles;
+                oldtsc           = tsc;
+                tsc_old          = tsc;
+                if ((!CACHE_ON()) || cpu_override_dynarec) /*Interpret block*/
+                {
+                    exec386_dynarec_int();
+                } else {
+                    exec386_dynarec_dyn();
+                }
+
+                if (cpu_init) {
+                    cpu_init = 0;
+                    resetx86();
+                }
+
+                if (cpu_state.abrt) {
+                    flags_rebuild();
+                    tempi          = cpu_state.abrt & ABRT_MASK;
+                    cpu_state.abrt = 0;
+                    x86_doabrt(tempi);
+                    if (cpu_state.abrt) {
+                        cpu_state.abrt = 0;
+                        cpu_state.pc   = cpu_state.oldpc;
+#    ifndef USE_NEW_DYNAREC
+                        CS = oldcs;
+#    endif
+                        pmodeint(8, 0);
+                        if (cpu_state.abrt) {
+                            cpu_state.abrt = 0;
+                            softresetx86();
+                            cpu_set_edx();
+#    ifdef ENABLE_386_DYNAREC_LOG
+                            x386_dynarec_log("Triple fault - reset\n");
+#    endif
+                        }
+                    }
+                }
+
+                if (new_ne) {
+#    ifndef USE_NEW_DYNAREC
+                    oldcs = CS;
+#    endif
+                    cpu_state.oldpc = cpu_state.pc;
+                    new_ne          = 0;
+                    x86_int(16);
+                }
+
+                if (smi_line)
+                    enter_smm_check(0);
+                else if (nmi && nmi_enable && nmi_mask) {
+#    ifndef USE_NEW_DYNAREC
+                    oldcs = CS;
+#    endif
+                    cpu_state.oldpc = cpu_state.pc;
+                    x86_int(2);
+                    nmi_enable = 0;
+#    ifdef OLD_NMI_BEHAVIOR
+                    if (nmi_auto_clear) {
+                        nmi_auto_clear = 0;
+                        nmi            = 0;
+                    }
+#    else
+                    nmi = 0;
+#    endif
+                } else if ((cpu_state.flags & I_FLAG) && pic.int_pending) {
+                    vector = picinterrupt();
+                    if (vector != -1) {
+#    ifndef USE_NEW_DYNAREC
+                        oldcs = CS;
+#    endif
+                        cpu_state.oldpc = cpu_state.pc;
+                        x86_int(vector);
+                    }
+                }
+
+                cycdiff = oldcyc - cycles;
+                delta   = tsc - oldtsc;
+                if (delta > 0) {
+                    /* TSC has changed, this means interim timer processing has happened,
+                       see how much we still need to add. */
+                    cycdiff -= delta;
+                    if (cycdiff > 0)
+                        tsc += cycdiff;
+                } else {
+                    /* TSC has not changed. */
+                    tsc += cycdiff;
+                }
+
+                if (cycdiff > 0) {
+                    if (TIMER_VAL_LESS_THAN_VAL(timer_target, (uint32_t) tsc))
+                        timer_process();
+                }
+
+#    ifdef USE_GDBSTUB
+                if (gdbstub_instruction())
+                    return;
+#    endif
+            }
 
         cycles_main -= (cycles_start - cycles);
     }
@@ -967,7 +1041,7 @@ exec386(int32_t cycs)
 block_ended:
 #endif
             if (cpu_state.abrt) {
-                uint8_t oop    = opcode;
+                uint8_t oop = opcode;
                 flags_rebuild();
                 tempi          = cpu_state.abrt & ABRT_MASK;
                 cpu_state.abrt = 0;
@@ -992,7 +1066,7 @@ block_ended:
                 }
 
 #ifdef USE_DEBUG_REGS_486
-                if (is386 && !x86_was_reset  && ins_fetch_fault)
+                if (is386 && !x86_was_reset && ins_fetch_fault)
                     x86gen();
 #endif
             } else if (new_ne) {
@@ -1007,8 +1081,10 @@ block_ended:
             } else if (trap) {
                 flags_rebuild();
 #ifdef USE_DEBUG_REGS_486
-                if (trap & 2) dr[6] |= 0x8000;
-                if (trap & 1) dr[6] |= 0x4000;
+                if (trap & 2)
+                    dr[6] |= 0x8000;
+                if (trap & 1)
+                    dr[6] |= 0x4000;
 #endif
                 trap = 0;
 #ifndef USE_NEW_DYNAREC
