@@ -21,7 +21,7 @@
 #ifndef VIRT_TB_MULT
 #    define VIRT_TB_MULT 4
 #endif
-#if defined(__GNUC__)
+#if defined(__GNUC__) && !defined(__clang__)
 #    define HAVE_LABELS_AS_VALUES 1
 #else
 #    define HAVE_LABELS_AS_VALUES 0
@@ -47,6 +47,12 @@
 #include <86box/plat_fallthrough.h>
 #include <86box/plat_unused.h>
 #include <86box/gdbstub.h>
+#ifndef LIKELY
+#    define LIKELY(x)   __builtin_expect(!!(x), 1)
+#endif
+#ifndef UNLIKELY
+#    define UNLIKELY(x) __builtin_expect(!!(x), 0)
+#endif
 #ifdef USE_DYNAREC
 #    include "codegen.h"
 #    ifdef USE_NEW_DYNAREC
@@ -317,7 +323,7 @@ update_tsc(void)
     }
 }
 
-ALWAYS_INLINE
+ALWAYS_INLINE void
 exec386_dynarec_int(void)
 {
     cpu_block_end = 0;
@@ -420,11 +426,10 @@ block_ended:
 }
 
 #    if defined(__linux__) && !defined(__clang__) && defined(USE_NEW_DYNAREC)
-ALWAYS_INLINE __attribute__((optimize("O2")))
+ALWAYS_INLINE void __attribute__((optimize("O2"))) exec386_dynarec_dyn(void)
 #    else
-ALWAYS_INLINE
+ALWAYS_INLINE void exec386_dynarec_dyn(void)
 #    endif
-exec386_dynarec_dyn(void)
 {
     uint32_t start_pc  = 0;
     uint32_t phys_addr = get_phys(cs + cpu_state.pc);
