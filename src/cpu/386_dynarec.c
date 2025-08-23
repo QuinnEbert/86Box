@@ -790,7 +790,7 @@ exec386_dynarec(int32_t cycs)
     uint64_t oldtsc;
     uint64_t delta;
 
-    int32_t cyc_period = cycs / 2000; /*5us*/
+    int32_t cyc_period = cycs / (force_10ms ? 2000 : 200); /*5us*/
 
     if (ndr_virtualize_mode)
         cyc_period = cycs;

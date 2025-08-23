@@ -643,9 +643,10 @@ ega_recalctimings(ega_t *ega)
         crtcconst *= mdiv;
     } else {
         if (ega->vidclock)
-            crtcconst = (ega->seqregs[1] & 1) ? MDACONST : (MDACONST * (9.0 / 8.0));
+            crtcconst = (cpuclock / 16257000.0 * (double) (1ULL << 32));
         else
-            crtcconst = (ega->seqregs[1] & 1) ? CGACONST : (CGACONST * (9.0 / 8.0));
+            crtcconst = (cpuclock / (157500000.0 / 11.0) * (double) (1ULL << 32));
+        crtcconst *= mdiv;
     }
     ega->dot_clock = crtcconst / mdiv;
 
@@ -1895,7 +1896,7 @@ const device_t cpqega_device = {
 };
 
 const device_t sega_device = {
-    .name          = "SuperEGA",
+    .name          = "Chips & Technologies SuperEGA",
     .internal_name = "superega",
     .flags         = DEVICE_ISA,
     .local         = EGA_SUPEREGA,

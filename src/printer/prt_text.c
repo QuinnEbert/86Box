@@ -63,12 +63,14 @@
 #include <86box/lpt.h>
 #include <86box/printer.h>
 #include <86box/prt_devs.h>
+#include "cpu.h"
+#include <86box/prt_papersizes.h>
 
 #define FULL_PAGE 1 /* set if no top/bot margins */
 
 /* Default page values (for now.) */
-#define PAGE_WIDTH   8.5 /* standard U.S. Letter */
-#define PAGE_HEIGHT  11
+#define PAGE_WIDTH  LETTER_PAGE_WIDTH
+#define PAGE_HEIGHT LETTER_PAGE_HEIGHT
 #define PAGE_LMARGIN 0.25 /* 0.25" left and right */
 #define PAGE_RMARGIN 0.25
 #if FULL_PAGE
@@ -391,6 +393,14 @@ strobe(uint8_t old, uint8_t val, void *priv)
         /* Process incoming character. */
         handle_char(dev);
 
+        if (timer_is_enabled(&dev->timeout_timer)) {
+            timer_disable(&dev->timeout_timer);
+#ifdef USE_DYNAREC
+            if (cpu_use_dynarec)
+                update_tsc();
+#endif
+        }
+
         /* ACK it, will be read on next READ STATUS. */
         dev->ack = 1;
 
@@ -428,6 +438,14 @@ write_ctrl(uint8_t val, void *priv)
 
         /* ACK it, will be read on next READ STATUS. */
         dev->ack = 1;
+
+        if (timer_is_enabled(&dev->timeout_timer)) {
+            timer_disable(&dev->timeout_timer);
+#ifdef USE_DYNAREC
+            if (cpu_use_dynarec)
+                update_tsc();
+#endif
+        }
 
         timer_set_delay_u64(&dev->pulse_timer, ISACONST);
         timer_set_delay_u64(&dev->timeout_timer, 5000000 * TIMER_USEC);
@@ -496,6 +514,47 @@ prnt_close(void *priv)
     free(dev);
 }
 
+// clang-format off
+#if 0
+static const device_config_t lpt_prt_text_config[] = {
+    {
+        .name           = "paper_size",
+        .description    = "Paper Size",
+        .type           = CONFIG_SELECTION,
+        .default_string = NULL,
+        .default_int    = 0,
+        .file_filter    = NULL,
+        .spinner        = { 0 },
+        .selection      = {
+            { .description = "Letter", .value = 0 },
+            { .description = "A4",     .value = 1 },
+            { .description = ""                   }
+        },
+        .bios           = { { 0 } }
+    },
+    { .name = "", .description = "", .type = CONFIG_END }
+};
+#endif
+// clang-format on
+
+const device_t prt_text_device = {
+    .name          = "Generic Text Printer",
+    .internal_name = "text_prt",
+    .flags         = DEVICE_LPT,
+    .local         = 0,
+    .init          = NULL,
+    .close         = NULL,
+    .reset         = NULL,
+    .available     = NULL,
+    .speed_changed = NULL,
+    .force_redraw  = NULL,
+#if 0
+    .config        = lpt_prt_text_config
+#else
+    .config        = NULL
+#endif
+};
+
 const lpt_device_t lpt_prt_text_device = {
     .name             = "Generic Text Printer",
     .internal_name    = "text_prt",
@@ -508,5 +567,8 @@ const lpt_device_t lpt_prt_text_device = {
     .read_status      = read_status,
     .read_ctrl        = NULL,
     .epp_write_data   = NULL,
-    .epp_request_read = NULL
+    .epp_request_read = NULL,
+    .priv             = NULL,
+    .lpt              = NULL,
+    .cfgdevice        = (device_t *) &prt_text_device
 };

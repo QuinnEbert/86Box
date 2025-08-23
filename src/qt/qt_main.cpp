@@ -57,12 +57,17 @@ extern "C" {
 #include <86box/gdbstub.h>
 #include <86box/version.h>
 #include <86box/renderdefs.h>
+#ifdef Q_OS_LINUX
+#define GAMEMODE_AUTO
+#include "../unix/gamemode/gamemode_client.h"
+#endif
 }
 
 #ifdef Q_OS_WINDOWS
 #    include "qt_rendererstack.hpp"
 #    include "qt_winrawinputfilter.hpp"
 #    include "qt_winmanagerfilter.hpp"
+#    include "qt_vmmanager_windarkmodefilter.hpp"
 #    include <86box/win.h>
 #    include <shobjidl.h>
 #    include <windows.h>
@@ -103,6 +108,8 @@ bool cpu_thread_running = false;
 void qt_set_sequence_auto_mnemonic(bool b);
 
 #ifdef Q_OS_WINDOWS
+bool acp_utf8 = false;
+
 static void
 keyboard_getkeymap()
 {
@@ -450,7 +457,7 @@ main_thread_fn()
 #endif
 #ifdef USE_GDBSTUB
         if (gdbstub_next_asap && (drawits <= 0))
-            drawits = 10;
+            drawits = force_10ms ? 10 : 1;
         else
 #endif
             drawits += static_cast<int>(new_time - old_time);
@@ -503,7 +510,7 @@ main_thread_fn()
                 slow_counter = 0;
         } else if (drawits > 0 && !dopause) {
             /* Yes, so do one frame now. */
-            drawits -= 10;
+            drawits -= force_10ms ? 10 : 1;
             if (drawits > 50)
                 drawits = 0;
 
@@ -522,8 +529,8 @@ main_thread_fn()
                     break;
             }
 #endif
-            /* Every 200 frames we save the machine status. */
-            if (++frames >= 200 && nvr_dosave) {
+            /* Every 2 emulated seconds we save the machine status. */
+            if (++frames >= (force_10ms ? 200 : 2000) && nvr_dosave) {
                 qt_nvr_save();
                 nvr_dosave = 0;
                 frames     = 0;
@@ -558,13 +565,16 @@ main_thread_fn()
 
 static std::thread *main_thread;
 
-#ifdef Q_OS_WINDOWS
-extern bool windows_is_light_theme();
-#endif
-
 int
 main(int argc, char *argv[])
 {
+#ifdef Q_OS_WINDOWS
+    /* Check if Windows supports UTF-8 */
+    if (GetACP() == CP_UTF8)
+	    acp_utf8 = 1;
+    else
+	    acp_utf8 = 0;
+#endif
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     QApplication::setAttribute(Qt::AA_DisableHighDpiScaling, false);
     QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
@@ -580,9 +590,12 @@ main(int argc, char *argv[])
 
 #ifdef Q_OS_WINDOWS
     Q_INIT_RESOURCE(darkstyle);
+    if (QFile(QApplication::applicationDirPath() + "/opengl32.dll").exists()) {
+        qputenv("QT_OPENGL_DLL", QFileInfo(QApplication::applicationDirPath() + "/opengl32.dll").absoluteFilePath().toUtf8());
+    }
     QApplication::setAttribute(Qt::AA_NativeWindows);
 
-    if (!windows_is_light_theme()) {
+    if (!util::isWindowsLightTheme()) {
         QFile f(":qdarkstyle/dark/darkstyle.qss");
 
         if (!f.exists())   {
@@ -592,16 +605,18 @@ main(int argc, char *argv[])
             QTextStream ts(&f);
             qApp->setStyleSheet(ts.readAll());
         }
+        QPalette palette(qApp->palette());
+        palette.setColor(QPalette::Link, Qt::white);
+        palette.setColor(QPalette::LinkVisited, Qt::lightGray);
+        qApp->setPalette(palette);
     }
 #endif
 
-    qt_set_sequence_auto_mnemonic(false);
     Q_INIT_RESOURCE(qt_resources);
     Q_INIT_RESOURCE(qt_translations);
     QSurfaceFormat fmt = QSurfaceFormat::defaultFormat();
     fmt.setSwapInterval(0);
     QSurfaceFormat::setDefaultFormat(fmt);
-    app.setStyle(new StyleOverride());
 
 #ifdef __APPLE__
     CocoaEventFilter cocoafilter;
@@ -619,6 +634,14 @@ main(int argc, char *argv[])
     if (!pc_init(argc, argv)) {
         return 0;
     }
+
+    if (!start_vmm)
+#ifdef Q_OS_MACOS
+        qt_set_sequence_auto_mnemonic(false);
+#else
+        qt_set_sequence_auto_mnemonic(!!kbd_req_capture);
+#endif
+    app.setStyle(new StyleOverride());
 
     bool startMaximized = window_remember && monitor_settings[0].mon_window_maximized;
     fprintf(stderr, "Qt: version %s, platform \"%s\"\n", qVersion(), QApplication::platformName().toUtf8().data());
@@ -663,6 +686,34 @@ main(int argc, char *argv[])
         return 6;
     }
 
+    if (start_vmm) {
+        // VMManagerMain vmm;
+        // // Hackish until there is a proper solution
+        // QApplication::setApplicationName("86Box VM Manager");
+        // QApplication::setApplicationDisplayName("86Box VM Manager");
+        // vmm.show();
+        // vmm.exec();
+#ifdef Q_OS_WINDOWS
+        auto darkModeFilter = std::unique_ptr<WindowsDarkModeFilter>(new WindowsDarkModeFilter());
+        if (darkModeFilter) {
+            qApp->installNativeEventFilter(darkModeFilter.get());
+        }
+        QTimer::singleShot(0, [&darkModeFilter] {
+#else
+        QTimer::singleShot(0, [] {
+#endif
+            const auto vmm_main_window = new VMManagerMainWindow();
+#ifdef Q_OS_WINDOWS
+            darkModeFilter.get()->setWindow(vmm_main_window);
+#endif
+            vmm_main_window->show();
+        });
+        QApplication::exec();
+        return 0;
+    }
+
+    pc_init_modules();
+
     // UUID / copy / move detection
     if(!util::compareUuid()) {
         QMessageBox movewarnbox;
@@ -705,6 +756,11 @@ main(int argc, char *argv[])
 #endif
 
     if (settings_only) {
+        VMManagerClientSocket manager_socket;
+        if (qgetenv("VMM_86BOX_SOCKET").size()) {
+            manager_socket.IPCConnect(qgetenv("VMM_86BOX_SOCKET"));
+            manager_socket.clientRunningStateChanged(VMManagerProtocol::RunningState::PausedWaiting);
+        }
         Settings settings;
         if (settings.exec() == QDialog::Accepted) {
             settings.save();
@@ -723,19 +779,6 @@ main(int argc, char *argv[])
         warningbox.exec();
         if (warningbox.result() == QDialog::Accepted)
               return 0;
-    }
-
-    if (vmm_enabled) {
-        // VMManagerMain vmm;
-        // // Hackish until there is a proper solution
-        // QApplication::setApplicationName("86Box VM Manager");
-        // QApplication::setApplicationDisplayName("86Box VM Manager");
-        // vmm.show();
-        // vmm.exec();
-        const auto vmm_main_window = new VMManagerMainWindow();
-        vmm_main_window->show();
-        QApplication::exec();
-        return 0;
     }
 
 #ifdef DISCORD
@@ -847,7 +890,10 @@ main(int argc, char *argv[])
             emit main_window->close();
         });
         QObject::connect(main_window, &MainWindow::vmmRunningStateChanged, &manager_socket, &VMManagerClientSocket::clientRunningStateChanged);
+        QObject::connect(main_window, &MainWindow::vmmConfigurationChanged, &manager_socket, &VMManagerClientSocket::configurationChanged);
         main_window->installEventFilter(&manager_socket);
+
+        manager_socket.sendWinIdMessage(main_window->winId());
     }
 
     // pc_reset_hard_init();
