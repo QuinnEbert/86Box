@@ -35,3 +35,4 @@ CMakeLists.txt text
 *.png binary
 *.jpg binary
 *.dat
+.github/** merge=ours
