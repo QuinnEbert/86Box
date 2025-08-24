@@ -1,6 +1,14 @@
 #ifndef EMU_MACHINE_STATUS_H
 #define EMU_MACHINE_STATUS_H
 
+#include <86box/plat.h>
+#include <86box/fdd.h>
+#include <86box/cdrom.h>
+#include <86box/rdisk.h>
+#include <86box/mo.h>
+#include <86box/hdd.h>
+#include <86box/network.h>
+
 typedef struct dev_status_empty_active_t {
     atomic_bool_t empty;
     atomic_bool_t active;
