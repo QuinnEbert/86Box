@@ -1259,11 +1259,52 @@ main(int argc, char **argv)
     if (ret == 0)
         return 0;
     if (!pc_init_roms()) {
-        ui_msgbox_header(MBX_FATAL, L"No ROMs found.", L"86Box could not find any usable ROM images.\n\nPlease download a ROM set and extract it into the \"roms\" directory.");
+#ifdef __APPLE__
+        wchar_t msg[2048]  = { 0 };
+        wchar_t paths[2048] = { 0 };
+        for (rom_path_t *rom_path = &rom_paths; rom_path != NULL; rom_path = rom_path->next) {
+            if (rom_path->path[0]) {
+                wchar_t wpath[1024] = { 0 };
+                mbstowcs(wpath, rom_path->path, 1023);
+                wcsncat(paths, L"\n • ", sizeof_w(paths) - wcslen(paths) - 1);
+                wcsncat(paths, wpath, sizeof_w(paths) - wcslen(paths) - 1);
+            }
+        }
+        swprintf(msg, sizeof_w(msg),
+                 L"86Box could not find any usable ROM images.\n\n"
+                 L"Please download a ROM set and extract it into one of the following directories:%ls",
+                 paths);
+        ui_msgbox_header(MBX_FATAL, L"No ROMs found.", msg);
+#else
+        ui_msgbox_header(MBX_FATAL, L"No ROMs found.",
+                         L"86Box could not find any usable ROM images.\n\nPlease download a ROM set and extract it into the \"roms\" directory.");
+#endif
         SDL_Quit();
         return 6;
     }
     pc_init_modules();
+#ifdef __APPLE__
+    const char *missing = device_get_missing_roms();
+    if (missing && missing[0]) {
+        wchar_t wmissing[1024] = { 0 };
+        mbstowcs(wmissing, missing, 1023);
+        wchar_t paths[2048] = { 0 };
+        for (rom_path_t *rom_path = &rom_paths; rom_path != NULL; rom_path = rom_path->next) {
+            if (rom_path->path[0]) {
+                wchar_t wpath[1024] = { 0 };
+                mbstowcs(wpath, rom_path->path, 1023);
+                wcsncat(paths, L"\n • ", sizeof_w(paths) - wcslen(paths) - 1);
+                wcsncat(paths, wpath, sizeof_w(paths) - wcslen(paths) - 1);
+            }
+        }
+        wchar_t msg[4096] = { 0 };
+        swprintf(msg, sizeof_w(msg),
+                 L"86Box could not find the following ROM files:\n%ls\n\n"
+                 L"Please make sure these files are present in one of the following directories:%ls",
+                 wmissing, paths);
+        ui_msgbox_header(MBX_WARNING, L"Missing ROM files", msg);
+    }
+#endif
 
     for (uint8_t i = 1; i < GFXCARD_MAX; i++)
         gfxcard[i]  = 0;
