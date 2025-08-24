@@ -100,7 +100,7 @@ jobs:
 
       - name: Fix app permissions
         run: |
-          find build/artifacts -path "*.app/Contents/MacOS/*" -type f -exec chmod +x {} \;
+          find build/artifacts -path "*.app/Contents/MacOS/*" -type f -exec chmod 755 {} \;
 
       - name: Ad-hoc sign app
         run: |
@@ -108,12 +108,19 @@ jobs:
             codesign --force --deep -s - "$app"
           done
 
+      - name: Zip apps on macOS with ditto
+        run: |
+          for app in build/artifacts/*.app; do
+            base="$(basename "$app" .app)"
+            /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$app" "build/artifacts/${base}.zip"
+          done
+
       - name: Upload artifact
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: '86Box${{ matrix.ui.slug }}${{ matrix.dynarec.slug }}${{ matrix.build.slug }}-macOS-x86_64-gha${{ github.run_number }}'
-          path: build/artifacts/**
+          path: build/artifacts/*.zip
           if-no-files-found: ignore
 
   macos14-arm64:
@@ -189,7 +196,7 @@ jobs:
 
       - name: Fix app permissions
         run: |
-          find build/artifacts -path "*.app/Contents/MacOS/*" -type f -exec chmod +x {} \;
+          find build/artifacts -path "*.app/Contents/MacOS/*" -type f -exec chmod 755 {} \;
 
       - name: Ad-hoc sign app
         run: |
@@ -197,12 +204,19 @@ jobs:
             codesign --force --deep -s - "$app"
           done
 
+      - name: Zip apps on macOS with ditto
+        run: |
+          for app in build/artifacts/*.app; do
+            base="$(basename "$app" .app)"
+            /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$app" "build/artifacts/${base}.zip"
+          done
+
       - name: Upload artifact
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: '86Box${{ matrix.ui.slug }}${{ matrix.dynarec.slug }}${{ matrix.build.slug }}-macOS-arm64-gha${{ github.run_number }}'
-          path: build/artifacts/**
+          path: build/artifacts/*.zip
           if-no-files-found: ignore
 
 # ────────────────────────────────────────────────────────────────
@@ -244,10 +258,10 @@ jobs:
           fi
 
       # ─── install zip + gh cli ───────────────────────
-      - name: Install zip & gh
+      - name: Install gh
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y zip gh
+          sudo apt-get install -y gh
 
       # ─── ensure a single release ────────────────────
       - name: Ensure GitHub release exists
@@ -258,15 +272,11 @@ jobs:
           gh release view "$tag" >/dev/null 2>&1 || \
           gh release create "$tag" --title "86Box nightly – $tag" --notes ""
 
-      # ─── zip each artifact dir and upload ───────────
-      - name: Zip and upload assets
+      # ─── upload macOS-made zips only ───────────
+      - name: Upload macOS-made zips
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd /home/runner/work/86Box/86Box/dist/
-          for dir in */ ; do
-            dir="${dir%/}"
-            zip -r "${dir}.zip" "$dir"
-            echo "Uploading ${dir}.zip"
-            gh release upload "${{ steps.vars.outputs.tag }}" "${dir}.zip" --clobber
-          done
+          tag="${{ steps.vars.outputs.tag }}"
+          find . -name "*.zip" -print -exec gh release upload "$tag" {} --clobber \;
