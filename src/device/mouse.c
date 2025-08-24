@@ -46,6 +46,8 @@ int mouse_timed = 1;
 int mouse_tablet_in_proximity = 0;
 int tablet_tool_type          = 1; /* 0 = Puck/Cursor, 1 = Pen */
 
+int force_constant_mouse       = 0; /* Force constant updating of the mouse */
+
 double mouse_x_abs;
 double mouse_y_abs;
 
