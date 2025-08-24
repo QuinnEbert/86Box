@@ -98,6 +98,10 @@ jobs:
       - name: Generate package
         run: cmake --install build
 
+      - name: Fix app permissions
+        run: |
+          find build/artifacts -path "*.app/Contents/MacOS/*" -exec chmod +x {} \;
+
       - name: Upload artifact
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
@@ -176,6 +180,10 @@ jobs:
 
       - name: Generate package
         run: cmake --install build
+
+      - name: Fix app permissions
+        run: |
+          find build/artifacts -path "*.app/Contents/MacOS/*" -exec chmod +x {} \;
 
       - name: Upload artifact
         if: ${{ always() }}
