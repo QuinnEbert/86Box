@@ -34,7 +34,6 @@ extern "C" {
 #include <86box/scsi.h>
 #include <86box/scsi_device.h>
 #include <86box/sound.h>
-#include <86box/zip.h>
 #include <86box/mo.h>
 #include <86box/plat.h>
 #include <86box/machine.h>
