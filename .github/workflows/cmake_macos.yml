@@ -108,11 +108,11 @@ jobs:
             codesign --force --deep -s - "$app"
           done
 
-      - name: Zip apps on macOS with ditto
+      - name: Zip app with ditto
         run: |
+          artifact="86Box${{ matrix.ui.slug }}${{ matrix.dynarec.slug }}${{ matrix.build.slug }}-macOS-x86_64-gha${{ github.run_number }}"
           for app in build/artifacts/*.app; do
-            base="$(basename "$app" .app)"
-            /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$app" "build/artifacts/${base}.zip"
+            /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$app" "build/artifacts/${artifact}.zip"
           done
 
       - name: Upload artifact
@@ -204,11 +204,11 @@ jobs:
             codesign --force --deep -s - "$app"
           done
 
-      - name: Zip apps on macOS with ditto
+      - name: Zip app with ditto
         run: |
+          artifact="86Box${{ matrix.ui.slug }}${{ matrix.dynarec.slug }}${{ matrix.build.slug }}-macOS-arm64-gha${{ github.run_number }}"
           for app in build/artifacts/*.app; do
-            base="$(basename "$app" .app)"
-            /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$app" "build/artifacts/${base}.zip"
+            /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$app" "build/artifacts/${artifact}.zip"
           done
 
       - name: Upload artifact
