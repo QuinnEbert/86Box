@@ -34,7 +34,7 @@ jobs:
     runs-on: ${{ matrix.environment.runner }}
 
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         build:
 #          - name: Regular
@@ -121,10 +121,12 @@ jobs:
           cmake --install build
 
       - name: Upload artifact
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: '86Box${{ matrix.ui.slug }}${{ matrix.dynarec.slug }}${{ matrix.build.slug }}-UbuntuJammy${{ matrix.environment.slug }}-gha${{ github.run_number }}'
           path: build/artifacts/**
+          if-no-files-found: ignore
 
 # ────────────────────────────────────────────────────────────────
 # 2️⃣  RELEASE JOB  – zips each artifact, then uploads
