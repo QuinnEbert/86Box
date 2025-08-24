@@ -100,7 +100,13 @@ jobs:
 
       - name: Fix app permissions
         run: |
-          find build/artifacts -path "*.app/Contents/MacOS/*" -exec chmod +x {} \;
+          find build/artifacts -path "*.app/Contents/MacOS/*" -type f -exec chmod +x {} \;
+
+      - name: Ad-hoc sign app
+        run: |
+          for app in build/artifacts/*.app; do
+            codesign --force --deep -s - "$app"
+          done
 
       - name: Upload artifact
         if: ${{ always() }}
@@ -183,7 +189,13 @@ jobs:
 
       - name: Fix app permissions
         run: |
-          find build/artifacts -path "*.app/Contents/MacOS/*" -exec chmod +x {} \;
+          find build/artifacts -path "*.app/Contents/MacOS/*" -type f -exec chmod +x {} \;
+
+      - name: Ad-hoc sign app
+        run: |
+          for app in build/artifacts/*.app; do
+            codesign --force --deep -s - "$app"
+          done
 
       - name: Upload artifact
         if: ${{ always() }}
