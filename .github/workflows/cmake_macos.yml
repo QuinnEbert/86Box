@@ -34,7 +34,7 @@ jobs:
     runs-on: macos-13
 
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         build:
 #          - name: Regular
@@ -99,10 +99,12 @@ jobs:
         run: cmake --install build
 
       - name: Upload artifact
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: '86Box${{ matrix.ui.slug }}${{ matrix.dynarec.slug }}${{ matrix.build.slug }}-macOS-x86_64-gha${{ github.run_number }}'
           path: build/artifacts/**
+          if-no-files-found: ignore
 
   macos14-arm64:
 
@@ -111,7 +113,7 @@ jobs:
     runs-on: macos-14
 
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         build:
 #          - name: Regular
@@ -176,10 +178,12 @@ jobs:
         run: cmake --install build
 
       - name: Upload artifact
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: '86Box${{ matrix.ui.slug }}${{ matrix.dynarec.slug }}${{ matrix.build.slug }}-macOS-arm64-gha${{ github.run_number }}'
           path: build/artifacts/**
+          if-no-files-found: ignore
 
 # ────────────────────────────────────────────────────────────────
 # 2️⃣  RELEASE JOB  – zips each artifact, then uploads
