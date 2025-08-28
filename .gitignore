@@ -3,6 +3,7 @@ CMakeUserPresets.json
 CMakeCache.txt
 CMakeFiles
 /build
+/build-qt
 Makefile
 *.a
 /src/*.exe
