@@ -56,10 +56,37 @@ endif ()
 # TODO: Is this the correct way to do this, and is it required on any
 # other platforms or with Qt 5?
 if(APPLE AND USE_QT6)
-    find_package(Qt6Gui/Qt6QCocoaIntegrationPlugin REQUIRED)
-    find_package(Qt6Widgets/Qt6QMacStylePlugin REQUIRED)
-    find_package(Qt6Gui/Qt6QICOPlugin REQUIRED)
-    find_package(Qt6Gui/Qt6QICNSPlugin REQUIRED)
+    # Qt6 provides CMake config files for plugins under the module dirs, using
+    # names like Qt6Gui_QCocoaIntegrationPlugin.cmake. Older find_package
+    # patterns using "Qt6Gui/Qt6QCocoaIntegrationPlugin" are not portable.
+    find_package(Qt6 COMPONENTS Gui Widgets REQUIRED)
+
+    # Import Cocoa platform plugin
+    if(EXISTS "${Qt6Gui_DIR}/Qt6Gui_QCocoaIntegrationPlugin.cmake")
+        include("${Qt6Gui_DIR}/Qt6Gui_QCocoaIntegrationPlugin.cmake")
+    else()
+        message(WARNING "Qt6Gui QCocoaIntegrationPlugin not found in ${Qt6Gui_DIR}; proceeding (dynamic plugin loading expected)")
+    endif()
+
+    # Import macOS style plugin
+    if(EXISTS "${Qt6Widgets_DIR}/Qt6Widgets_QMacStylePlugin.cmake")
+        include("${Qt6Widgets_DIR}/Qt6Widgets_QMacStylePlugin.cmake")
+    else()
+        message(WARNING "Qt6Widgets QMacStylePlugin not found in ${Qt6Widgets_DIR}; proceeding (dynamic plugin loading expected)")
+    endif()
+
+    # Import icon plugins
+    if(EXISTS "${Qt6Gui_DIR}/Qt6Gui_QICOPlugin.cmake")
+        include("${Qt6Gui_DIR}/Qt6Gui_QICOPlugin.cmake")
+    else()
+        message(WARNING "Qt6Gui QICOPlugin not found in ${Qt6Gui_DIR}; proceeding (dynamic plugin loading expected)")
+    endif()
+
+    if(EXISTS "${Qt6Gui_DIR}/Qt6Gui_QICNSPlugin.cmake")
+        include("${Qt6Gui_DIR}/Qt6Gui_QICNSPlugin.cmake")
+    else()
+        message(WARNING "Qt6Gui QICNSPlugin not found in ${Qt6Gui_DIR}; proceeding (dynamic plugin loading expected)")
+    endif()
 endif()
 
 if (UNIX)

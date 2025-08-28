@@ -791,6 +791,35 @@ MainWindow::MainWindow(QWidget *parent)
     actGroup->addAction(ui->actionSlow_Turbo_3_cycles);
     actGroup->addAction(ui->actionSlow_Turbo_4_cycles);
 
+    /* Initialize Turbo Batch menu */
+    switch (turbo_batch_ms) {
+        case -1:
+            ui->actionTurbo_Batch_Unlimited->setChecked(true);
+            break;
+        case 8:
+            ui->actionTurbo_Batch_8ms->setChecked(true);
+            break;
+        case 16:
+            ui->actionTurbo_Batch_16ms->setChecked(true);
+            break;
+        case 32:
+            ui->actionTurbo_Batch_32ms->setChecked(true);
+            break;
+        case 64:
+            ui->actionTurbo_Batch_64ms->setChecked(true);
+            break;
+        default:
+            ui->actionTurbo_Batch_Auto->setChecked(true);
+            break;
+    }
+    actGroup = new QActionGroup(this);
+    actGroup->addAction(ui->actionTurbo_Batch_Auto);
+    actGroup->addAction(ui->actionTurbo_Batch_8ms);
+    actGroup->addAction(ui->actionTurbo_Batch_16ms);
+    actGroup->addAction(ui->actionTurbo_Batch_32ms);
+    actGroup->addAction(ui->actionTurbo_Batch_64ms);
+    actGroup->addAction(ui->actionTurbo_Batch_Unlimited);
+
     ui->actionVirtualized_CPU->setEnabled(turbo_mode || turbo_slow_cycles > 0);
     ui->actionVirtualized_CPU->setChecked(virtualized_cpu > 0);
     update_virtualized_tooltip(ui);
@@ -1282,6 +1311,42 @@ void
 MainWindow::on_actionSlow_Turbo_4_cycles_triggered()
 {
     update_slow_turbo_checkboxes(ui, ui->actionSlow_Turbo_4_cycles, 25);
+}
+
+void
+MainWindow::on_actionTurbo_Batch_Auto_triggered()
+{
+    update_turbo_batch_checkboxes(ui, ui->actionTurbo_Batch_Auto, 0);
+}
+
+void
+MainWindow::on_actionTurbo_Batch_8ms_triggered()
+{
+    update_turbo_batch_checkboxes(ui, ui->actionTurbo_Batch_8ms, 8);
+}
+
+void
+MainWindow::on_actionTurbo_Batch_16ms_triggered()
+{
+    update_turbo_batch_checkboxes(ui, ui->actionTurbo_Batch_16ms, 16);
+}
+
+void
+MainWindow::on_actionTurbo_Batch_32ms_triggered()
+{
+    update_turbo_batch_checkboxes(ui, ui->actionTurbo_Batch_32ms, 32);
+}
+
+void
+MainWindow::on_actionTurbo_Batch_64ms_triggered()
+{
+    update_turbo_batch_checkboxes(ui, ui->actionTurbo_Batch_64ms, 64);
+}
+
+void
+MainWindow::on_actionTurbo_Batch_Unlimited_triggered()
+{
+    update_turbo_batch_checkboxes(ui, ui->actionTurbo_Batch_Unlimited, -1);
 }
 
 void
@@ -1931,6 +1996,20 @@ update_slow_turbo_checkboxes(Ui::MainWindow *ui, QAction *selected, int value)
 }
 
 static void
+update_turbo_batch_checkboxes(Ui::MainWindow *ui, QAction *selected, int value)
+{
+    ui->actionTurbo_Batch_Auto->setChecked(ui->actionTurbo_Batch_Auto == selected);
+    ui->actionTurbo_Batch_8ms->setChecked(ui->actionTurbo_Batch_8ms == selected);
+    ui->actionTurbo_Batch_16ms->setChecked(ui->actionTurbo_Batch_16ms == selected);
+    ui->actionTurbo_Batch_32ms->setChecked(ui->actionTurbo_Batch_32ms == selected);
+    ui->actionTurbo_Batch_64ms->setChecked(ui->actionTurbo_Batch_64ms == selected);
+    ui->actionTurbo_Batch_Unlimited->setChecked(ui->actionTurbo_Batch_Unlimited == selected);
+
+    turbo_batch_ms = value;
+    config_save();
+}
+
+static void
 update_virtualized_tooltip(Ui::MainWindow *ui)
 {
     if (virtualized_cpu)
@@ -2565,4 +2644,3 @@ void MainWindow::on_actionCGA_composite_settings_triggered()
     isNonPause = false;
     config_save();
 }
-

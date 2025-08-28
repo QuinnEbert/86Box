@@ -90,6 +90,12 @@ private slots:
     void on_actionSlow_Turbo_2_cycles_triggered();
     void on_actionSlow_Turbo_3_cycles_triggered();
     void on_actionSlow_Turbo_4_cycles_triggered();
+    void on_actionTurbo_Batch_Auto_triggered();
+    void on_actionTurbo_Batch_8ms_triggered();
+    void on_actionTurbo_Batch_16ms_triggered();
+    void on_actionTurbo_Batch_32ms_triggered();
+    void on_actionTurbo_Batch_64ms_triggered();
+    void on_actionTurbo_Batch_Unlimited_triggered();
     void on_actionVirtualized_CPU_triggered();
     void on_actionCtrl_Alt_Del_triggered();
     void on_actionCtrl_Alt_Esc_triggered();

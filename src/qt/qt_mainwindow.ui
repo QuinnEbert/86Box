@@ -78,6 +78,17 @@
      <addaction name="actionSlow_Turbo_3_cycles"/>
      <addaction name="actionSlow_Turbo_4_cycles"/>
     </widget>
+    <widget class="QMenu" name="menuTurbo_batch">
+     <property name="title">
+      <string>Turbo Batch</string>
+     </property>
+     <addaction name="actionTurbo_Batch_Auto"/>
+     <addaction name="actionTurbo_Batch_8ms"/>
+     <addaction name="actionTurbo_Batch_16ms"/>
+     <addaction name="actionTurbo_Batch_32ms"/>
+     <addaction name="actionTurbo_Batch_64ms"/>
+     <addaction name="actionTurbo_Batch_Unlimited"/>
+    </widget>
     <addaction name="actionAuto_pause"/>
     <addaction name="separator"/>
     <addaction name="actionKeyboard_requires_capture"/>
@@ -89,6 +100,7 @@
     <addaction name="actionPause"/>
     <addaction name="actionTurbo_mode"/>
     <addaction name="menuSlow_turbo"/>
+    <addaction name="menuTurbo_batch"/>
     <addaction name="actionVirtualized_CPU"/>
     <addaction name="separator"/>
     <addaction name="actionHard_Reset"/>
@@ -452,7 +464,7 @@
       <string>25 Cycle Skip</string>
      </property>
     </action>
-    <action name="actionVirtualized_CPU">
+  <action name="actionVirtualized_CPU">
      <property name="checkable">
       <bool>true</bool>
      </property>
@@ -469,6 +481,54 @@
    </property>
    <property name="menuRole">
     <enum>QAction::MenuRole::QuitRole</enum>
+   </property>
+  </action>
+  <action name="actionTurbo_Batch_Auto">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Auto (recommended)</string>
+   </property>
+  </action>
+  <action name="actionTurbo_Batch_8ms">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>8 ms</string>
+   </property>
+  </action>
+  <action name="actionTurbo_Batch_16ms">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>16 ms</string>
+   </property>
+  </action>
+  <action name="actionTurbo_Batch_32ms">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>32 ms</string>
+   </property>
+  </action>
+  <action name="actionTurbo_Batch_64ms">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>64 ms</string>
+   </property>
+  </action>
+  <action name="actionTurbo_Batch_Unlimited">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Unlimited (max speed)</string>
    </property>
   </action>
   <action name="actionSettings">

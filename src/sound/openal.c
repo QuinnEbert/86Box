@@ -26,9 +26,30 @@
 #define AL_LIBTYPE_STATIC
 #define ALC_LIBTYPE_STATIC
 
-#include "AL/al.h"
-#include "AL/alc.h"
-#include "AL/alext.h"
+/* Support both OpenAL Soft (AL/...) and Apple framework (OpenAL/...) headers. */
+#if __has_include(<AL/al.h>)
+# include <AL/al.h>
+# include <AL/alc.h>
+# if __has_include(<AL/alext.h>)
+#  include <AL/alext.h>
+# endif
+#elif __has_include(<OpenAL/al.h>)
+# include <OpenAL/al.h>
+# include <OpenAL/alc.h>
+# if __has_include(<OpenAL/alext.h>)
+#  include <OpenAL/alext.h>
+# endif
+#else
+# error "OpenAL headers not found"
+#endif
+
+/* Fallback define for float32 formats if headers omit them (older SDKs). */
+#ifndef AL_FORMAT_MONO_FLOAT32
+#define AL_FORMAT_MONO_FLOAT32   0x10010
+#endif
+#ifndef AL_FORMAT_STEREO_FLOAT32
+#define AL_FORMAT_STEREO_FLOAT32 0x10011
+#endif
 #include <86box/86box.h>
 #include <86box/midi.h>
 #include <86box/sound.h>

@@ -213,6 +213,7 @@ int      do_auto_pause                          = 0;              /* (C) Auto-pa
                                                                          loss */
 int      turbo_mode                             = 0;              /* Run emulator at maximum speed */
 int      turbo_slow_cycles                      = 0;              /* Cycle skip count when turbo is off */
+int      turbo_batch_ms                         = 0;              /* Turbo batch size in ms: 0=auto, -1=unlimited */
 int      virtualized_cpu                        = 0;              /* Use virtualized CPU when allowed */
 int      hook_enabled                           = 1;              /* (C) Keyboard hook is enabled */
 int      test_mode                              = 0;              /* (C) Test mode */
@@ -1874,7 +1875,30 @@ pc_run(void)
 
     /* Run a block of code. */
     startblit();
-    cpu_exec((int32_t) cpu_s->rspeed / (force_10ms ? 100 : 1000));
+    /*
+     * In Turbo mode, increase the time slice per call to reduce per-call overhead
+     * and allow higher aggregate throughput. This avoids a fixed cap caused by
+     * running only ~1ms worth of cycles per iteration.
+     */
+    int ms_per_call = (force_10ms ? 10 : 1);
+    if (turbo_mode) {
+        if (turbo_batch_ms == 0) {
+            /* Auto: Aim for ~16ms batches while turbo is active for better scaling. */
+            if (ms_per_call < 16)
+                ms_per_call = 16;
+        } else if (turbo_batch_ms < 0) {
+            /* Unlimited: choose a large batch to minimize overhead but still keep UI responsive. */
+            ms_per_call = 64;
+        } else {
+            /* Explicit value in milliseconds. */
+            if (turbo_batch_ms < ms_per_call)
+                ms_per_call = ms_per_call; /* respect 10ms minimum when forced */
+            else
+                ms_per_call = turbo_batch_ms;
+        }
+    }
+    int32_t cycs = (int32_t) (((int64_t) cpu_s->rspeed * ms_per_call) / 1000);
+    cpu_exec(cycs);
     ack_pause();
 #ifdef USE_GDBSTUB /* avoid a KBC FIFO overflow when CPU emulation is stalled */
     if (gdbstub_step == GDBSTUB_EXEC) {
@@ -1888,8 +1912,9 @@ pc_run(void)
     endblit();
 
     /* Done with this frame, update statistics. */
-    framecount++;
-    if (++framecountx >= (force_10ms ? 100 : 1000)) {
+    framecount += ms_per_call;
+    framecountx += ms_per_call;
+    if (framecountx >= (force_10ms ? 100 : 1000)) {
         framecountx = 0;
         frames      = 0;
     }

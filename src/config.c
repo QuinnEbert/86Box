@@ -189,6 +189,13 @@ load_general(void)
 
     force_10ms = !!ini_section_get_int(cat, "force_10ms", 0);
 
+    /* Turbo batch: 0=auto (default), -1=unlimited, >0 explicit ms */
+    turbo_batch_ms = ini_section_get_int(cat, "turbo_batch_ms", 0);
+    if (turbo_batch_ms < -1)
+        turbo_batch_ms = -1;
+    if (turbo_batch_ms > 1000)
+        turbo_batch_ms = 1000;
+
     rctrl_is_lalt = ini_section_get_int(cat, "rctrl_is_lalt", 0);
     update_icons  = ini_section_get_int(cat, "update_icons", 1);
 
@@ -2287,6 +2294,12 @@ save_general(void)
     ini_section_set_int(cat, "force_10ms", force_10ms);
     if (force_10ms == 0)
         ini_section_delete_var(cat, "force_10ms");
+
+    /* Persist Turbo batch setting when not default. */
+    if (turbo_batch_ms != 0)
+        ini_section_set_int(cat, "turbo_batch_ms", turbo_batch_ms);
+    else
+        ini_section_delete_var(cat, "turbo_batch_ms");
 
     ini_section_set_int(cat, "sound_muted", sound_muted);
     if (sound_muted == 0)

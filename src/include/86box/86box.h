@@ -268,6 +268,7 @@ extern void do_pause(int p);
 extern double isa_timing;
 extern int    io_delay;
 extern int    framecountx;
+extern int    turbo_batch_ms;     /* Turbo batch size in ms: 0=auto, -1=unlimited */
 
 extern volatile int     cpu_thread_run;
 extern          uint8_t postcard_codes[POSTCARDS_NUM];
