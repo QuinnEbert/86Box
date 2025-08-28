@@ -52,14 +52,14 @@ extern "C" {
 #include <86box/video.h>
 #include <86box/rom.h>
 #ifdef DISCORD
-#   include <86box/discord.h>
+#    include <86box/discord.h>
 #endif
 #include <86box/gdbstub.h>
 #include <86box/version.h>
 #include <86box/renderdefs.h>
 #ifdef Q_OS_LINUX
-#define GAMEMODE_AUTO
-#include "../unix/gamemode/gamemode_client.h"
+#    define GAMEMODE_AUTO
+#    include "../unix/gamemode/gamemode_client.h"
 #endif
 }
 
@@ -211,19 +211,19 @@ win_keyboard_handle(uint32_t scancode, int up, int e0, int e1)
 static LRESULT CALLBACK
 emu_LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-    LPKBDLLHOOKSTRUCT lpKdhs    = (LPKBDLLHOOKSTRUCT) lParam;
+    LPKBDLLHOOKSTRUCT lpKdhs = (LPKBDLLHOOKSTRUCT) lParam;
     /* Checks if CTRL was pressed. */
-    BOOL              bCtrlDown = GetAsyncKeyState (VK_CONTROL) >> ((sizeof(SHORT) * 8) - 1);
-    BOOL              is_over_window = (GetForegroundWindow() == ((HWND) main_window->winId()));
-    BOOL              ret       = TRUE;
+    BOOL bCtrlDown      = GetAsyncKeyState(VK_CONTROL) >> ((sizeof(SHORT) * 8) - 1);
+    BOOL is_over_window = (GetForegroundWindow() == ((HWND) main_window->winId()));
+    BOOL ret            = TRUE;
 
-    static int        last      = 0;
+    static int last = 0;
 
-    if (show_second_monitors)  for (int monitor_index = 1; monitor_index < MONITORS_NUM; monitor_index++) {
-        const auto &secondaryRenderer = main_window->renderers[monitor_index];
-        is_over_window = is_over_window || ((secondaryRenderer != nullptr) &&
-                         (GetForegroundWindow() == ((HWND) secondaryRenderer->winId())));
-    }
+    if (show_second_monitors)
+        for (int monitor_index = 1; monitor_index < MONITORS_NUM; monitor_index++) {
+            const auto &secondaryRenderer = main_window->renderers[monitor_index];
+            is_over_window                = is_over_window || ((secondaryRenderer != nullptr) && (GetForegroundWindow() == ((HWND) secondaryRenderer->winId())));
+        }
 
     bool skip = ((nCode < 0) || (nCode != HC_ACTION) || !is_over_window || (kbd_req_capture && !mouse_capture));
 
@@ -236,179 +236,173 @@ emu_LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
            Only a handful of keys can be handled via Virtual Key
            detection; rest can't be reliably detected. */
         DWORD vkCode = lpKdhs->vkCode;
-        bool up = !!(lpKdhs->flags & LLKHF_UP);
+        bool  up     = !!(lpKdhs->flags & LLKHF_UP);
 
         if (inhibit_multimedia_keys
             && (lpKdhs->vkCode == VK_MEDIA_PLAY_PAUSE
-            || lpKdhs->vkCode == VK_MEDIA_NEXT_TRACK
-            || lpKdhs->vkCode == VK_MEDIA_PREV_TRACK
-            || lpKdhs->vkCode == VK_VOLUME_DOWN
-            || lpKdhs->vkCode == VK_VOLUME_UP
-            || lpKdhs->vkCode == VK_VOLUME_MUTE
-            || lpKdhs->vkCode == VK_MEDIA_STOP
-            || lpKdhs->vkCode == VK_LAUNCH_MEDIA_SELECT
-            || lpKdhs->vkCode == VK_LAUNCH_MAIL
-            || lpKdhs->vkCode == VK_LAUNCH_APP1
-            || lpKdhs->vkCode == VK_LAUNCH_APP2
-            || lpKdhs->vkCode == VK_HELP
-            || lpKdhs->vkCode == VK_BROWSER_BACK
-            || lpKdhs->vkCode == VK_BROWSER_FORWARD
-            || lpKdhs->vkCode == VK_BROWSER_FAVORITES
-            || lpKdhs->vkCode == VK_BROWSER_HOME
-            || lpKdhs->vkCode == VK_BROWSER_REFRESH
-            || lpKdhs->vkCode == VK_BROWSER_SEARCH
-            || lpKdhs->vkCode == VK_BROWSER_STOP))
+                || lpKdhs->vkCode == VK_MEDIA_NEXT_TRACK
+                || lpKdhs->vkCode == VK_MEDIA_PREV_TRACK
+                || lpKdhs->vkCode == VK_VOLUME_DOWN
+                || lpKdhs->vkCode == VK_VOLUME_UP
+                || lpKdhs->vkCode == VK_VOLUME_MUTE
+                || lpKdhs->vkCode == VK_MEDIA_STOP
+                || lpKdhs->vkCode == VK_LAUNCH_MEDIA_SELECT
+                || lpKdhs->vkCode == VK_LAUNCH_MAIL
+                || lpKdhs->vkCode == VK_LAUNCH_APP1
+                || lpKdhs->vkCode == VK_LAUNCH_APP2
+                || lpKdhs->vkCode == VK_HELP
+                || lpKdhs->vkCode == VK_BROWSER_BACK
+                || lpKdhs->vkCode == VK_BROWSER_FORWARD
+                || lpKdhs->vkCode == VK_BROWSER_FAVORITES
+                || lpKdhs->vkCode == VK_BROWSER_HOME
+                || lpKdhs->vkCode == VK_BROWSER_REFRESH
+                || lpKdhs->vkCode == VK_BROWSER_SEARCH
+                || lpKdhs->vkCode == VK_BROWSER_STOP))
             ret = TRUE;
         else
             ret = CallNextHookEx(NULL, nCode, wParam, lParam);
 
-        switch (vkCode)
-        {
+        switch (vkCode) {
             case VK_MEDIA_PLAY_PAUSE:
-            {
-                win_keyboard_handle(0x22, up, 1, 0);
-                break;
-            }
+                {
+                    win_keyboard_handle(0x22, up, 1, 0);
+                    break;
+                }
             case VK_MEDIA_STOP:
-            {
-                win_keyboard_handle(0x24, up, 1, 0);
-                break;
-            }
+                {
+                    win_keyboard_handle(0x24, up, 1, 0);
+                    break;
+                }
             case VK_VOLUME_UP:
-            {
-                win_keyboard_handle(0x30, up, 1, 0);
-                break;
-            }
+                {
+                    win_keyboard_handle(0x30, up, 1, 0);
+                    break;
+                }
             case VK_VOLUME_DOWN:
-            {
-                win_keyboard_handle(0x2E, up, 1, 0);
-                break;
-            }
+                {
+                    win_keyboard_handle(0x2E, up, 1, 0);
+                    break;
+                }
             case VK_VOLUME_MUTE:
-            {
-                win_keyboard_handle(0x20, up, 1, 0);
-                break;
-            }
+                {
+                    win_keyboard_handle(0x20, up, 1, 0);
+                    break;
+                }
             case VK_MEDIA_NEXT_TRACK:
-            {
-                win_keyboard_handle(0x19, up, 1, 0);
-                break;
-            }
+                {
+                    win_keyboard_handle(0x19, up, 1, 0);
+                    break;
+                }
             case VK_MEDIA_PREV_TRACK:
-            {
-                win_keyboard_handle(0x10, up, 1, 0);
-                break;
-            }
+                {
+                    win_keyboard_handle(0x10, up, 1, 0);
+                    break;
+                }
             case VK_LAUNCH_MEDIA_SELECT:
-            {
-                win_keyboard_handle(0x6D, up, 1, 0);
-                break;
-            }
+                {
+                    win_keyboard_handle(0x6D, up, 1, 0);
+                    break;
+                }
             case VK_LAUNCH_MAIL:
-            {
-                win_keyboard_handle(0x6C, up, 1, 0);
-                break;
-            }
+                {
+                    win_keyboard_handle(0x6C, up, 1, 0);
+                    break;
+                }
             case VK_LAUNCH_APP1:
-            {
-                win_keyboard_handle(0x6B, up, 1, 0);
-                break;
-            }
+                {
+                    win_keyboard_handle(0x6B, up, 1, 0);
+                    break;
+                }
             case VK_LAUNCH_APP2:
-            {
-                win_keyboard_handle(0x21, up, 1, 0);
-                break;
-            }
+                {
+                    win_keyboard_handle(0x21, up, 1, 0);
+                    break;
+                }
             case VK_BROWSER_BACK:
-            {
-                win_keyboard_handle(0x6A, up, 1, 0);
-                break;
-            }
+                {
+                    win_keyboard_handle(0x6A, up, 1, 0);
+                    break;
+                }
             case VK_BROWSER_FORWARD:
-            {
-                win_keyboard_handle(0x69, up, 1, 0);
-                break;
-            }
+                {
+                    win_keyboard_handle(0x69, up, 1, 0);
+                    break;
+                }
             case VK_BROWSER_STOP:
-            {
-                win_keyboard_handle(0x68, up, 1, 0);
-                break;
-            }
+                {
+                    win_keyboard_handle(0x68, up, 1, 0);
+                    break;
+                }
             case VK_BROWSER_HOME:
-            {
-                win_keyboard_handle(0x32, up, 1, 0);
-                break;
-            }
+                {
+                    win_keyboard_handle(0x32, up, 1, 0);
+                    break;
+                }
             case VK_BROWSER_SEARCH:
-            {
-                win_keyboard_handle(0x65, up, 1, 0);
-                break;
-            }
+                {
+                    win_keyboard_handle(0x65, up, 1, 0);
+                    break;
+                }
             case VK_BROWSER_REFRESH:
-            {
-                win_keyboard_handle(0x67, up, 1, 0);
-                break;
-            }
+                {
+                    win_keyboard_handle(0x67, up, 1, 0);
+                    break;
+                }
             case VK_BROWSER_FAVORITES:
-            {
-                win_keyboard_handle(0x66, up, 1, 0);
-                break;
-            }
+                {
+                    win_keyboard_handle(0x66, up, 1, 0);
+                    break;
+                }
             case VK_HELP:
-            {
-                win_keyboard_handle(0x3b, up, 1, 0);
-                break;
-            }
+                {
+                    win_keyboard_handle(0x3b, up, 1, 0);
+                    break;
+                }
         }
 
         return ret;
-    }
-    else if ((lpKdhs->scanCode == 0x01) && (lpKdhs->flags & LLKHF_ALTDOWN) &&
-        !(lpKdhs->flags & (LLKHF_UP | LLKHF_EXTENDED)))
+    } else if ((lpKdhs->scanCode == 0x01) && (lpKdhs->flags & LLKHF_ALTDOWN) && !(lpKdhs->flags & (LLKHF_UP | LLKHF_EXTENDED)))
         ret = TRUE;
     else if ((lpKdhs->scanCode == 0x01) && bCtrlDown && !(lpKdhs->flags & (LLKHF_UP | LLKHF_EXTENDED)))
         ret = TRUE;
-    else if ((lpKdhs->scanCode == 0x0f) && (lpKdhs->flags & LLKHF_ALTDOWN) &&
-             !(lpKdhs->flags & (LLKHF_UP | LLKHF_EXTENDED)))
+    else if ((lpKdhs->scanCode == 0x0f) && (lpKdhs->flags & LLKHF_ALTDOWN) && !(lpKdhs->flags & (LLKHF_UP | LLKHF_EXTENDED)))
         ret = TRUE;
     else if ((lpKdhs->scanCode == 0x0f) && bCtrlDown && !(lpKdhs->flags & (LLKHF_UP | LLKHF_EXTENDED)))
         ret = TRUE;
-    else if ((lpKdhs->scanCode == 0x39) && (lpKdhs->flags & LLKHF_ALTDOWN) &&
-             !(lpKdhs->flags & (LLKHF_UP | LLKHF_EXTENDED)))
+    else if ((lpKdhs->scanCode == 0x39) && (lpKdhs->flags & LLKHF_ALTDOWN) && !(lpKdhs->flags & (LLKHF_UP | LLKHF_EXTENDED)))
         ret = TRUE;
-    else if ((lpKdhs->scanCode == 0x3e) && (lpKdhs->flags & LLKHF_ALTDOWN) &&
-             !(lpKdhs->flags & (LLKHF_UP | LLKHF_EXTENDED)))
+    else if ((lpKdhs->scanCode == 0x3e) && (lpKdhs->flags & LLKHF_ALTDOWN) && !(lpKdhs->flags & (LLKHF_UP | LLKHF_EXTENDED)))
         ret = TRUE;
     else if ((lpKdhs->scanCode >= 0x5b) && (lpKdhs->scanCode <= 0x5d) && (lpKdhs->flags & LLKHF_EXTENDED))
         ret = TRUE;
     else if (inhibit_multimedia_keys
-        && (lpKdhs->vkCode == VK_MEDIA_PLAY_PAUSE
-        || lpKdhs->vkCode == VK_MEDIA_NEXT_TRACK
-        || lpKdhs->vkCode == VK_MEDIA_PREV_TRACK
-        || lpKdhs->vkCode == VK_VOLUME_DOWN
-        || lpKdhs->vkCode == VK_VOLUME_UP
-        || lpKdhs->vkCode == VK_VOLUME_MUTE
-        || lpKdhs->vkCode == VK_MEDIA_STOP
-        || lpKdhs->vkCode == VK_LAUNCH_MEDIA_SELECT
-        || lpKdhs->vkCode == VK_LAUNCH_MAIL
-        || lpKdhs->vkCode == VK_LAUNCH_APP1
-        || lpKdhs->vkCode == VK_LAUNCH_APP2
-        || lpKdhs->vkCode == VK_HELP
-        || lpKdhs->vkCode == VK_BROWSER_BACK
-        || lpKdhs->vkCode == VK_BROWSER_FORWARD
-        || lpKdhs->vkCode == VK_BROWSER_FAVORITES
-        || lpKdhs->vkCode == VK_BROWSER_HOME
-        || lpKdhs->vkCode == VK_BROWSER_REFRESH
-        || lpKdhs->vkCode == VK_BROWSER_SEARCH
-        || lpKdhs->vkCode == VK_BROWSER_STOP))
+             && (lpKdhs->vkCode == VK_MEDIA_PLAY_PAUSE
+                 || lpKdhs->vkCode == VK_MEDIA_NEXT_TRACK
+                 || lpKdhs->vkCode == VK_MEDIA_PREV_TRACK
+                 || lpKdhs->vkCode == VK_VOLUME_DOWN
+                 || lpKdhs->vkCode == VK_VOLUME_UP
+                 || lpKdhs->vkCode == VK_VOLUME_MUTE
+                 || lpKdhs->vkCode == VK_MEDIA_STOP
+                 || lpKdhs->vkCode == VK_LAUNCH_MEDIA_SELECT
+                 || lpKdhs->vkCode == VK_LAUNCH_MAIL
+                 || lpKdhs->vkCode == VK_LAUNCH_APP1
+                 || lpKdhs->vkCode == VK_LAUNCH_APP2
+                 || lpKdhs->vkCode == VK_HELP
+                 || lpKdhs->vkCode == VK_BROWSER_BACK
+                 || lpKdhs->vkCode == VK_BROWSER_FORWARD
+                 || lpKdhs->vkCode == VK_BROWSER_FAVORITES
+                 || lpKdhs->vkCode == VK_BROWSER_HOME
+                 || lpKdhs->vkCode == VK_BROWSER_REFRESH
+                 || lpKdhs->vkCode == VK_BROWSER_SEARCH
+                 || lpKdhs->vkCode == VK_BROWSER_STOP))
         ret = TRUE;
     else
         ret = CallNextHookEx(NULL, nCode, wParam, lParam);
 
     if (lpKdhs->scanCode == 0x00000045) {
         if ((lpKdhs->flags & LLKHF_EXTENDED) && (lpKdhs->vkCode == 0x00000090)) {
-             /* NumLock. */
-             lpKdhs->flags &= ~LLKHF_EXTENDED;
+            /* NumLock. */
+            lpKdhs->flags &= ~LLKHF_EXTENDED;
         } else if (!(lpKdhs->flags & LLKHF_EXTENDED) && (lpKdhs->vkCode == 0x00000013)) {
             /* Pause - send E1 1D. */
             win_keyboard_handle(0xe1, 0, 0, 0);
@@ -434,21 +428,21 @@ emu_LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 #endif
 
 #ifdef Q_OS_WINDOWS
-static HHOOK llhook  = NULL;
+static HHOOK llhook = NULL;
 #endif
 
 void
 main_thread_fn()
 {
-    int      frames;
+    int frames;
 
     QThread::currentThread()->setPriority(QThread::HighestPriority);
     plat_set_thread_name(nullptr, "main_thread_fn");
     framecountx = 0;
     // title_update = 1;
     uint64_t old_time = elapsed_timer.elapsed();
-    int drawits = frames = 0;
-    is_cpu_thread = 1;
+    int      drawits = frames = 0;
+    is_cpu_thread             = 1;
     while (!is_quit && cpu_thread_run) {
         /* See if it is time to run a frame of code. */
         const uint64_t new_time = elapsed_timer.elapsed();
@@ -463,9 +457,9 @@ main_thread_fn()
             drawits += static_cast<int>(new_time - old_time);
         old_time = new_time;
         if (turbo_mode && !dopause) {
-            #ifdef USE_INSTRUMENT
+#ifdef USE_INSTRUMENT
             uint64_t start_time = elapsed_timer.nsecsElapsed();
-            #endif
+#endif
             pc_run();
 #ifdef USE_INSTRUMENT
             if (instru_enabled) {
@@ -553,8 +547,8 @@ main_thread_fn()
     }
 
     cpu_thread_running = false;
-    is_quit = 1;
-    for (uint8_t i = 1; i < GFXCARD_MAX; i ++) {
+    is_quit            = 1;
+    for (uint8_t i = 1; i < GFXCARD_MAX; i++) {
         if (gfxcard[i]) {
             ui_deinit_monitor(i);
             plat_delay_ms(500);
@@ -571,9 +565,9 @@ main(int argc, char *argv[])
 #ifdef Q_OS_WINDOWS
     /* Check if Windows supports UTF-8 */
     if (GetACP() == CP_UTF8)
-	    acp_utf8 = 1;
+        acp_utf8 = 1;
     else
-	    acp_utf8 = 0;
+        acp_utf8 = 0;
 #endif
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     QApplication::setAttribute(Qt::AA_DisableHighDpiScaling, false);
@@ -598,9 +592,9 @@ main(int argc, char *argv[])
     if (!util::isWindowsLightTheme()) {
         QFile f(":qdarkstyle/dark/darkstyle.qss");
 
-        if (!f.exists())   {
+        if (!f.exists()) {
             printf("Unable to set stylesheet, file not found\n");
-        } else   {
+        } else {
             f.open(QFile::ReadOnly | QFile::Text);
             QTextStream ts(&f);
             qApp->setStyleSheet(ts.readAll());
@@ -673,11 +667,10 @@ main(int argc, char *argv[])
             romDirs << QStringLiteral("<li>%1</li>").arg(QString::fromLocal8Bit(rom_path->path));
         }
 
-        QString msg = QObject::tr(
-            "86Box could not find any usable ROM images.<br><br>"
-            "Please <a href=\"https://github.com/86Box/roms/releases/latest\">download</a> "
-            "a ROM set and extract it into one of the following directories:<ul>%1</ul>")
-                             .arg(romDirs.join(QString()));
+        QString msg = QObject::tr("86Box could not find any usable ROM images.<br><br>"
+                                  "Please <a href=\"https://github.com/86Box/roms/releases/latest\">download</a> "
+                                  "a ROM set and extract it into one of the following directories:<ul>%1</ul>")
+                          .arg(romDirs.join(QString()));
 
         QMessageBox fatalbox(QMessageBox::Icon::Critical, QObject::tr("No ROMs found"),
                              msg, QMessageBox::Ok);
@@ -714,8 +707,29 @@ main(int argc, char *argv[])
 
     pc_init_modules();
 
+#ifdef Q_OS_MACOS
+    const char *missing = device_get_missing_roms();
+    if (missing && missing[0]) {
+        QStringList romDirs;
+        for (rom_path_t *rom_path = &rom_paths; rom_path != nullptr; rom_path = rom_path->next)
+            romDirs << QStringLiteral("<li>%1</li>").arg(QString::fromLocal8Bit(rom_path->path));
+
+        QString missingList = QString::fromLocal8Bit(missing).toHtmlEscaped();
+        missingList.replace("\n", "<br>");
+
+        QString msg = QObject::tr(
+                          "86Box could not find the following ROM files:<br>%1<br><br>"
+                          "Please make sure these files are present in one of the following directories:<ul>%2</ul>")
+                          .arg(missingList, romDirs.join(QString()));
+
+        QMessageBox warnbox(QMessageBox::Icon::Warning, QObject::tr("Missing ROM files"), msg, QMessageBox::Ok);
+        warnbox.setTextFormat(Qt::TextFormat::RichText);
+        warnbox.exec();
+    }
+#endif
+
     // UUID / copy / move detection
-    if(!util::compareUuid()) {
+    if (!util::compareUuid()) {
         QMessageBox movewarnbox;
         movewarnbox.setIcon(QMessageBox::Icon::Warning);
         movewarnbox.setText(QObject::tr("This machine might have been moved or copied."));
@@ -736,11 +750,7 @@ main(int argc, char *argv[])
 #ifdef Q_OS_WINDOWS
 #    if !defined(EMU_BUILD_NUM) || (EMU_BUILD_NUM != 5624)
     HWND winbox = FindWindowW(L"TWinBoxMain", NULL);
-    if (winbox &&
-        FindWindowExW(winbox, NULL, L"TToolBar", NULL) &&
-        FindWindowExW(winbox, NULL, L"TListBox", NULL) &&
-        FindWindowExW(winbox, NULL, L"TStatusBar", NULL) &&
-        (winbox = FindWindowExW(winbox, NULL, L"TPageControl", NULL)) && /* holds a TTabSheet even on VM pages */
+    if (winbox && FindWindowExW(winbox, NULL, L"TToolBar", NULL) && FindWindowExW(winbox, NULL, L"TListBox", NULL) && FindWindowExW(winbox, NULL, L"TStatusBar", NULL) && (winbox = FindWindowExW(winbox, NULL, L"TPageControl", NULL)) && /* holds a TTabSheet even on VM pages */
         FindWindowExW(winbox, NULL, L"TTabSheet", NULL))
 #    endif
     {
@@ -751,7 +761,7 @@ main(int argc, char *argv[])
         warningbox.addButton(QObject::tr("Exit"), QMessageBox::RejectRole);
         warningbox.exec();
         if (warningbox.result() == QDialog::Accepted)
-              return 0;
+            return 0;
     }
 #endif
 
@@ -778,7 +788,7 @@ main(int argc, char *argv[])
         warningbox.addButton(QObject::tr("Exit"), QMessageBox::RejectRole);
         warningbox.exec();
         if (warningbox.result() == QDialog::Accepted)
-              return 0;
+            return 0;
     }
 
 #ifdef DISCORD
@@ -794,13 +804,12 @@ main(int argc, char *argv[])
 #ifdef WAYLAND
     if (QApplication::platformName().contains("wayland")) {
         /* Force a sync. */
-        (void)main_window->winId();
+        (void) main_window->winId();
         QApplication::sync();
-        extern void wl_keyboard_grab(QWindow *window);
+        extern void wl_keyboard_grab(QWindow * window);
         wl_keyboard_grab(main_window->windowHandle());
     }
 #endif
-    
 
     app.installEventFilter(main_window);
 
@@ -848,7 +857,7 @@ main(int argc, char *argv[])
     if (hook_enabled) {
         /* Yes, low-level hooks *DO* work with raw input, at least global ones. */
         llhook = SetWindowsHookEx(WH_KEYBOARD_LL, emu_LowLevelKeyboardProc, NULL, 0);
-        atexit([] () -> void {
+        atexit([]() -> void {
             if (llhook)
                 UnhookWindowsHookEx(llhook);
         });
@@ -935,10 +944,10 @@ main(int argc, char *argv[])
             plat_pause(0);
 
         cpu_thread_running = true;
-        main_thread = new std::thread(main_thread_fn);
+        main_thread        = new std::thread(main_thread_fn);
     });
 
-    const auto ret       = app.exec();
+    const auto ret = app.exec();
     cpu_thread_run = 0;
     main_thread->join();
     pc_close(nullptr);
