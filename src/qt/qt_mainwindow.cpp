@@ -171,6 +171,7 @@ static BMessageFilter *filter;
 #endif
 
 static void update_slow_turbo_checkboxes(Ui::MainWindow *ui, QAction *selected, int value);
+static void update_turbo_batch_checkboxes(Ui::MainWindow *ui, QAction *selected, int value);
 static void update_virtualized_tooltip(Ui::MainWindow *ui);
 
 extern void     qt_mouse_capture(int);
