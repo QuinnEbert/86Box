@@ -21,3 +21,18 @@ This README highlights the most impactful recent work in the repository. While m
 15. **Mach64 cleanup and performance tweaks** - Improves the Mach64 driver for smoother video output.
 
 These updates collectively make the emulator faster, more stable, and easier to use.
+
+## More Recent Highlights
+
+- **Turbo batching + control**: Removes the ~1500% Turbo cap by executing larger time slices; adds an Action → Turbo Batch menu (Auto/8/16/32/64/Unlimited).
+- **Portable mode**: Add portable mode detection and paths, normalize `exe_path`, and save VMM paths relative to the executable when appropriate.
+- **VM Manager UX**: Faster details pane (icon/color caching), render only after data is ready, remember size and position, and resizable window fixes.
+- **Color scheme control**: Allow switching color scheme from the system default on Windows; propagate to manager and VMs.
+- **Custom EDIDs**: UI to select and apply custom EDIDs; multiple fixes to EDID handling and UI.
+- **CGA composite controls**: Add CGA composite configuration UI; line-doubling mode selection across CGA/Tandy/PCjr/Amstrad.
+- **CD‑ROM image reliability**: Better CUE/ISO handling (multi‑session CUEs; per‑track files; robust parsing of broken “TRACK 0” cue sheets); correct lead‑out and mode checks.
+- **S3/Voodoo fixes**: Color/chroma‑keying for S3 ViRGE/Trio64V series; refresh‑rate and 15/16‑bpp fixes; Voodoo 3/Banshee packed Chain4 and legacy VRAM access fixes; clocking corrections (S3, ATI 28800).
+- **Printer improvements**: ESC/P 2 updates, international character sets, and Roman vs Courier font handling in non‑proportional mode.
+- **Input quality**: Fix numpad shortcuts in fullscreen; option to force constant mouse updating.
+- **Board correctness**: Correct PS/2 vs AT controller/port combinations for several boards; RZ‑1000 BAR reporting fix; Batman/Plato password jumper fixes; W83877 PnP init.
+- **UI polish**: Fix window size/position remembering; prevent shrinking on hide toolbar/status bar; miscellaneous translation and mnemonic fixes.
