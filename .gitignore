@@ -5,6 +5,10 @@ CMakeFiles
 /build
 /build-qt
 /build-qt5
+/build-macos-qt
+/build-macos-qt5
+/build-macos-qt6-cpp20
+/build-macos-qt6-llvm
 Makefile
 *.a
 /src/*.exe
