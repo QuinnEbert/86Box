@@ -19,7 +19,10 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
-set(CMAKE_CXX_STANDARD 17)
+# Qt 6.9 uses C++20 features in headers (qcompare.h),
+# ensure we compile Qt sources with C++20 to avoid errors
+# around partial_ordering/weak_ordering and Q_IMPLICIT.
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -54,6 +57,36 @@ if(NOT USE_QT6)
     # For <qpa/qplatformwindow.h>  in src/qt/qt_mainwindow.cpp
     include_directories(${Qt5Gui_PRIVATE_INCLUDE_DIRS})
 endif ()
+
+# Ensure Qt headers are searched before generic Homebrew includes.
+# This avoids pulling in mismatched Qt5 headers from /opt/homebrew/include
+# when building against Qt6, which causes macro clashes and redefinitions.
+if (TARGET Qt${QT_MAJOR}::Core)
+    get_target_property(_qt_core_includes Qt${QT_MAJOR}::Core INTERFACE_INCLUDE_DIRECTORIES)
+    if (_qt_core_includes)
+        include_directories(BEFORE SYSTEM ${_qt_core_includes})
+    endif()
+endif()
+if (TARGET Qt${QT_MAJOR}::Gui)
+    get_target_property(_qt_gui_includes Qt${QT_MAJOR}::Gui INTERFACE_INCLUDE_DIRECTORIES)
+    if (_qt_gui_includes)
+        include_directories(BEFORE SYSTEM ${_qt_gui_includes})
+    endif()
+endif()
+if (TARGET Qt${QT_MAJOR}::Widgets)
+    get_target_property(_qt_widgets_includes Qt${QT_MAJOR}::Widgets INTERFACE_INCLUDE_DIRECTORIES)
+    if (_qt_widgets_includes)
+        include_directories(BEFORE SYSTEM ${_qt_widgets_includes})
+    endif()
+endif()
+
+# On Homebrew Qt6, also force the umbrella include path before generic Homebrew includes
+if (APPLE AND QT AND USE_QT6)
+    # Prefer the common Homebrew Qt6 include directory if present
+    if (EXISTS "/opt/homebrew/opt/qt/include")
+        include_directories(BEFORE SYSTEM "/opt/homebrew/opt/qt/include")
+    endif()
+endif()
 
 # TODO: Is this the correct way to do this, and is it required on any
 # other platforms or with Qt 5?

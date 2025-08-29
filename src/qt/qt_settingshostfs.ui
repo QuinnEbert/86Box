@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>SettingsHostFS</class>
- <widget class="QWidget" name="SettingsHostFS">
+ <widget class="SettingsHostFS" name="SettingsHostFS">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -122,6 +122,13 @@
   </layout>
  </widget>
  <resources/>
+ <customwidgets>
+  <customwidget>
+   <class>SettingsHostFS</class>
+   <extends>QWidget</extends>
+   <header>qt_settingshostfs.hpp</header>
+  </customwidget>
+ </customwidgets>
  <connections>
   <connection>
    <sender>tableView</sender>
