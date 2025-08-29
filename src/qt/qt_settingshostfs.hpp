@@ -2,6 +2,7 @@
 #define QT_SETTINGSHOSTFS_HPP
 
 #include <QWidget>
+#include <QModelIndex>
 
 namespace Ui { class SettingsHostFS; }
 
@@ -20,6 +21,11 @@ private slots:
     void on_os_currentIndexChanged(int index);
     void on_layout_currentIndexChanged(int index);
     void on_capacity_textChanged(const QString &text);
+    void on_buttonBrowse_clicked();
+    void on_buttonAdd_clicked();
+    void on_buttonRemove_clicked();
+    void on_comboBoxBus_currentIndexChanged(int index);
+    void on_comboBoxChannel_currentIndexChanged(int index);
 
 private:
     enum Columns { ColumnIndex = 0, ColumnFolder = 1, ColumnMiB = 2 };
@@ -27,7 +33,8 @@ private:
 
     Ui::SettingsHostFS *ui;
     void populate();
+    void refreshBusAndChannelCombos(int hddIndex);
+    int  findFreeHddSlot() const;
 };
 
 #endif // QT_SETTINGSHOSTFS_HPP
-

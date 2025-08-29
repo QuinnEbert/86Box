@@ -13,7 +13,38 @@
   <property name="windowTitle">
    <string>Host Shared Folders</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout">
+ <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <layout class="QHBoxLayout" name="toolbarLayout">
+     <item>
+      <widget class="QPushButton" name="buttonAdd">
+       <property name="text">
+        <string>Add shared folder…</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="buttonRemove">
+       <property name="text">
+        <string>Remove</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="spacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
    <property name="leftMargin">
     <number>0</number>
    </property>
@@ -52,13 +83,20 @@
         </property>
        </widget>
       </item>
-      <item row="0" column="1" colspan="3">
-       <widget class="QLineEdit" name="lineEditFolder">
-        <property name="readOnly">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
+     <item row="0" column="1" colspan="3">
+      <widget class="QLineEdit" name="lineEditFolder">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="4">
+      <widget class="QPushButton" name="buttonBrowse">
+       <property name="text">
+        <string>Browse…</string>
+       </property>
+      </widget>
+     </item>
       <item row="1" column="0">
        <widget class="QLabel" name="labelCapacity">
         <property name="text">
@@ -66,16 +104,29 @@
         </property>
        </widget>
       </item>
-      <item row="1" column="1">
-       <widget class="QLineEdit" name="lineEditCapacity">
-        <property name="maximumSize">
-         <size>
-          <width>100</width>
-          <height>16777215</height>
-         </size>
-        </property>
-       </widget>
-      </item>
+     <item row="1" column="1">
+      <widget class="QLineEdit" name="lineEditCapacity">
+       <property name="maximumSize">
+        <size>
+         <width>100</width>
+         <height>16777215</height>
+        </size>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="2">
+      <widget class="QLabel" name="labelBus">
+       <property name="text">
+        <string>Bus:</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="3">
+      <widget class="QComboBox" name="comboBoxBus"/>
+     </item>
+     <item row="1" column="4">
+      <widget class="QComboBox" name="comboBoxChannel"/>
+     </item>
       <item row="2" column="0">
        <widget class="QLabel" name="labelFS">
         <property name="text">
