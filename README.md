@@ -36,3 +36,19 @@ These updates collectively make the emulator faster, more stable, and easier to 
 - **Input quality**: Fix numpad shortcuts in fullscreen; option to force constant mouse updating.
 - **Board correctness**: Correct PS/2 vs AT controller/port combinations for several boards; RZ‑1000 BAR reporting fix; Batman/Plato password jumper fixes; W83877 PnP init.
 - **UI polish**: Fix window size/position remembering; prevent shrinking on hide toolbar/status bar; miscellaneous translation and mnemonic fixes.
+
+- **Host shared folders as disk**: Mount a host folder as a read/write FAT12/16/32 disk via Settings → Shared folders; choose filesystem/OS/layout, set capacity (up to 1920 MiB), VFAT long filenames supported, per‑disk options saved.
+- **OpenGL 3 renderer + shaders**: New OpenGL 3.x renderer with a Shader Manager (GLSL) to stack/configure passes and control VSync/target FPS; non‑Core GL/GLES paths removed; clearer renderer error reporting.
+- **CPU frame size**: New Machine → CPU frame size option to trade throughput vs smoothness (larger vs smaller frames).
+- **Network settings redesign**: Clearer per‑NIC UI with PCAP interface picker, TAP bridge name, VDE socket, and local/remote switch options; SLiRP path improved.
+- **Manager language selector**: Set UI language in Preferences; change propagates to the Manager and all VMs; base Qt translation loading improved.
+- **Screenshots UX**: Manager details pane shows latest screenshot with next/previous controls; Tools → Open screenshots folder added.
+- **Update checks**: “Check for updates on startup” preference and a “Check for updates…” action with clearer status/error feedback.
+- **USB multimedia keys**: Media keys now work on Windows, with a global “Inhibit multimedia keys” toggle in Preferences.
+- **Gameport/joysticks**: Second gameport support and per‑port joystick mapping, addressing “second joystick” issues.
+
+### Other user‑facing improvements
+
+- **Printing & serial UI**: Ports settings expose printer configuration; Tools adds “Open printer tray”. Generic PCL5e output can auto‑convert to PDF via GhostPCL when available; ESC/P 2 rendering and fonts handling improved.
+- **CD‑ROM UI feedback**: Audio track listing fixed and Video CD handling improved (complements broader image reliability fixes above).
+- **GDB remote debugging**: GDB stub sockets now use SO_REUSEADDR/EXCLUSIVEADDRUSE to ease reconnects and avoid port conflicts.
