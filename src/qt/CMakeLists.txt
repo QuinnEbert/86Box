@@ -47,6 +47,8 @@ set(CMAKE_FIND_PACKAGE_PREFER_CONFIG OFF)
 
 find_package(Threads REQUIRED)
 find_package(Qt${QT_MAJOR} COMPONENTS Core Widgets Network OpenGL Gui REQUIRED)
+# Try to find Vulkan headers; if missing, skip Vulkan renderer sources
+find_package(Vulkan QUIET)
 find_package(Qt${QT_MAJOR}LinguistTools REQUIRED NO_CMAKE_FIND_ROOT_PATH)
 if(NOT USE_QT6)
     # For <qpa/qplatformwindow.h>  in src/qt/qt_mainwindow.cpp
@@ -114,6 +116,18 @@ add_library(plat STATIC
     qt_main.cpp
     qt_platform.cpp
 )
+
+set(UI_VULKAN_SOURCES)
+if (Vulkan_FOUND)
+    list(APPEND UI_VULKAN_SOURCES
+        qt_vulkanwindowrenderer.hpp
+        qt_vulkanwindowrenderer.cpp
+        qt_vulkanrenderer.hpp
+        qt_vulkanrenderer.cpp)
+else()
+    message(STATUS "Vulkan headers not found; building without Qt Vulkan renderer")
+    add_compile_definitions(NO_QT_VULKAN)
+endif()
 
 add_library(ui STATIC
     qt_ui.cpp
@@ -223,11 +237,7 @@ add_library(ui STATIC
     qt_unixmanagerfilter.cpp
     qt_unixmanagerfilter.hpp
 
-    qt_vulkanwindowrenderer.hpp
-    qt_vulkanwindowrenderer.cpp
-
-    qt_vulkanrenderer.hpp
-    qt_vulkanrenderer.cpp
+    ${UI_VULKAN_SOURCES}
 
     qt_mcadevicelist.hpp
     qt_mcadevicelist.cpp

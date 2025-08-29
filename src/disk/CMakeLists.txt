@@ -18,6 +18,7 @@
 add_library(hdd OBJECT
     hdd.c
     hdd_image.c
+    hostfat.c
     hdd_table.c
     hdc.c
     hdc_st506_xt.c

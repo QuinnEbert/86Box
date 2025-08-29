@@ -23,6 +23,8 @@ public:
 
     void setCreateFile(bool createFile) { createFile_ = createFile; }
     bool createFile() { return createFile_; }
+    void setDirectoryMode(bool directoryMode) { directoryMode_ = directoryMode; }
+    bool directoryMode() const { return directoryMode_; }
 
 signals:
     void fileSelected(const QString &fileName, bool precheck = false);
@@ -37,6 +39,7 @@ private:
     QString        selectedFilter_;
     QString        filter_;
     bool           createFile_ = false;
+    bool           directoryMode_ = false;
 };
 
 #endif // QT_FILEFIELD_HPP

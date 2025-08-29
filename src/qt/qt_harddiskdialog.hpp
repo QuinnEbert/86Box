@@ -2,6 +2,8 @@
 #define QT_HARDDISKDIALOG_HPP
 
 #include <QDialog>
+#include <QComboBox>
+#include <QLabel>
 
 namespace Ui {
 class HarddiskDialog;
@@ -21,6 +23,9 @@ public:
     uint32_t heads() const { return heads_; }
     uint32_t sectors() const { return sectors_; }
     uint32_t speed() const;
+    int      fsType() const { return comboBoxFS ? comboBoxFS->currentData().toInt() : 0; }
+    int      osLevel() const { return comboBoxOS ? comboBoxOS->currentData().toInt() : 0; }
+    int      layoutMode() const { return comboBoxLayout ? comboBoxLayout->currentData().toInt() : 0; }
 
 signals:
     void fileProgress(int i);
@@ -62,6 +67,14 @@ private:
     bool checkAndAdjustSectors();
     void recalcSize();
     void recalcSelection();
+
+    // For host folder VFS
+    QComboBox *comboBoxFS = nullptr; // Filesystem: Auto/FAT16/FAT32
+    QLabel    *labelFS    = nullptr;
+    QComboBox *comboBoxOS = nullptr; // OS Level selector
+    QLabel    *labelOS    = nullptr;
+    QComboBox *comboBoxLayout = nullptr; // Layout selector
+    QLabel    *labelLayout    = nullptr;
 };
 
 typedef struct _86BoxGeom {

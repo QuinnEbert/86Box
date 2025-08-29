@@ -20,6 +20,7 @@
 #include "ui_qt_filefield.h"
 
 #include <QFileDialog>
+#include <QMenu>
 
 FileField::FileField(QWidget *parent)
     : QWidget(parent)
@@ -56,10 +57,24 @@ void
 FileField::on_pushButton_clicked()
 {
     QString fileName;
-    if (createFile_) {
-        fileName = QFileDialog::getSaveFileName(this, QString(), QString(), filter_, &selectedFilter_);
+    if (directoryMode_) {
+        QMenu menu(this);
+        QAction *openFile   = menu.addAction(tr("Open File…"));
+        QAction *chooseDir  = menu.addAction(tr("Choose Folder…"));
+        QAction *picked     = menu.exec(QCursor::pos());
+        if (picked == nullptr)
+            return;
+        if (picked == openFile) {
+            fileName = QFileDialog::getOpenFileName(this, QString(), QString(), filter_, &selectedFilter_);
+        } else if (picked == chooseDir) {
+            fileName = QFileDialog::getExistingDirectory(this, QString(), QString(), QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+        }
     } else {
-        fileName = QFileDialog::getOpenFileName(this, QString(), QString(), filter_, &selectedFilter_);
+        if (createFile_) {
+            fileName = QFileDialog::getSaveFileName(this, QString(), QString(), filter_, &selectedFilter_);
+        } else {
+            fileName = QFileDialog::getOpenFileName(this, QString(), QString(), filter_, &selectedFilter_);
+        }
     }
 
     if (!fileName.isNull()) {

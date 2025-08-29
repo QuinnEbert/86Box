@@ -29,19 +29,25 @@
 #ifdef __unix__
 #include <unistd.h>
 #endif
+#include <sys/stat.h>
 #define HAVE_STDARG_H
 #include <86box/86box.h>
 #include <86box/path.h>
 #include <86box/plat.h>
+#include <86box/plat_dir.h>
 #include <86box/random.h>
 #include <86box/hdd.h>
 #include "minivhd/minivhd.h"
 #include "minivhd/internal.h"
+#include "hostfat.h"
 
 #define HDD_IMAGE_RAW 0
 #define HDD_IMAGE_HDI 1
 #define HDD_IMAGE_HDX 2
 #define HDD_IMAGE_VHD 3
+#define HDD_IMAGE_HOSTFAT 4
+
+/* hostfat_t is declared in hostfat.h */
 
 typedef struct hdd_image_t {
     FILE     *file; /* Used for HDD_IMAGE_RAW, HDD_IMAGE_HDI, and HDD_IMAGE_HDX. */
@@ -49,8 +55,9 @@ typedef struct hdd_image_t {
     uint32_t  base;
     uint32_t  pos;
     uint32_t  last_sector;
-    uint8_t   type; /* HDD_IMAGE_RAW, HDD_IMAGE_HDI, HDD_IMAGE_HDX, or HDD_IMAGE_VHD */
+    uint8_t   type; /* HDD_IMAGE_* */
     uint8_t   loaded;
+    hostfat_t *hostfat; /* Used for HDD_IMAGE_HOSTFAT */
 } hdd_image_t;
 
 hdd_image_t hdd_images[HDD_NUM];
@@ -77,6 +84,8 @@ hdd_image_log(const char *fmt, ...)
 #else
 #    define hdd_image_log(fmt, ...)
 #endif
+
+/* hostfat implementation moved to hostfat.c */
 
 int
 image_is_hdi(const char *s)
@@ -283,6 +292,22 @@ hdd_image_load(int id)
             hdd_images[id].vhd = NULL;
         }
         hdd_images[id].loaded = 0;
+    }
+
+    /* Host-shared folder: mount via hostfat */
+    if (fn && fn[0]) {
+        struct stat st; memset(&st, 0, sizeof(st));
+        if (stat(fn, &st) == 0 && S_ISDIR(st.st_mode)) {
+            hostfat_t *hf = NULL;
+            if (hostfat_mount(&hdd[id], &hf) == 0) {
+                hdd_images[id].hostfat = hf;
+                hdd_images[id].type = HDD_IMAGE_HOSTFAT;
+                hdd_images[id].last_sector = hostfat_last_sector(hf);
+                hdd_images[id].loaded = 1;
+                hdd_images[id].pos = 0;
+                return 1;
+            }
+        }
     }
 
     is_hdx[0] = image_is_hdx(fn, 0);
@@ -517,7 +542,7 @@ hdd_image_seek(uint8_t id, uint32_t sector)
     addr         = (uint64_t) sector << 9LL;
 
     hdd_images[id].pos = sector;
-    if (hdd_images[id].type != HDD_IMAGE_VHD) {
+    if (hdd_images[id].type != HDD_IMAGE_VHD && hdd_images[id].type != HDD_IMAGE_HOSTFAT) {
         if (!hdd_images[id].file || (fseeko64(hdd_images[id].file, addr + hdd_images[id].base, SEEK_SET) == -1)) {
             hdd_image_log("hdd_image_seek(): Error seeking\n");
             return -1;
@@ -539,6 +564,11 @@ hdd_image_read(uint8_t id, uint32_t sector, uint32_t count, uint8_t *buffer)
         hdd_images[id].pos        = sector + count - non_transferred_sectors - 1;
         if (hdd_images[id].vhd->error)
             return -1;
+    } else if (hdd_images[id].type == HDD_IMAGE_HOSTFAT) {
+        for (uint32_t i = 0; i < count; i++) {
+            if (hostfat_read_sector(hdd_images[id].hostfat, sector + i, buffer + 512 * i) != 0)
+                return -1;
+        }
     } else {
         if (!hdd_images[id].file || (fseeko64(hdd_images[id].file, ((uint64_t) (sector) << 9LL) + hdd_images[id].base, SEEK_SET) == -1)) {
             hdd_image_log("Hard disk image %i: Read error during seek\n", id);
@@ -589,7 +619,13 @@ hdd_image_write(uint8_t id, uint32_t sector, uint32_t count, uint8_t *buffer)
     int    non_transferred_sectors;
     size_t num_write;
 
-    if (hdd_images[id].type == HDD_IMAGE_VHD) {
+    if (hdd_images[id].type == HDD_IMAGE_HOSTFAT) {
+        for (uint32_t i = 0; i < count; i++) {
+            if (hostfat_write_sector(hdd_images[id].hostfat, sector + i, buffer + 512 * i) != 0)
+                return -1;
+        }
+        return 0;
+    } else if (hdd_images[id].type == HDD_IMAGE_VHD) {
         hdd_images[id].vhd->error = 0;
         non_transferred_sectors   = mvhd_write_sectors(hdd_images[id].vhd, sector, count, buffer);
         hdd_images[id].pos        = sector + count - non_transferred_sectors - 1;
@@ -631,7 +667,9 @@ hdd_image_write_ex(uint8_t id, uint32_t sector, uint32_t count, uint8_t *buffer)
 int
 hdd_image_zero(uint8_t id, uint32_t sector, uint32_t count)
 {
-    if (hdd_images[id].type == HDD_IMAGE_VHD) {
+    if (hdd_images[id].type == HDD_IMAGE_HOSTFAT) {
+        return -1; /* zeroing not supported */
+    } else if (hdd_images[id].type == HDD_IMAGE_VHD) {
         hdd_images[id].vhd->error   = 0;
         int non_transferred_sectors = mvhd_format_sectors(hdd_images[id].vhd, sector, count);
         hdd_images[id].pos          = sector + count - non_transferred_sectors - 1;
@@ -701,6 +739,9 @@ hdd_image_unload(uint8_t id, UNUSED(int fn_preserve))
         } else if (hdd_images[id].vhd != NULL) {
             mvhd_close(hdd_images[id].vhd);
             hdd_images[id].vhd = NULL;
+        } else if (hdd_images[id].hostfat != NULL) {
+            hostfat_unmount(hdd_images[id].hostfat);
+            hdd_images[id].hostfat = NULL;
         }
         hdd_images[id].loaded = 0;
     }
@@ -724,6 +765,9 @@ hdd_image_close(uint8_t id)
     } else if (hdd_images[id].vhd != NULL) {
         mvhd_close(hdd_images[id].vhd);
         hdd_images[id].vhd = NULL;
+    } else if (hdd_images[id].hostfat != NULL) {
+        hostfat_unmount(hdd_images[id].hostfat);
+        hdd_images[id].hostfat = NULL;
     }
 
     memset(&hdd_images[id], 0, sizeof(hdd_image_t));

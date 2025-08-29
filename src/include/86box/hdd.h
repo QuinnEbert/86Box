@@ -188,6 +188,14 @@ typedef struct hard_disk_t {
 
     const char        *model;
 
+    /* Host-shared FAT32 virtual disk options */
+    /* If fn points to a directory, these values configure the fake capacity */
+    uint32_t           shared_fake_size_mb;  /* total capacity presented (MB) */
+    uint32_t           shared_fake_used_mb;  /* reported used space (MB), optional */
+    uint8_t            shared_fs_type;       /* 0=auto, 12=FAT12, 16=FAT16, 32=FAT32 */
+    uint8_t            shared_os_level;      /* 0=auto, 1=MS-DOS 3-6.x, 2=Win9x/ME, 3=NT/2000+ */
+    uint8_t            shared_layout;        /* 0=auto, 1=partitioned (MBR), 2=superfloppy */
+
     hdd_zone_t         zones[HDD_MAX_ZONES];
 
     hdd_cache_t        cache;

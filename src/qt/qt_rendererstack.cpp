@@ -23,7 +23,9 @@
 
 #include "qt_openglrenderer.hpp"
 #include "qt_softwarerenderer.hpp"
-#include "qt_vulkanwindowrenderer.hpp"
+#ifndef NO_QT_VULKAN
+#    include "qt_vulkanwindowrenderer.hpp"
+#endif
 
 #include "qt_mainwindow.hpp"
 #include "qt_util.hpp"
@@ -393,7 +395,7 @@ RendererStack::createRenderer(Renderer renderer)
                 current.reset(this->createWindowContainer(hw, this));
                 break;
             }
-#if QT_CONFIG(vulkan)
+#ifndef NO_QT_VULKAN
         case Renderer::Vulkan:
             {
                 this->createWinId();

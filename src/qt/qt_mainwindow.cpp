@@ -70,6 +70,10 @@ extern int qt_nvr_save(void);
 extern bool cpu_thread_running;
 };
 
+#ifdef ds
+#undef ds
+#endif
+
 #include <QGuiApplication>
 #include <QWindow>
 #include <QTimer>
@@ -90,7 +94,7 @@ extern bool cpu_thread_running;
 #include <QString>
 #include <QDir>
 #include <QSysInfo>
-#if QT_CONFIG(vulkan)
+#ifndef NO_QT_VULKAN
 #    include <QVulkanInstance>
 #    include <QVulkanFunctions>
 #endif
@@ -475,7 +479,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->actionVNC->setVisible(false);
 #endif
 
-#if QT_CONFIG(vulkan)
+#ifndef NO_QT_VULKAN
     bool vulkanAvailable = false;
     {
         QVulkanInstance instance;

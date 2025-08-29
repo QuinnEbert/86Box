@@ -78,6 +78,7 @@
 #include <86box/ui.h>
 #include <86box/snd_opl.h>
 #include <86box/version.h>
+#include <sys/stat.h>
 
 #ifndef USE_SDL_UI
 /* Deliberate to not make the 86box.h header kitchen-sink. */
@@ -1312,6 +1313,42 @@ load_hard_disks(void)
             } else
                 path_append_filename(hdd[c].fn, usr_path, p);
             path_normalize(hdd[c].fn);
+        }
+
+        /* If a directory is used instead of a file, treat it as a host-shared FAT32 volume.
+           Read fake size/used configuration for capacity reporting. */
+        struct stat _st;
+        memset(&_st, 0, sizeof(_st));
+        if (hdd[c].fn[0] && (stat(hdd[c].fn, &_st) == 0) && S_ISDIR(_st.st_mode)) {
+            sprintf(temp, "hdd_%02i_shared_fake_size_mb", c + 1);
+            hdd[c].shared_fake_size_mb = ini_section_get_int(cat, temp, 2048);
+            sprintf(temp, "hdd_%02i_shared_fake_used_mb", c + 1);
+            hdd[c].shared_fake_used_mb = ini_section_get_int(cat, temp, 0);
+            sprintf(temp, "hdd_%02i_shared_fs", c + 1);
+            const char *fss = ini_section_get_string(cat, temp, "auto");
+            if (!strcmp(fss, "fat12")) hdd[c].shared_fs_type = 12;
+            else if (!strcmp(fss, "fat16")) hdd[c].shared_fs_type = 16;
+            else if (!strcmp(fss, "fat32")) hdd[c].shared_fs_type = 32;
+            else hdd[c].shared_fs_type = 0;
+            sprintf(temp, "hdd_%02i_shared_os", c + 1);
+            const char *oss = ini_section_get_string(cat, temp, "auto");
+            if (!strcmp(oss, "dos12")) hdd[c].shared_os_level = 4; /* MS-DOS 1-2 */
+            else if (!strcmp(oss, "dos")) hdd[c].shared_os_level = 1;
+            else if (!strcmp(oss, "win9x")) hdd[c].shared_os_level = 2;
+            else if (!strcmp(oss, "nt")) hdd[c].shared_os_level = 3;
+            else hdd[c].shared_os_level = 0;
+            sprintf(temp, "hdd_%02i_shared_layout", c + 1);
+            const char *los = ini_section_get_string(cat, temp, "auto");
+            if (!strcmp(los, "partitioned")) hdd[c].shared_layout = 1;
+            else if (!strcmp(los, "superfloppy")) hdd[c].shared_layout = 2;
+            else hdd[c].shared_layout = 0;
+        } else {
+            /* Clear if not a shared folder */
+            hdd[c].shared_fake_size_mb = 0;
+            hdd[c].shared_fake_used_mb = 0;
+            hdd[c].shared_fs_type = 0;
+            hdd[c].shared_os_level = 0;
+            hdd[c].shared_layout = 0;
         }
 
         sprintf(temp, "hdd_%02i_vhd_blocksize", c + 1);
@@ -3293,6 +3330,44 @@ save_hard_disks(void)
                 ini_section_set_string(cat, temp, &hdd[c].fn[strlen(usr_path)]);
             else
                 ini_section_set_string(cat, temp, hdd[c].fn);
+            /* If this is a shared folder, also persist fake size/used. */
+            struct stat _st;
+            memset(&_st, 0, sizeof(_st));
+            if ((stat(hdd[c].fn, &_st) == 0) && S_ISDIR(_st.st_mode)) {
+                sprintf(temp, "hdd_%02i_shared_fake_size_mb", c + 1);
+                ini_section_set_int(cat, temp, hdd[c].shared_fake_size_mb ? hdd[c].shared_fake_size_mb : 2048);
+                sprintf(temp, "hdd_%02i_shared_fake_used_mb", c + 1);
+                ini_section_set_int(cat, temp, hdd[c].shared_fake_used_mb);
+                sprintf(temp, "hdd_%02i_shared_fs", c + 1);
+                const char *fss = "auto";
+                if (hdd[c].shared_fs_type == 12) fss = "fat12";
+                else if (hdd[c].shared_fs_type == 16) fss = "fat16";
+                else if (hdd[c].shared_fs_type == 32) fss = "fat32";
+                ini_section_set_string(cat, temp, fss);
+                sprintf(temp, "hdd_%02i_shared_os", c + 1);
+                const char *oss = "auto";
+                if (hdd[c].shared_os_level == 4) oss = "dos12";
+                else if (hdd[c].shared_os_level == 1) oss = "dos";
+                else if (hdd[c].shared_os_level == 2) oss = "win9x";
+                else if (hdd[c].shared_os_level == 3) oss = "nt";
+                ini_section_set_string(cat, temp, oss);
+                sprintf(temp, "hdd_%02i_shared_layout", c + 1);
+                const char *los = "auto";
+                if (hdd[c].shared_layout == 1) los = "partitioned";
+                else if (hdd[c].shared_layout == 2) los = "superfloppy";
+                ini_section_set_string(cat, temp, los);
+            } else {
+                sprintf(temp, "hdd_%02i_shared_fake_size_mb", c + 1);
+                ini_section_delete_var(cat, temp);
+                sprintf(temp, "hdd_%02i_shared_fake_used_mb", c + 1);
+                ini_section_delete_var(cat, temp);
+                sprintf(temp, "hdd_%02i_shared_fs", c + 1);
+                ini_section_delete_var(cat, temp);
+                sprintf(temp, "hdd_%02i_shared_os", c + 1);
+                ini_section_delete_var(cat, temp);
+                sprintf(temp, "hdd_%02i_shared_layout", c + 1);
+                ini_section_delete_var(cat, temp);
+            }
         } else
             ini_section_delete_var(cat, temp);
 
