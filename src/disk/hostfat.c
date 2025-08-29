@@ -8,7 +8,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <wchar.h>
-#include <dirent.h>
+/* Use 86Box's portable dir APIs; they include <dirent.h> on POSIX and
+ * provide compatible definitions on Windows. Avoid including <dirent.h>
+ * directly to prevent redefinition conflicts on MinGW/MSVC builds. */
 
 #include <86box/86box.h>
 #include <86box/path.h>
