@@ -342,13 +342,13 @@ int hostfat_mount(hard_disk_t *hd, hostfat_t **out)
     hf->nfats = 2;
     hf->part_lba = 2048;
     hf->os_level = hd->shared_os_level;
-    uint32_t fake_size_mb = hd->shared_fake_size_mb ? hd->shared_fake_size_mb : 512;
+    uint32_t fake_size_mb = hd->shared_fake_size_mb ? hd->shared_fake_size_mb : 1920;
     if (fake_size_mb > 1920) fake_size_mb = 1920;
     /* FS select and layout */
     uint8_t req = hd->shared_fs_type;
     if (req == 0) {
         if (hf->os_level == 4) req = 12; /* DOS 1-2 */
-        else req = 16;
+        else req = (fake_size_mb >= 2048) ? 32 : 16; /* Auto: prefer FAT32 for >= 2 GiB */
     }
     hf->fat_type = (req == 12 || req == 16 || req == 32) ? req : 16;
     uint8_t layout = hd->shared_layout;

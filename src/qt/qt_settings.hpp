@@ -15,6 +15,7 @@ class SettingsNetwork;
 class SettingsPorts;
 class SettingsStorageControllers;
 class SettingsHarddisks;
+class SettingsHostFS;
 class SettingsFloppyCDROM;
 class SettingsOtherRemovable;
 class SettingsOtherPeripherals;
@@ -41,6 +42,7 @@ private:
     SettingsPorts              *ports;
     SettingsStorageControllers *storageControllers;
     SettingsHarddisks          *harddisks;
+    SettingsHostFS             *hostfs;
     SettingsFloppyCDROM        *floppyCdrom;
     SettingsOtherRemovable     *otherRemovable;
     SettingsOtherPeripherals   *otherPeripherals;

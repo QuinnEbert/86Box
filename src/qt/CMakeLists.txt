@@ -180,6 +180,9 @@ add_library(ui STATIC
     qt_settingsharddisks.cpp
     qt_settingsharddisks.hpp
     qt_settingsharddisks.ui
+    qt_settingshostfs.cpp
+    qt_settingshostfs.hpp
+    qt_settingshostfs.ui
     qt_settingsfloppycdrom.cpp
     qt_settingsfloppycdrom.hpp
     qt_settingsfloppycdrom.ui

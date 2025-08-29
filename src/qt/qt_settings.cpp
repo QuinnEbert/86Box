@@ -27,6 +27,7 @@
 #include "qt_settingsports.hpp"
 #include "qt_settingsstoragecontrollers.hpp"
 #include "qt_settingsharddisks.hpp"
+#include "qt_settingshostfs.hpp"
 #include "qt_settingsfloppycdrom.hpp"
 #include "qt_settingsotherremovable.hpp"
 #include "qt_settingsotherperipherals.hpp"
@@ -70,6 +71,7 @@ private:
         "Ports (COM & LPT)",
         "Storage controllers",
         "Hard disks",
+        "Shared folders",
         "Floppy & CD-ROM drives",
         "Other removable devices",
         "Other peripherals",
@@ -82,6 +84,7 @@ private:
         "network",
         "ports",
         "storage_controllers",
+        "hard_disk",
         "hard_disk",
         "floppy_and_cdrom_drives",
         "other_removable_devices",
@@ -133,6 +136,7 @@ Settings::Settings(QWidget *parent)
     ports                     = new SettingsPorts(this);
     storageControllers        = new SettingsStorageControllers(this);
     harddisks                 = new SettingsHarddisks(this);
+    hostfs                    = new SettingsHostFS(this);
     floppyCdrom               = new SettingsFloppyCDROM(this);
     otherRemovable            = new SettingsOtherRemovable(this);
     otherPeripherals          = new SettingsOtherPeripherals(this);
@@ -145,6 +149,7 @@ Settings::Settings(QWidget *parent)
     ui->stackedWidget->addWidget(ports);
     ui->stackedWidget->addWidget(storageControllers);
     ui->stackedWidget->addWidget(harddisks);
+    ui->stackedWidget->addWidget(hostfs);
     ui->stackedWidget->addWidget(floppyCdrom);
     ui->stackedWidget->addWidget(otherRemovable);
     ui->stackedWidget->addWidget(otherPeripherals);
@@ -216,6 +221,7 @@ Settings::save()
     ports->save();
     storageControllers->save();
     harddisks->save();
+    hostfs->save();
     floppyCdrom->save();
     otherRemovable->save();
     otherPeripherals->save();

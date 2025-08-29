@@ -1321,7 +1321,7 @@ load_hard_disks(void)
         memset(&_st, 0, sizeof(_st));
         if (hdd[c].fn[0] && (stat(hdd[c].fn, &_st) == 0) && S_ISDIR(_st.st_mode)) {
             sprintf(temp, "hdd_%02i_shared_fake_size_mb", c + 1);
-            hdd[c].shared_fake_size_mb = ini_section_get_int(cat, temp, 2048);
+            hdd[c].shared_fake_size_mb = ini_section_get_int(cat, temp, 1920);
             sprintf(temp, "hdd_%02i_shared_fake_used_mb", c + 1);
             hdd[c].shared_fake_used_mb = ini_section_get_int(cat, temp, 0);
             sprintf(temp, "hdd_%02i_shared_fs", c + 1);
@@ -3335,7 +3335,7 @@ save_hard_disks(void)
             memset(&_st, 0, sizeof(_st));
             if ((stat(hdd[c].fn, &_st) == 0) && S_ISDIR(_st.st_mode)) {
                 sprintf(temp, "hdd_%02i_shared_fake_size_mb", c + 1);
-                ini_section_set_int(cat, temp, hdd[c].shared_fake_size_mb ? hdd[c].shared_fake_size_mb : 2048);
+                ini_section_set_int(cat, temp, hdd[c].shared_fake_size_mb ? hdd[c].shared_fake_size_mb : 1920);
                 sprintf(temp, "hdd_%02i_shared_fake_used_mb", c + 1);
                 ini_section_set_int(cat, temp, hdd[c].shared_fake_used_mb);
                 sprintf(temp, "hdd_%02i_shared_fs", c + 1);

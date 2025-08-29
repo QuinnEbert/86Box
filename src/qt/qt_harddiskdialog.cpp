@@ -572,55 +572,14 @@ HarddiskDialog::onExistingFileSelected(const QString &fileName, bool precheck)
     ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
     QFileInfo finfo(fileName);
     if (finfo.isDir()) {
-        /* Treat directory as host-shared FAT32 volume. Allow user to choose capacity/geometry. */
-        // Insert Filesystem selector if not already present
-        if (!labelFS) {
-            labelFS = new QLabel(tr("Filesystem:"), this);
-            comboBoxFS = new QComboBox(this);
-            comboBoxFS->addItem(tr("Auto"), 0);
-            comboBoxFS->addItem(tr("FAT12"), 12);
-            comboBoxFS->addItem(tr("FAT16"), 16);
-            comboBoxFS->addItem(tr("FAT32"), 32);
-            // place after Block Size row (row 6)
-            ui->gridLayout->addWidget(labelFS, 7, 0);
-            ui->gridLayout->addWidget(comboBoxFS, 7, 1, 1, 5);
-            labelOS = new QLabel(tr("OS Level:"), this);
-            comboBoxOS = new QComboBox(this);
-            comboBoxOS->addItem(tr("Auto"), 0);
-            comboBoxOS->addItem(tr("MS-DOS 1–2.x"), 4);
-            comboBoxOS->addItem(tr("MS-DOS 3–6.x"), 1);
-            comboBoxOS->addItem(tr("Windows 95/98/ME"), 2);
-            comboBoxOS->addItem(tr("Windows NT/2000+"), 3);
-            ui->gridLayout->addWidget(labelOS, 8, 0);
-            ui->gridLayout->addWidget(comboBoxOS, 8, 1, 1, 5);
-            labelLayout = new QLabel(tr("Disk Layout:"), this);
-            comboBoxLayout = new QComboBox(this);
-            comboBoxLayout->addItem(tr("Auto"), 0);
-            comboBoxLayout->addItem(tr("Partitioned (MBR)"), 1);
-            comboBoxLayout->addItem(tr("Superfloppy"), 2);
-            ui->gridLayout->addWidget(labelLayout, 9, 0);
-            ui->gridLayout->addWidget(comboBoxLayout, 9, 1, 1, 5);
+        // Treat directory as a host-shared volume.
+        // Keep geometry controls disabled; guide user to Shared folders page for options.
+        if (!labelHostFolderHint) {
+            labelHostFolderHint = new QLabel(tr("This folder will be mounted as a shared disk.\nConfigure filesystem, layout, and capacity under Settings → Shared folders."), this);
+            labelHostFolderHint->setWordWrap(true);
+            ui->gridLayout->addWidget(labelHostFolderHint, 7, 0, 1, 6);
         }
-        labelFS->setHidden(false);
-        comboBoxFS->setHidden(false);
-        labelOS->setHidden(false);
-        comboBoxOS->setHidden(false);
-        labelLayout->setHidden(false);
-        comboBoxLayout->setHidden(false);
-
-        // Default to 512 or clamp to 1920 MB
-        uint32_t size_mb = 2048;
-        if (size_mb > 1920) size_mb = 1920;
-        hdd_image_calc_chs(&cylinders_, &heads_, &sectors_, size_mb);
-        ui->lineEditCylinders->setText(QString::number(cylinders_));
-        ui->lineEditHeads->setText(QString::number(heads_));
-        ui->lineEditSectors->setText(QString::number(sectors_));
-        ui->lineEditSize->setText(QString::number(size_mb));
-        ui->lineEditCylinders->setEnabled(true);
-        ui->lineEditHeads->setEnabled(true);
-        ui->lineEditSectors->setEnabled(true);
-        ui->lineEditSize->setEnabled(true);
-        ui->comboBoxType->setEnabled(true);
+        labelHostFolderHint->setHidden(false);
         ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(true);
         return;
     }

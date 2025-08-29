@@ -94,9 +94,16 @@ addRow(QAbstractItemModel *model, hard_disk_t *hd)
     if (fileName.startsWith(userPath, Qt::CaseInsensitive))
         model->setData(model->index(row, ColumnFilename), fileName.mid(userPath.size()));
     else
-        model->setData(model->index(row, ColumnFilename), fileName);
+    model->setData(model->index(row, ColumnFilename), fileName);
 
     model->setData(model->index(row, ColumnFilename), fileName, Qt::UserRole);
+    // If this is a directory-backed disk, stash host-shared options for UI
+    QFileInfo fInfo(fileName);
+    if (fInfo.isDir()) {
+        model->setData(model->index(row, ColumnFilename), (int)hd->shared_fs_type, DataFsType);
+        model->setData(model->index(row, ColumnFilename), (int)hd->shared_os_level, DataOsLevel);
+        model->setData(model->index(row, ColumnFilename), (int)hd->shared_layout, DataLayout);
+    }
 
     model->setData(model->index(row, ColumnCylinders), hd->tracks);
     model->setData(model->index(row, ColumnHeads), hd->hpc);
@@ -111,6 +118,8 @@ SettingsHarddisks::SettingsHarddisks(QWidget *parent)
     , ui(new Ui::SettingsHarddisks)
 {
     ui->setupUi(this);
+
+    // (Host shared-folder configuration moved to its own Settings page.)
 
     QAbstractItemModel *model = new QStandardItemModel(0, 7, this);
     model->setHeaderData(ColumnBus, Qt::Horizontal, tr("Bus"));
@@ -139,6 +148,8 @@ SettingsHarddisks::SettingsHarddisks(QWidget *parent)
 
     Harddrives::populateBuses(ui->comboBoxBus->model());
     on_comboBoxBus_currentIndexChanged(0);
+
+    // (No inline shared-folder controls here.)
 }
 
 SettingsHarddisks::~SettingsHarddisks()
@@ -164,17 +175,7 @@ SettingsHarddisks::save()
 
         QByteArray fileName = idx.siblingAtColumn(ColumnFilename).data(Qt::UserRole).toString().toUtf8();
         strncpy(hdd[i].fn, fileName.data(), sizeof(hdd[i].fn) - 1);
-        QFileInfo fInfo(QString::fromUtf8(fileName));
-        if (fInfo.isDir()) {
-            /* Map table size (in MB) to fake capacity for host-shared FAT */
-            uint32_t size_mb = idx.siblingAtColumn(ColumnSize).data().toUInt();
-            if (size_mb > 1920) size_mb = 1920;
-            hdd[i].shared_fake_size_mb = size_mb;
-            hdd[i].shared_fake_used_mb = 0; /* default */
-            hdd[i].shared_fs_type  = idx.siblingAtColumn(ColumnFilename).data(DataFsType).toInt();
-            hdd[i].shared_os_level = idx.siblingAtColumn(ColumnFilename).data(DataOsLevel).toInt();
-            hdd[i].shared_layout   = idx.siblingAtColumn(ColumnFilename).data(DataLayout).toInt();
-        }
+        // Host shared-folder specific settings are handled in the "Shared folders" page.
         hdd[i].priv = nullptr;
     }
 }
@@ -291,6 +292,8 @@ SettingsHarddisks::onTableRowChanged(const QModelIndex &current)
     ui->comboBoxChannel->setHidden(hidden);
     ui->comboBoxSpeed->setHidden(hidden);
 
+    // No inline shared-folder options here (see Shared folders page)
+
     uint32_t bus        = current.siblingAtColumn(ColumnBus).data(DataBus).toUInt();
     uint32_t busChannel = current.siblingAtColumn(ColumnBus).data(DataBusChannel).toUInt();
     uint32_t speed      = current.siblingAtColumn(ColumnSpeed).data(Qt::UserRole).toUInt();
@@ -311,6 +314,8 @@ SettingsHarddisks::onTableRowChanged(const QModelIndex &current)
         ui->comboBoxSpeed->setCurrentIndex(match.first().row());
 
     reloadBusChannels();
+
+    // Host shared-folder options are configured in the dedicated page
 }
 
 static void
@@ -328,27 +333,7 @@ addDriveFromDialog(Ui::SettingsHarddisks *ui, const HarddiskDialog &dlg)
     hd.spt      = dlg.sectors();
     strncpy(hd.fn, fn.data(), sizeof(hd.fn) - 1);
     hd.speed_preset = dlg.speed();
-    // If a directory was selected, set shared folder options from dialog
-    QFileInfo fInfo(QString::fromUtf8(fn));
-    if (fInfo.isDir()) {
-        uint64_t size_mb = ((uint64_t)dlg.cylinders() * dlg.heads() * dlg.sectors()) >> 11;
-        if (size_mb > 1920) size_mb = 1920;
-        hd.shared_fake_size_mb = size_mb;
-        hd.shared_fake_used_mb = 0;
-        hd.shared_fs_type      = dlg.fsType();
-        hd.shared_os_level     = dlg.osLevel();
-    }
-
     addRow(ui->tableView->model(), &hd);
-    // Stash FS/OS/Layout in model roles if folder
-    if (fInfo.isDir()) {
-        auto *model = ui->tableView->model();
-        int row = model->rowCount() - 1;
-        auto idx2 = model->index(row, ColumnFilename);
-        model->setData(idx2, dlg.fsType(), DataFsType);
-        model->setData(idx2, dlg.osLevel(), DataOsLevel);
-        model->setData(idx2, dlg.layoutMode(), DataLayout);
-    }
     ui->tableView->resizeColumnsToContents();
     ui->tableView->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
     if (ui->tableView->model()->rowCount() == HDD_NUM) {
