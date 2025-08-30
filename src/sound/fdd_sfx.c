@@ -9,6 +9,8 @@
 
 #include <86box/86box.h>
 #include <86box/plat_unused.h>
+#include <86box/plat.h>
+#include <86box/path.h>
 #include <86box/timer.h>
 #include <86box/fdd.h>
 #include <86box/sound.h>
@@ -79,15 +81,40 @@ static void free_sample(sample_t *s) { if (s->data) { free(s->data); s->data = N
 
 static int try_load_variant(const char *variant, const char *stem, sample_t *dst)
 {
-    char path[512];
+    char path[1024];
+    char exepath[1024] = {0};
+    char exedir[1024]  = {0};
+
+    /* First, try relative to the executable directory. This covers macOS bundles
+     * (Contents/Resources) and typical Windows/Linux layouts regardless of CWD. */
+    plat_get_exe_name(exepath, (int)sizeof(exepath) - 1);
+    if (exepath[0]) {
+        /* Normalize to a directory path with trailing slash. */
+        path_get_dirname(exedir, exepath);
+        path_slash(exedir);
+
+        /* macOS/Qt app bundle Resources */
+        snprintf(path, sizeof(path), "%s../Resources/floppysounds/%s_%s.wav", exedir, stem, variant);
+        if (load_wav_mono16(path, dst)) return 1;
+
+        /* alongside the executable */
+        snprintf(path, sizeof(path), "%sfloppysounds/%s_%s.wav", exedir, stem, variant);
+        if (load_wav_mono16(path, dst)) return 1;
+
+        /* parent dir (e.g., exe in bin/) */
+        snprintf(path, sizeof(path), "%s../floppysounds/%s_%s.wav", exedir, stem, variant);
+        if (load_wav_mono16(path, dst)) return 1;
+
+        /* grandparent dir (e.g., exe in out/build/bin) */
+        snprintf(path, sizeof(path), "%s../../floppysounds/%s_%s.wav", exedir, stem, variant);
+        if (load_wav_mono16(path, dst)) return 1;
+    }
+
+    /* Finally, fall back to CWD-relative locations for developer runs. */
     const char *candidates[] = {
-        /* current working directory */
         "floppysounds/%s_%s.wav",
-        /* macOS bundle Resources when CWD is MacOS/ */
         "../Resources/floppysounds/%s_%s.wav",
-        /* Resources from CWD */
         "Resources/floppysounds/%s_%s.wav",
-        /* parent floppysounds (if running from bin/) */
         "../floppysounds/%s_%s.wav",
     };
     for (size_t i = 0; i < sizeof(candidates)/sizeof(candidates[0]); i++) {
