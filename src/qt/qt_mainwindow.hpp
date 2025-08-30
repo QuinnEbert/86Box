@@ -98,6 +98,18 @@ private slots:
     void on_actionTurbo_Batch_Unlimited_triggered();
     void on_actionVirtualized_CPU_triggered();
     void on_actionCtrl_Alt_Del_triggered();
+    void on_actionSend_F1_triggered();
+    void on_actionSend_F2_triggered();
+    void on_actionSend_F3_triggered();
+    void on_actionSend_F4_triggered();
+    void on_actionSend_F5_triggered();
+    void on_actionSend_F6_triggered();
+    void on_actionSend_F7_triggered();
+    void on_actionSend_F8_triggered();
+    void on_actionSend_F9_triggered();
+    void on_actionSend_F10_triggered();
+    void on_actionSend_F11_triggered();
+    void on_actionSend_F12_triggered();
     void on_actionCtrl_Alt_Esc_triggered();
     void on_actionHard_Reset_triggered();
     void on_actionRight_CTRL_is_left_ALT_triggered();

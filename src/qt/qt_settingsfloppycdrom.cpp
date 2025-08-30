@@ -32,6 +32,7 @@ extern "C" {
 #include <86box/timer.h>
 #include <86box/fdd.h>
 #include <86box/cdrom.h>
+#include <86box/fdd_sfx.h>
 }
 
 #include <QStandardItemModel>
@@ -187,6 +188,9 @@ SettingsFloppyCDROM::SettingsFloppyCDROM(QWidget *parent)
             this, &SettingsFloppyCDROM::onCDROMRowChanged);
     ui->tableViewCDROM->setCurrentIndex(model->index(0, 0));
 
+    // Initialize floppy sounds checkbox from current state
+    ui->checkBoxFloppySounds->setChecked(fdd_sfx_is_enabled());
+
     uint8_t bus_type = ui->comboBoxBus->currentData().toUInt();
     int cdromIdx     = ui->tableViewCDROM->selectionModel()->currentIndex().data().toInt();
 
@@ -229,6 +233,9 @@ SettingsFloppyCDROM::save()
         fdd_set_turbo(i, model->index(i, 1).data() == tr("On") ? 1 : 0);
         fdd_set_check_bpb(i, model->index(i, 2).data() == tr("On") ? 1 : 0);
     }
+
+    // Floppy sounds toggle
+    fdd_sfx_enable(ui->checkBoxFloppySounds->isChecked() ? 1 : 0);
 
     /* Removable devices category */
     model = ui->tableViewCDROM->model();

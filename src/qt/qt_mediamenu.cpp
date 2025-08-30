@@ -29,6 +29,7 @@
 #include <QStyle>
 
 extern "C" {
+#include <86box/fdd_sfx.h>
 #ifdef Q_OS_WINDOWS
 #define BITMAP WINDOWS_BITMAP
 #undef UNICODE
@@ -1240,12 +1241,14 @@ cartridge_eject(uint8_t id)
 void
 floppy_mount(uint8_t id, char *fn, uint8_t wp)
 {
+    fdd_sfx_insert(id);
     MediaMenu::ptr->floppyMount(id, QString(fn), wp);
 }
 
 void
 floppy_eject(uint8_t id)
 {
+    fdd_sfx_eject(id);
     MediaMenu::ptr->floppyEject(id);
 }
 

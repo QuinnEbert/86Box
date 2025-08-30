@@ -1183,6 +1183,7 @@
   </action>
  </widget>
  <customwidgets>
+   
   <customwidget>
    <class>RendererStack</class>
    <extends>QStackedWidget</extends>

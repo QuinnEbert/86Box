@@ -55,6 +55,7 @@
 #include <86box/hdc_ide.h>
 #include <86box/fdd.h>
 #include <86box/fdc_ext.h>
+#include <86box/fdd_sfx.h>
 #include <86box/gameport.h>
 #include <86box/keyboard.h>
 #include <86box/serial_passthrough.h>
@@ -1495,6 +1496,17 @@ load_floppy_and_cdrom_drives(void)
                           "than %i\n", c + 1, i + 1, MAX_IMAGE_PATH_LEN - 1);
             }
         }
+    }
+
+    /* Floppy sounds toggle (default on) */
+    if (cat) {
+        int fsnd = ini_section_get_int(cat, "floppy_sounds", 1);
+        fdd_sfx_enable(fsnd ? 1 : 0);
+        /* normalize */
+        if (fsnd)
+            ini_section_set_int(cat, "floppy_sounds", 1);
+        else
+            ini_section_set_int(cat, "floppy_sounds", 0);
     }
 
     memset(temp, 0x00, sizeof(temp));
@@ -3507,6 +3519,9 @@ save_floppy_and_cdrom_drives(void)
                 save_image_file(cat, temp, fdd_image_history[c][i]);
         }
     }
+
+    // Persist floppy sounds toggle
+    ini_section_set_int(cat, "floppy_sounds", fdd_sfx_is_enabled() ? 1 : 0);
 
     for (c = 0; c < CDROM_NUM; c++) {
         sprintf(temp, "cdrom_%02i_host_drive", c + 1);

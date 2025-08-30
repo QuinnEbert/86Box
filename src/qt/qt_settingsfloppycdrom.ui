@@ -64,7 +64,7 @@
      </attribute>
     </widget>
    </item>
-   <item>
+  <item>
     <widget class="QWidget" name="floppyControls" native="true">
      <layout class="QHBoxLayout" name="horizontalLayout">
       <item>
@@ -95,9 +95,16 @@
         </property>
        </widget>
       </item>
+      <item>
+       <widget class="QCheckBox" name="checkBoxFloppySounds">
+        <property name="text">
+         <string>Enable floppy drive sounds</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
-   </item>
+  </item>
    <item>
     <widget class="QLabel" name="labelCDROM">
      <property name="text">

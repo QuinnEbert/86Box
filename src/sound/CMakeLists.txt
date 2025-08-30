@@ -17,6 +17,7 @@
 
 add_library(snd OBJECT
     sound.c
+    fdd_sfx.c
     snd_opl.c
     snd_opl_nuked.c
     snd_opl_ymfm.cpp

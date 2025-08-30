@@ -39,6 +39,7 @@
 #include <86box/fdd_mfm.h>
 #include <86box/fdd_td0.h>
 #include <86box/fdc.h>
+#include <86box/fdd_sfx.h>
 
 /* Flags:
    Bit  0:  300 rpm supported;
@@ -261,6 +262,8 @@ fdd_seek(int drive, int track_diff)
     fdd_changed[drive] = 0;
 
     fdd_do_seek(drive, fdd[drive].track);
+    /* Click/step sound */
+    fdd_sfx_step(drive);
 }
 
 int
@@ -554,6 +557,7 @@ fdd_set_motor_enable(int drive, int motor_enable)
     else if (!motor_enable)
         timer_disable(&fdd_poll_time[drive]);
     motoron[drive] = motor_enable;
+    fdd_sfx_motor(drive, motor_enable);
 }
 
 static void
@@ -612,6 +616,8 @@ fdd_reset(void)
         drives[i].id = i;
         timer_add(&(fdd_poll_time[i]), fdd_poll, &drives[i], 0);
     }
+    /* Lazy init of SFX */
+    fdd_sfx_init();
 }
 
 void

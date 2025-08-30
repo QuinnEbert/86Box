@@ -199,6 +199,27 @@ MainWindow::MainWindow(QWidget *parent)
     extern MainWindow *main_window;
     main_window = this;
     ui->setupUi(this);
+    // Add Send Function Key submenu with F1..F12 actions
+    auto sendMenu = new QMenu(tr("Send Function Key"), this);
+    struct KeyAction { const char *text; uint8_t sc; void (MainWindow::*slot)(); } acts[] = {
+        { "F1",  0x3b, &MainWindow::on_actionSend_F1_triggered },
+        { "F2",  0x3c, &MainWindow::on_actionSend_F2_triggered },
+        { "F3",  0x3d, &MainWindow::on_actionSend_F3_triggered },
+        { "F4",  0x3e, &MainWindow::on_actionSend_F4_triggered },
+        { "F5",  0x3f, &MainWindow::on_actionSend_F5_triggered },
+        { "F6",  0x40, &MainWindow::on_actionSend_F6_triggered },
+        { "F7",  0x41, &MainWindow::on_actionSend_F7_triggered },
+        { "F8",  0x42, &MainWindow::on_actionSend_F8_triggered },
+        { "F9",  0x43, &MainWindow::on_actionSend_F9_triggered },
+        { "F10", 0x44, &MainWindow::on_actionSend_F10_triggered },
+        { "F11", 0x57, &MainWindow::on_actionSend_F11_triggered },
+        { "F12", 0x58, &MainWindow::on_actionSend_F12_triggered },
+    };
+    for (auto &ka : acts) {
+        QAction *a = sendMenu->addAction(tr(ka.text));
+        connect(a, &QAction::triggered, this, ka.slot);
+    }
+    ui->menuAction->addMenu(sendMenu);
     status->setSoundMenu(ui->menuSound);
     ui->actionMute_Unmute->setText(sound_muted ? tr("&Unmute") : tr("&Mute"));
     ui->menuEGA_S_VGA_settings->menuAction()->setMenuRole(QAction::NoRole);
@@ -1257,6 +1278,26 @@ MainWindow::on_actionCtrl_Alt_Del_triggered()
 {
     pc_send_cad();
 }
+
+static void send_function_key_scancode(uint8_t sc)
+{
+    /* Press then release */
+    keyboard_input(1, sc);
+    keyboard_input(0, sc);
+}
+
+void MainWindow::on_actionSend_F1_triggered()  { send_function_key_scancode(0x3b); }
+void MainWindow::on_actionSend_F2_triggered()  { send_function_key_scancode(0x3c); }
+void MainWindow::on_actionSend_F3_triggered()  { send_function_key_scancode(0x3d); }
+void MainWindow::on_actionSend_F4_triggered()  { send_function_key_scancode(0x3e); }
+void MainWindow::on_actionSend_F5_triggered()  { send_function_key_scancode(0x3f); }
+void MainWindow::on_actionSend_F6_triggered()  { send_function_key_scancode(0x40); }
+void MainWindow::on_actionSend_F7_triggered()  { send_function_key_scancode(0x41); }
+void MainWindow::on_actionSend_F8_triggered()  { send_function_key_scancode(0x42); }
+void MainWindow::on_actionSend_F9_triggered()  { send_function_key_scancode(0x43); }
+void MainWindow::on_actionSend_F10_triggered() { send_function_key_scancode(0x44); }
+void MainWindow::on_actionSend_F11_triggered() { send_function_key_scancode(0x57); }
+void MainWindow::on_actionSend_F12_triggered() { send_function_key_scancode(0x58); }
 
 void
 MainWindow::on_actionCtrl_Alt_Esc_triggered()
