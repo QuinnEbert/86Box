@@ -561,6 +561,8 @@ if (APPLE AND CMAKE_MACOSX_BUNDLE)
 
     # Append Qt's lib folder which is two levels above Qt*Widgets_DIR
     list(APPEND DIRS "${Qt${QT_MAJOR}Widgets_DIR}/../..")
+    # Also search common Homebrew library roots for plugin deps (e.g., libwebp/sharpyuv)
+    list(APPEND DIRS "/opt/homebrew/lib" "/usr/local/lib")
 
     include(InstallRequiredSystemLibraries)
 
