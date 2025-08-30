@@ -9,6 +9,8 @@
 
 #include <86box/86box.h>
 #include <86box/plat_unused.h>
+#include <86box/timer.h>
+#include <86box/fdd.h>
 #include <86box/sound.h>
 #include <86box/fdd_sfx.h>
 
@@ -42,6 +44,10 @@ static sample_t s_spindown;
 static sample_t s_step;
 static sample_t s_insert;
 static sample_t s_eject;
+static sample_t s_tick;
+
+static int      s_tick_period[MAX_DRIVES];     /* in output samples */
+static int      s_tick_countdown[MAX_DRIVES];  /* in output samples */
 
 /* Very small WAV PCM16 mono loader */
 static int load_wav_mono16(const char *path, sample_t *out)
@@ -74,8 +80,21 @@ static void free_sample(sample_t *s) { if (s->data) { free(s->data); s->data = N
 static int try_load_variant(const char *variant, const char *stem, sample_t *dst)
 {
     char path[512];
-    snprintf(path, sizeof(path), "floppysounds/%s_%s.wav", stem, variant);
-    return load_wav_mono16(path, dst);
+    const char *candidates[] = {
+        /* current working directory */
+        "floppysounds/%s_%s.wav",
+        /* macOS bundle Resources when CWD is MacOS/ */
+        "../Resources/floppysounds/%s_%s.wav",
+        /* Resources from CWD */
+        "Resources/floppysounds/%s_%s.wav",
+        /* parent floppysounds (if running from bin/) */
+        "../floppysounds/%s_%s.wav",
+    };
+    for (size_t i = 0; i < sizeof(candidates)/sizeof(candidates[0]); i++) {
+        snprintf(path, sizeof(path), candidates[i], stem, variant);
+        if (load_wav_mono16(path, dst)) return 1;
+    }
+    return 0;
 }
 
 static void sfx_load_assets(void)
@@ -89,6 +108,7 @@ static void sfx_load_assets(void)
     const char *step_stem     = "drive_snatch";
     const char *insert_stem   = "drive_insert";
     const char *eject_stem    = "drive_eject";
+    const char *tick_stem     = "drive_click"; /* index tick */
 
     for (int i = 0; i < nvar && !s_spinup.data; i++)   try_load_variant(variants[i], spinup_stem, &s_spinup);
     for (int i = 0; i < nvar && !s_spinloop.data; i++) try_load_variant(variants[i], spinloop_stem, &s_spinloop);
@@ -96,6 +116,7 @@ static void sfx_load_assets(void)
     for (int i = 0; i < nvar && !s_step.data; i++)     try_load_variant(variants[i], step_stem, &s_step);
     for (int i = 0; i < nvar && !s_insert.data; i++)   try_load_variant(variants[i], insert_stem, &s_insert);
     for (int i = 0; i < nvar && !s_eject.data; i++)    try_load_variant(variants[i], eject_stem, &s_eject);
+    for (int i = 0; i < nvar && !s_tick.data; i++)     try_load_variant(variants[i], tick_stem, &s_tick);
 }
 
 static void voice_start(const sample_t *smp, int loop, float gain)
@@ -127,6 +148,17 @@ static void voice_stop_loop_of(const sample_t *smp)
 static void fdd_sfx_get_buffer(int32_t *buffer, int len, void *priv)
 {
     if (!s_enabled || !s_inited) return;
+    /* index tick scheduling per drive */
+    for (int d = 0; d < MAX_DRIVES; d++) {
+        if (s_motor_active[d] && s_tick.data && s_tick.length > 0 && s_tick_period[d] > 0) {
+            int remain = s_tick_countdown[d] - len;
+            while (remain <= 0) {
+                voice_start(&s_tick, 0, 0.5f);
+                remain += s_tick_period[d];
+            }
+            s_tick_countdown[d] = remain;
+        }
+    }
     for (int i = 0; i < len; i++) {
         int32_t mix = 0;
         for (int v = 0; v < MAX_VOICES; v++) {
@@ -181,6 +213,18 @@ void fdd_sfx_motor(int drive, int on)
             if (s_spinloop.data)
                 voice_start(&s_spinloop, 1, 0.35f);
             s_motor_active[drive] = 1;
+            /* setup index tick period from current RPM */
+            if (s_tick.data && s_tick.length > 0) {
+                int rpm = fdd_getrpm(drive);
+                if (rpm <= 0) rpm = 300;
+                double period_sec = 60.0 / (double)rpm;
+                int period_samples = (int)(period_sec * (double)SOUND_FREQ + 0.5);
+                if (period_samples < 1) period_samples = SOUND_FREQ / 5; /* sane default */
+                s_tick_period[drive]    = period_samples;
+                s_tick_countdown[drive] = period_samples;
+            } else {
+                s_tick_period[drive] = s_tick_countdown[drive] = 0;
+            }
         }
     } else {
         if (s_motor_active[drive]) {
@@ -188,6 +232,7 @@ void fdd_sfx_motor(int drive, int on)
             if (s_spindown.data)
                 voice_start(&s_spindown, 0, 0.8f);
             s_motor_active[drive] = 0;
+            s_tick_period[drive] = s_tick_countdown[drive] = 0;
         }
     }
 }

@@ -199,8 +199,9 @@ MainWindow::MainWindow(QWidget *parent)
     extern MainWindow *main_window;
     main_window = this;
     ui->setupUi(this);
-    // Add Send Function Key submenu with F1..F12 actions
-    auto sendMenu = new QMenu(tr("Send Function Key"), this);
+    // Add top-level Input menu and a Send Function Key submenu with F1..F12
+    auto inputMenu = new QMenu(tr("&Input"), this);
+    auto sendMenu  = new QMenu(tr("Send Function Key"), this);
     struct KeyAction { const char *text; uint8_t sc; void (MainWindow::*slot)(); } acts[] = {
         { "F1",  0x3b, &MainWindow::on_actionSend_F1_triggered },
         { "F2",  0x3c, &MainWindow::on_actionSend_F2_triggered },
@@ -219,7 +220,8 @@ MainWindow::MainWindow(QWidget *parent)
         QAction *a = sendMenu->addAction(tr(ka.text));
         connect(a, &QAction::triggered, this, ka.slot);
     }
-    ui->menuAction->addMenu(sendMenu);
+    inputMenu->addMenu(sendMenu);
+    menuBar()->insertMenu(ui->menuTools->menuAction(), inputMenu);
     status->setSoundMenu(ui->menuSound);
     ui->actionMute_Unmute->setText(sound_muted ? tr("&Unmute") : tr("&Mute"));
     ui->menuEGA_S_VGA_settings->menuAction()->setMenuRole(QAction::NoRole);

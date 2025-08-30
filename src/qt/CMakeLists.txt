@@ -547,6 +547,11 @@ if (APPLE AND CMAKE_MACOSX_BUNDLE)
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/qt.conf"
         DESTINATION "${INSTALL_CMAKE_DIR}")
 
+    # Bundle floppy sound assets inside the app Resources
+    if (EXISTS "${CMAKE_SOURCE_DIR}/floppysounds")
+        install(DIRECTORY "${CMAKE_SOURCE_DIR}/floppysounds" DESTINATION "${INSTALL_CMAKE_DIR}")
+    endif()
+
     # Path used for searching by FIND_XXX(), with appropriate suffixes added
     if(CMAKE_PREFIX_PATH)
         foreach(dir ${CMAKE_PREFIX_PATH})

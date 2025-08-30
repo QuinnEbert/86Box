@@ -188,9 +188,20 @@ endif()
 if(WIN32 OR (APPLE AND CMAKE_MACOSX_BUNDLE))
     # Copy the binary to the root of the install prefix on Windows and macOS
     install(TARGETS 86Box DESTINATION ".")
+
+    # Install floppy sound assets alongside app on Windows (or prefix root on macOS non-Qt)
+    if (EXISTS "${CMAKE_SOURCE_DIR}/floppysounds")
+        install(DIRECTORY "${CMAKE_SOURCE_DIR}/floppysounds" DESTINATION ".")
+    endif()
 else()
     # On Linux we want to copy the binary to the `bin` folder.
     install(TARGETS 86Box)
+
+    # Install floppy sound assets to both root and bin for easy discovery
+    if (EXISTS "${CMAKE_SOURCE_DIR}/floppysounds")
+        install(DIRECTORY "${CMAKE_SOURCE_DIR}/floppysounds" DESTINATION ".")
+        install(DIRECTORY "${CMAKE_SOURCE_DIR}/floppysounds" DESTINATION "bin")
+    endif()
 endif()
 
 
