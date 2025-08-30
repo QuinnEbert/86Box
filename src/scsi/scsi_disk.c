@@ -35,6 +35,7 @@
 #include <86box/hdd.h>
 #include <86box/scsi_disk.h>
 #include <86box/version.h>
+#include <sys/stat.h>
 
 #define IDE_ATAPI_IS_EARLY             id->sc->pad0
 
@@ -1383,7 +1384,13 @@ scsi_disk_command(scsi_common_t *sc, const uint8_t *cdb)
                         ide_padstr8(dev->temp_buffer + idx, 8, EMU_NAME);
                         idx += 8;
                         /* Product */
-                        ide_padstr8(dev->temp_buffer + idx, 40, device_identify_ex);
+                        int use_override = 0; do { struct stat _st; memset(&_st,0,sizeof(_st));
+                            if (hdd[dev->id].override_model && hdd[dev->id].override_model[0] &&
+                                hdd[dev->id].fn[0] && (stat(hdd[dev->id].fn,&_st)==0) && S_ISDIR(_st.st_mode)) use_override = 1; } while (0);
+                        if (use_override)
+                            ide_padstr8(dev->temp_buffer + idx, 40, hdd[dev->id].override_model);
+                        else
+                            ide_padstr8(dev->temp_buffer + idx, 40, device_identify_ex);
                         idx += 40;
                         /* Product */
                         ide_padstr8(dev->temp_buffer + idx, 20, "53R141");
@@ -1415,7 +1422,14 @@ scsi_disk_command(scsi_common_t *sc, const uint8_t *cdb)
                 /* Vendor */
                 ide_padstr8(dev->temp_buffer + 8, 8, EMU_NAME);
                 /* Product */
-                ide_padstr8(dev->temp_buffer + 16, 16, device_identify);
+                do { int use_override = 0; struct stat _st; memset(&_st,0,sizeof(_st));
+                    if (hdd[dev->id].override_model && hdd[dev->id].override_model[0] &&
+                        hdd[dev->id].fn[0] && (stat(hdd[dev->id].fn,&_st)==0) && S_ISDIR(_st.st_mode)) use_override = 1;
+                    if (use_override)
+                        ide_padstr8(dev->temp_buffer + 16, 16, hdd[dev->id].override_model);
+                    else
+                        ide_padstr8(dev->temp_buffer + 16, 16, device_identify);
+                } while (0);
                 /* Revision */
                 ide_padstr8(dev->temp_buffer + 32, 4, EMU_VERSION_EX);
                 idx = 36;
@@ -1718,7 +1732,15 @@ scsi_disk_identify(const ide_t *ide, const int ide_has_dma)
     ide_padstr((char *) (ide->buffer + 10), "", 20);               /* Serial Number */
 
     ide_padstr((char *) (ide->buffer + 23), EMU_VERSION_EX, 8);    /* Firmware */
-    ide_padstr((char *) (ide->buffer + 27), device_identify, 40);     /* Model */
+    /* Model */
+    do { int use_override = 0; struct stat _st; memset(&_st,0,sizeof(_st));
+        if (hdd[dev->id].override_model && hdd[dev->id].override_model[0] &&
+            hdd[dev->id].fn[0] && (stat(hdd[dev->id].fn,&_st)==0) && S_ISDIR(_st.st_mode)) use_override = 1;
+        if (use_override)
+            ide_padstr((char *) (ide->buffer + 27), hdd[dev->id].override_model, 40);
+        else
+            ide_padstr((char *) (ide->buffer + 27), device_identify, 40);
+    } while (0);
 
     ide->buffer[49]  = 0x200;                                            /* LBA supported */
     /* Interpret zero byte count limit as maximum length. */

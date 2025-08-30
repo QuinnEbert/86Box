@@ -48,6 +48,8 @@
 #include <86box/hdd.h>
 #include <86box/rdisk.h>
 #include <86box/version.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 /* Bits of 'atastat' */
 #define ERR_STAT     0x01 /* Error */
@@ -556,7 +558,17 @@ ide_hd_identify(const ide_t *ide)
     /* Firmware */
     ide_padstr((char *) (ide->buffer + 23), EMU_VERSION_EX, 8);
     /* Model */
-    if (hdd[ide->hdd_num].model)
+    int use_override = 0;
+    do {
+        if (!(hdd[ide->hdd_num].override_model && hdd[ide->hdd_num].override_model[0])) break;
+        /* Only apply override for directory-backed shared folders to avoid cross-page coupling */
+        struct stat _st; memset(&_st, 0, sizeof(_st));
+        if (hdd[ide->hdd_num].fn[0] && (stat(hdd[ide->hdd_num].fn, &_st) == 0) && S_ISDIR(_st.st_mode))
+            use_override = 1;
+    } while (0);
+    if (use_override)
+        ide_padstr((char *) (ide->buffer + 27), hdd[ide->hdd_num].override_model, 40);
+    else if (hdd[ide->hdd_num].model)
         ide_padstr((char *) (ide->buffer + 27), hdd[ide->hdd_num].model, 40);
     else
         ide_padstr((char *) (ide->buffer + 27), device_identify, 40);

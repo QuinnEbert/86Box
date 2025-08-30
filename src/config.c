@@ -1361,6 +1361,15 @@ load_hard_disks(void)
             if (!strcmp(los, "partitioned")) hdd[c].shared_layout = 1;
             else if (!strcmp(los, "superfloppy")) hdd[c].shared_layout = 2;
             else hdd[c].shared_layout = 0;
+            /* Optional custom device name reported to BIOS/controller */
+            sprintf(temp, "hdd_%02i_shared_model", c + 1);
+            const char *mods = ini_section_get_string(cat, temp, "");
+            if (mods && mods[0]) {
+                if (hdd[c].override_model) free((void*)hdd[c].override_model);
+                hdd[c].override_model = strdup(mods);
+            } else {
+                if (hdd[c].override_model) { free((void*)hdd[c].override_model); hdd[c].override_model = NULL; }
+            }
         } else {
             /* Clear if not a shared folder */
             hdd[c].shared_fake_size_mb = 0;
@@ -1368,6 +1377,7 @@ load_hard_disks(void)
             hdd[c].shared_fs_type = 0;
             hdd[c].shared_os_level = 0;
             hdd[c].shared_layout = 0;
+            if (hdd[c].override_model) { free((void*)hdd[c].override_model); hdd[c].override_model = NULL; }
         }
 
         sprintf(temp, "hdd_%02i_vhd_blocksize", c + 1);
@@ -3398,6 +3408,12 @@ save_hard_disks(void)
                 if (hdd[c].shared_layout == 1) los = "partitioned";
                 else if (hdd[c].shared_layout == 2) los = "superfloppy";
                 ini_section_set_string(cat, temp, los);
+                /* Optional custom device name */
+                sprintf(temp, "hdd_%02i_shared_model", c + 1);
+                if (hdd[c].override_model && hdd[c].override_model[0])
+                    ini_section_set_string(cat, temp, hdd[c].override_model);
+                else
+                    ini_section_delete_var(cat, temp);
             } else {
                 sprintf(temp, "hdd_%02i_shared_fake_size_mb", c + 1);
                 ini_section_delete_var(cat, temp);
@@ -3408,6 +3424,8 @@ save_hard_disks(void)
                 sprintf(temp, "hdd_%02i_shared_os", c + 1);
                 ini_section_delete_var(cat, temp);
                 sprintf(temp, "hdd_%02i_shared_layout", c + 1);
+                ini_section_delete_var(cat, temp);
+                sprintf(temp, "hdd_%02i_shared_model", c + 1);
                 ini_section_delete_var(cat, temp);
             }
         } else

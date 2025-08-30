@@ -15,6 +15,7 @@ extern "C" {
 #include <QIntValidator>
 #include <QHeaderView>
 #include <QMessageBox>
+#include <cstdlib>
 
 #include "qt_harddrive_common.hpp"
 #include "qt_settings_bus_tracking.hpp"
@@ -58,6 +59,9 @@ SettingsHostFS::SettingsHostFS(QWidget *parent)
     // Capacity field validation
     ui->lineEditCapacity->setValidator(new QIntValidator(1, 1920, this));
 
+    // Populate Hard Disk Type combo
+    populateHddTypeCombo();
+
     populate();
 
     connect(ui->tableView->selectionModel(), &QItemSelectionModel::currentRowChanged, this, &SettingsHostFS::onTableRowChanged);
@@ -65,11 +69,21 @@ SettingsHostFS::SettingsHostFS(QWidget *parent)
     connect(ui->comboBoxOs, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &SettingsHostFS::on_os_currentIndexChanged);
     connect(ui->comboBoxLayout, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &SettingsHostFS::on_layout_currentIndexChanged);
     connect(ui->lineEditCapacity, &QLineEdit::textChanged, this, &SettingsHostFS::on_capacity_textChanged);
+    connect(ui->lineEditDevName,  &QLineEdit::textChanged, this, &SettingsHostFS::on_devname_textChanged);
 
     // Bus/channel selectors
     Harddrives::populateBuses(ui->comboBoxBus->model());
+    // Default-select IDE if present and pre-populate channels so the dropdown isn't empty
+    {
+        auto *bm = ui->comboBoxBus->model();
+        auto m   = bm->match(bm->index(0, 0), Qt::UserRole, (int)HDD_BUS_IDE);
+        ui->comboBoxBus->setCurrentIndex(m.isEmpty() ? 0 : m.first().row());
+        int busRole = ui->comboBoxBus->currentData().toInt();
+        Harddrives::populateBusChannels(ui->comboBoxChannel->model(), busRole, Harddrives::busTrackClass);
+    }
     connect(ui->comboBoxBus, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &SettingsHostFS::on_comboBoxBus_currentIndexChanged);
     connect(ui->comboBoxChannel, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &SettingsHostFS::on_comboBoxChannel_currentIndexChanged);
+    connect(ui->comboBoxHddType, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &SettingsHostFS::on_hddtype_currentIndexChanged);
 
     // Toolbar buttons
     connect(ui->buttonBrowse, &QPushButton::clicked, this, &SettingsHostFS::on_buttonBrowse_clicked);
@@ -105,6 +119,19 @@ void SettingsHostFS::populate()
         model->setData(model->index(row, ColumnFolder), (int)hdd[i].shared_fs_type, DataFsType);
         model->setData(model->index(row, ColumnFolder), (int)hdd[i].shared_os_level, DataOsLevel);
         model->setData(model->index(row, ColumnFolder), (int)hdd[i].shared_layout, DataLayout);
+        // Custom reported device name (override)
+        if (hdd[i].override_model && hdd[i].override_model[0])
+            model->setData(model->index(row, ColumnFolder), QString::fromUtf8(hdd[i].override_model), DataDevName);
+        else
+            model->setData(model->index(row, ColumnFolder), QString(), DataDevName);
+        // Initial hard disk type from existing CHS, else Auto (-1)
+        int typeIdx = -1;
+        if (hdd[i].tracks && hdd[i].hpc && hdd[i].spt) {
+            for (int t = 0; t < 127; ++t) {
+                if (hdd_table[t][0] == hdd[i].tracks && hdd_table[t][1] == hdd[i].hpc && hdd_table[t][2] == hdd[i].spt) { typeIdx = t; break; }
+            }
+        }
+        model->setData(model->index(row, ColumnFolder), typeIdx, DataHdType);
         row++;
     }
     ui->tableView->resizeColumnsToContents();
@@ -135,9 +162,20 @@ void SettingsHostFS::onTableRowChanged(const QModelIndex &current)
     QString folder = model->index(row, ColumnFolder).data().toString();
     ui->lineEditFolder->setText(folder);
     ui->lineEditCapacity->setText(model->index(row, ColumnMiB).data().toString());
+    ui->lineEditDevName->setText(model->index(row, ColumnFolder).data(DataDevName).toString());
+    updateDevNameCounter();
     setComboByRoleValue(ui->comboBoxFs, model->index(row, ColumnFolder).data(DataFsType).toInt());
     setComboByRoleValue(ui->comboBoxOs, model->index(row, ColumnFolder).data(DataOsLevel).toInt());
     setComboByRoleValue(ui->comboBoxLayout, model->index(row, ColumnFolder).data(DataLayout).toInt());
+    // HDD type: model role is -1 for Auto, else direct index; combo has Auto at row 0
+    {
+        int typeIdx = model->index(row, ColumnFolder).data(DataHdType).toInt();
+        int comboRow = (typeIdx < 0) ? 0 : (typeIdx + 1);
+        if (comboRow < 0) comboRow = 0;
+        ui->comboBoxHddType->setCurrentIndex(comboRow);
+        bool partitioned = (ui->comboBoxLayout->currentData(Qt::UserRole).toInt() == 1);
+        ui->comboBoxHddType->setEnabled(partitioned);
+    }
 
      int hidx = model->index(row, ColumnIndex).data(DataHddIndex).toInt();
      refreshBusAndChannelCombos(hidx);
@@ -164,7 +202,10 @@ void SettingsHostFS::on_layout_currentIndexChanged(int)
     auto idx = ui->tableView->selectionModel()->currentIndex();
     if (!idx.isValid()) return;
     auto *m = ui->tableView->model();
-    m->setData(idx.sibling(idx.row(), ColumnFolder), ui->comboBoxLayout->currentData(Qt::UserRole).toInt(), DataLayout);
+    int layoutRole = ui->comboBoxLayout->currentData(Qt::UserRole).toInt();
+    m->setData(idx.sibling(idx.row(), ColumnFolder), layoutRole, DataLayout);
+    // Enable/disable HDD Type based on layout
+    ui->comboBoxHddType->setEnabled(layoutRole == 1);
 }
 
 void SettingsHostFS::on_capacity_textChanged(const QString &text)
@@ -185,6 +226,14 @@ void SettingsHostFS::on_capacity_textChanged(const QString &text)
     }
 }
 
+void SettingsHostFS::on_devname_textChanged(const QString &text)
+{
+    auto idx = ui->tableView->selectionModel()->currentIndex();
+    if (!idx.isValid()) return;
+    ui->tableView->model()->setData(idx.sibling(idx.row(), ColumnFolder), text, DataDevName);
+    updateDevNameCounter();
+}
+
 void SettingsHostFS::save()
 {
     auto *model = ui->tableView->model();
@@ -199,6 +248,33 @@ void SettingsHostFS::save()
         hdd[i].shared_fs_type      = (uint8_t)fs;
         hdd[i].shared_os_level     = (uint8_t)model->index(r, ColumnFolder).data(DataOsLevel).toInt();
         hdd[i].shared_layout       = (uint8_t)model->index(r, ColumnFolder).data(DataLayout).toInt();
+        // Apply override device name if provided
+        {
+            QString dn = model->index(r, ColumnFolder).data(DataDevName).toString();
+            if (!dn.isEmpty()) {
+                QByteArray ba = dn.toUtf8();
+                // Free previous override if any (allocated via strdup/qstrdup)
+                if (hdd[i].override_model) free((void*)hdd[i].override_model);
+                hdd[i].override_model = qstrdup(ba.constData());
+            } else {
+                if (hdd[i].override_model) { free((void*)hdd[i].override_model); hdd[i].override_model = NULL; }
+            }
+        }
+        // Apply CHS geometry depending on layout and selected type
+        int typeIdx = model->index(r, ColumnFolder).data(DataHdType).toInt();
+        if (hdd[i].shared_layout == 1) {
+            if (typeIdx >= 0 && typeIdx <= 126) {
+                hdd[i].tracks = hdd_table[typeIdx][0];
+                hdd[i].hpc    = hdd_table[typeIdx][1];
+                hdd[i].spt    = hdd_table[typeIdx][2];
+            } else {
+                uint32_t c=0,h=0,s=0; hdd_image_calc_chs(&c,&h,&s, cap);
+                hdd[i].tracks = c; hdd[i].hpc = h; hdd[i].spt = s;
+            }
+        } else {
+            uint32_t c=0,h=0,s=0; hdd_image_calc_chs(&c,&h,&s, cap);
+            hdd[i].tracks = c; hdd[i].hpc = h; hdd[i].spt = s;
+        }
     }
 }
 
@@ -240,17 +316,18 @@ void SettingsHostFS::on_buttonAdd_clicked()
     }
 
     // Default to IDE and next free channel
-    uint8_t bus = BUS_IDE;
+    uint8_t bus_ui = BUS_IDE;        // bus enum for UI tracking helper
+    uint8_t bus_hw = HDD_BUS_IDE;    // actual hardware bus enum
     uint8_t channel = Harddrives::busTrackClass ? Harddrives::busTrackClass->next_free_ide_channel() : 0;
     if (channel == CHANNEL_NONE) channel = 0;
 
     memset(&hdd[slot], 0, sizeof(hard_disk_t));
-    hdd[slot].bus_type = bus;
+    hdd[slot].bus_type = bus_hw;
     hdd[slot].channel  = channel;
     strncpy(hdd[slot].fn, dir.toUtf8().constData(), sizeof(hdd[slot].fn) - 1);
     hdd[slot].shared_fake_size_mb = 1920; // default
 
-    if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_SET, DEV_HDD, bus, channel);
+    if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_SET, DEV_HDD, bus_ui, channel);
 
     // Append to table
     auto *model = qobject_cast<QStandardItemModel *>(ui->tableView->model());
@@ -263,6 +340,7 @@ void SettingsHostFS::on_buttonAdd_clicked()
     model->setData(model->index(row, ColumnFolder), (int)hdd[slot].shared_fs_type, DataFsType);
     model->setData(model->index(row, ColumnFolder), (int)hdd[slot].shared_os_level, DataOsLevel);
     model->setData(model->index(row, ColumnFolder), (int)hdd[slot].shared_layout, DataLayout);
+    model->setData(model->index(row, ColumnFolder), -1, DataHdType);
 
     ui->tableView->selectRow(row);
     onTableRowChanged(model->index(row, 0));
@@ -300,6 +378,10 @@ void SettingsHostFS::refreshBusAndChannelCombos(int hddIndex)
 
 void SettingsHostFS::on_comboBoxBus_currentIndexChanged(int)
 {
+    // Always refresh visible channel list for the selected bus so the combo isn't empty
+    int visBus = ui->comboBoxBus->currentData().toInt();
+    Harddrives::populateBusChannels(ui->comboBoxChannel->model(), visBus, Harddrives::busTrackClass);
+
     auto idx = ui->tableView->selectionModel()->currentIndex();
     if (!idx.isValid()) return;
     int hidx = ui->tableView->model()->index(idx.row(), ColumnIndex).data(DataHddIndex).toInt();
@@ -308,19 +390,28 @@ void SettingsHostFS::on_comboBoxBus_currentIndexChanged(int)
     // Untrack old
     if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_CLEAR, DEV_HDD, hdd[hidx].bus_type, hdd[hidx].channel);
 
-    int newBus = ui->comboBoxBus->currentData().toInt();
-    hdd[hidx].bus_type = newBus;
+    int newBusHw = ui->comboBoxBus->currentData().toInt(); // HDD_BUS_*
+    hdd[hidx].bus_type = newBusHw;
     // Repopulate channels for bus and pick next free as default
-    Harddrives::populateBusChannels(ui->comboBoxChannel->model(), newBus, Harddrives::busTrackClass);
+    Harddrives::populateBusChannels(ui->comboBoxChannel->model(), newBusHw, Harddrives::busTrackClass);
     int defaultChan = 0;
     if (Harddrives::busTrackClass) {
-        switch (newBus) {
+        int busUi = BUS_IDE;
+        switch (newBusHw) {
+            case HDD_BUS_MFM:   busUi = BUS_MFM;  break;
+            case HDD_BUS_ESDI:  busUi = BUS_ESDI; break;
+            case HDD_BUS_XTA:   busUi = BUS_XTA;  break;
+            case HDD_BUS_SCSI:  busUi = BUS_SCSI; break;
+            case HDD_BUS_IDE:
+            case HDD_BUS_ATAPI: busUi = BUS_IDE;  break;
+            default: break;
+        }
+        switch (busUi) {
             case BUS_IDE:  defaultChan = Harddrives::busTrackClass->next_free_ide_channel(); break;
             case BUS_SCSI: defaultChan = Harddrives::busTrackClass->next_free_scsi_id(); break;
             case BUS_MFM:  defaultChan = Harddrives::busTrackClass->next_free_mfm_channel(); break;
             case BUS_ESDI: defaultChan = Harddrives::busTrackClass->next_free_esdi_channel(); break;
             case BUS_XTA:  defaultChan = Harddrives::busTrackClass->next_free_xta_channel(); break;
-            default: break;
         }
         if (defaultChan == CHANNEL_NONE) defaultChan = 0;
     }
@@ -331,6 +422,7 @@ void SettingsHostFS::on_comboBoxBus_currentIndexChanged(int)
     // Track new
     hdd[hidx].channel = ui->comboBoxChannel->currentData().toUInt();
     if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_SET, DEV_HDD, hdd[hidx].bus_type, hdd[hidx].channel);
+    updateDevNameCounter();
 }
 
 void SettingsHostFS::on_comboBoxChannel_currentIndexChanged(int)
@@ -343,4 +435,55 @@ void SettingsHostFS::on_comboBoxChannel_currentIndexChanged(int)
     if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_CLEAR, DEV_HDD, hdd[hidx].bus_type, hdd[hidx].channel);
     hdd[hidx].channel = ui->comboBoxChannel->currentData().toUInt();
     if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_SET, DEV_HDD, hdd[hidx].bus_type, hdd[hidx].channel);
+}
+
+void SettingsHostFS::on_hddtype_currentIndexChanged(int)
+{
+    auto idx = ui->tableView->selectionModel()->currentIndex();
+    if (!idx.isValid()) return;
+    auto *m = ui->tableView->model();
+    int comboIdx = ui->comboBoxHddType->currentIndex();
+    int typeIdx = (comboIdx <= 0) ? -1 : (comboIdx - 1);
+    m->setData(idx.sibling(idx.row(), ColumnFolder), typeIdx, DataHdType);
+    if (typeIdx >= 0 && typeIdx <= 126) {
+        uint64_t sectors = (uint64_t)hdd_table[typeIdx][0] * hdd_table[typeIdx][1] * hdd_table[typeIdx][2];
+        uint32_t mb = (uint32_t)(sectors >> 11LL);
+        ui->lineEditCapacity->setText(QString::number(mb));
+    }
+}
+
+void SettingsHostFS::updateDevNameCounter()
+{
+    // Determine max length based on selected bus
+    int busHw = ui->comboBoxBus->currentData().toInt();
+    int maxLen = (busHw == HDD_BUS_SCSI) ? 16 : 40; // SCSI standard INQUIRY Product is 16 chars; IDE/ATAPI is 40
+    ui->lineEditDevName->setMaxLength(maxLen);
+    int curLen = ui->lineEditDevName->text().length();
+    ui->labelDevNameCount->setText(QString::number(curLen) + "/" + QString::number(maxLen));
+}
+
+void SettingsHostFS::populateHddTypeCombo()
+{
+    auto *model = ui->comboBoxHddType->model();
+    model->removeRows(0, model->rowCount());
+    // Auto first
+    model->insertRow(0);
+    model->setData(model->index(0, 0), tr("Auto (based on capacity)"));
+    model->setData(model->index(0, 0), -1, Qt::UserRole);
+    int row = 1;
+    for (int i = 0; i < 127; ++i, ++row) {
+        uint64_t size    = ((uint64_t) hdd_table[i][0]) * hdd_table[i][1] * hdd_table[i][2];
+        uint32_t size_mb = (uint32_t)(size >> 11LL);
+        QString text = tr("%1 MB (CHS: %2, %3, %4)").arg(size_mb).arg(hdd_table[i][0]).arg(hdd_table[i][1]).arg(hdd_table[i][2]);
+        model->insertRow(row);
+        model->setData(model->index(row, 0), text);
+        model->setData(model->index(row, 0), i, Qt::UserRole);
+    }
+    model->insertRow(row);
+    model->setData(model->index(row, 0), tr("Custom..."));
+    model->setData(model->index(row, 0), 127, Qt::UserRole);
+    ++row;
+    model->insertRow(row);
+    model->setData(model->index(row, 0), tr("Custom (large)..."));
+    model->setData(model->index(row, 0), 128, Qt::UserRole);
 }

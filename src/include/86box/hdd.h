@@ -187,6 +187,10 @@ typedef struct hard_disk_t {
     uint8_t            pad1[3];
 
     const char        *model;
+    /* Optional user-specified override for the reported device name
+       (used for IDENTIFY/INQUIRY). If set, takes precedence over
+       preset-provided model. */
+    const char        *override_model;
 
     /* Host-shared FAT32 virtual disk options */
     /* If fn points to a directory, these values configure the fake capacity */

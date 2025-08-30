@@ -125,6 +125,13 @@
       <widget class="QComboBox" name="comboBoxBus"/>
      </item>
      <item row="1" column="4">
+      <widget class="QLabel" name="labelChannel">
+       <property name="text">
+        <string>Channel/ID:</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="5">
       <widget class="QComboBox" name="comboBoxChannel"/>
      </item>
       <item row="2" column="0">
@@ -157,7 +164,38 @@
       <item row="3" column="1">
        <widget class="QComboBox" name="comboBoxLayout"/>
       </item>
-      <item row="4" column="0" colspan="4">
+      <item row="3" column="2">
+       <widget class="QLabel" name="labelHddType">
+        <property name="text">
+         <string>Hard Disk Type:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="3" colspan="3">
+       <widget class="QComboBox" name="comboBoxHddType"/>
+      </item>
+      <item row="4" column="0">
+       <widget class="QLabel" name="labelDevName">
+        <property name="text">
+         <string>Reported device name:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="1" colspan="5">
+       <widget class="QLineEdit" name="lineEditDevName">
+        <property name="placeholderText">
+         <string>Optional. IDE model / SCSI product string.</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="6">
+       <widget class="QLabel" name="labelDevNameCount">
+        <property name="text">
+         <string>0/40</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="0" colspan="4">
        <widget class="QLabel" name="labelFsHint">
         <property name="text">
          <string>Tip: For capacities ≥ 2048 MiB, FAT32 is recommended for best compatibility.</string>
