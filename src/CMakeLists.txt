@@ -249,6 +249,14 @@ add_subdirectory(disk)
 add_subdirectory(floppy)
 add_subdirectory(game)
 add_subdirectory(machine)
+
+if(APPLE)
+    add_custom_target(universal
+        COMMAND /bin/bash ${CMAKE_SOURCE_DIR}/scripts/macos/build_universal.sh
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "Building universal app via two-slice + lipo (scripts/macos/build_universal.sh)"
+    )
+endif()
 add_subdirectory(mem)
 add_subdirectory(network)
 add_subdirectory(printer)

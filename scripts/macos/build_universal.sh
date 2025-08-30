@@ -67,6 +67,8 @@ mkdir -p "${ARM_BUILD}" "${X64_BUILD}" "${UNIV_OUT}"
 
 # Configure + install arm64 slice
 gen_build "${ARM_BUILD}" "arm64" \
+  -D CMAKE_PREFIX_PATH="/opt/homebrew" \
+  -D PKG_CONFIG_EXECUTABLE="$(brew --prefix)/bin/pkg-config" \
   -D Qt5_ROOT="${ARM_QT5_ROOT}" \
   -D Qt5LinguistTools_ROOT="${ARM_QT5_ROOT}" \
   -D OpenAL_ROOT="${ARM_OPENAL_ROOT}" \
@@ -78,10 +80,11 @@ xcode_install "${ARM_BUILD}"
 status "Configuring x86_64 slice using prefix ${X86_PREFIX}"
 arch -x86_64 cmake -G Xcode -S . -B "${X64_BUILD}" -D QT=on -D USE_QT6=OFF \
   -D CMAKE_OSX_ARCHITECTURES="x86_64" \
+  -D CMAKE_PREFIX_PATH="/usr/local" \
+  -D PKG_CONFIG_EXECUTABLE="/usr/local/bin/pkg-config" \
   -D Qt5_ROOT="${X86_QT5_ROOT}" -D Qt5LinguistTools_ROOT="${X86_QT5_ROOT}" \
   -D OpenAL_ROOT="${X86_OPENAL_ROOT}" \
   -D LIBSERIALPORT_ROOT="${X86_LIBSERIALPORT_ROOT}" \
-  -D CMAKE_PREFIX_PATH="${X86_PREFIX}" \
   -D CMAKE_INSTALL_PREFIX="${PWD}/${X64_BUILD}/install"
 arch -x86_64 xcodebuild -project "${X64_BUILD}/86Box.xcodeproj" -target install -configuration Release -quiet
 
@@ -97,4 +100,3 @@ fi
 make_universal "${ARM_APP}" "${X86_APP}" "${OUT_APP}"
 
 status "DONE. Sign and notarize: ${OUT_APP}"
-
