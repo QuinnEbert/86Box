@@ -111,6 +111,28 @@ jobs:
       - name: Generate package
         run: cmake --install build
 
+      - name: Ensure floppysounds next to EXE
+        run: |
+          set -eo pipefail
+          echo "Listing install root:"
+          ls -lah build/artifacts || true
+          # Find the primary executable produced by install
+          EXE=$(find build/artifacts -maxdepth 4 -type f -iname "86Box*.exe" -print -quit)
+          if [ -z "$EXE" ]; then
+            echo "No EXE found under build/artifacts; skipping copy"
+            exit 0
+          fi
+          EXEDIR=$(dirname "$EXE")
+          echo "Found EXE at: $EXE"
+          # If floppysounds is not already installed by CMake, copy it next to the EXE
+          if [ ! -d "$EXEDIR/floppysounds" ]; then
+            echo "Copying floppysounds to $EXEDIR/floppysounds"
+            mkdir -p "$EXEDIR/floppysounds"
+            cp -r floppysounds/* "$EXEDIR/floppysounds/" || true
+          else
+            echo "floppysounds already present at $EXEDIR/floppysounds"
+          fi
+
       - name: Upload artifact
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
