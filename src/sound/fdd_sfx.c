@@ -38,6 +38,7 @@ static int      s_enabled = 1;
 static int      s_inited  = 0;
 static voice_t  s_voices[MAX_VOICES];
 static int      s_motor_active[MAX_DRIVES];
+static int      s_activity_countdown[MAX_DRIVES]; /* in output samples */
 
 /* Loaded samples */
 static sample_t s_spinup;
@@ -146,6 +147,12 @@ static void sfx_load_assets(void)
     for (int i = 0; i < nvar && !s_tick.data; i++)     try_load_variant(variants[i], tick_stem, &s_tick);
 }
 
+static void voice_stop_all(void)
+{
+    for (int i = 0; i < MAX_VOICES; i++)
+        s_voices[i].active = 0;
+}
+
 static void voice_start(const sample_t *smp, int loop, float gain)
 {
     if (!smp || !smp->data || smp->length <= 0) return;
@@ -165,6 +172,14 @@ static void voice_start(const sample_t *smp, int loop, float gain)
     }
 }
 
+static int is_loop_active(const sample_t *smp)
+{
+    for (int i = 0; i < MAX_VOICES; i++)
+        if (s_voices[i].active && s_voices[i].loop && s_voices[i].smp == smp)
+            return 1;
+    return 0;
+}
+
 static void voice_stop_loop_of(const sample_t *smp)
 {
     for (int i = 0; i < MAX_VOICES; i++)
@@ -175,6 +190,23 @@ static void voice_stop_loop_of(const sample_t *smp)
 static void fdd_sfx_get_buffer(int32_t *buffer, int len, void *priv)
 {
     if (!s_enabled || !s_inited) return;
+    /* Activity window management: decrement per-drive counters. */
+    int any_window = 0;
+    for (int d = 0; d < MAX_DRIVES; d++) {
+        if (s_activity_countdown[d] > 0) {
+            s_activity_countdown[d] -= len;
+            if (s_activity_countdown[d] < 0) s_activity_countdown[d] = 0;
+        }
+        any_window |= (s_motor_active[d] && s_activity_countdown[d] > 0);
+    }
+    /* If no drive is within its activity window, stop the spin loop. */
+    if (!any_window)
+        voice_stop_loop_of(&s_spinloop);
+    else {
+        /* Ensure the spin loop is running if needed. */
+        if (s_spinloop.data && !is_loop_active(&s_spinloop))
+            voice_start(&s_spinloop, 1, 0.35f);
+    }
     /* index tick scheduling per drive */
     for (int d = 0; d < MAX_DRIVES; d++) {
         if (s_motor_active[d] && s_tick.data && s_tick.length > 0 && s_tick_period[d] > 0) {
@@ -217,6 +249,7 @@ void fdd_sfx_init(void)
     if (s_inited) return;
     memset(s_voices, 0, sizeof(s_voices));
     memset(s_motor_active, 0, sizeof(s_motor_active));
+    memset(s_activity_countdown, 0, sizeof(s_activity_countdown));
     sfx_load_assets();
     sound_add_handler(fdd_sfx_get_buffer, NULL);
     s_inited = 1;
@@ -224,7 +257,46 @@ void fdd_sfx_init(void)
 
 void fdd_sfx_enable(int enabled)
 {
-    s_enabled = enabled ? 1 : 0;
+    int was_enabled = s_enabled;
+    s_enabled       = enabled ? 1 : 0;
+
+    if (!s_inited)
+        return;
+
+    /* If disabling, immediately stop any currently playing voices to
+     * avoid stale loops that would continue when re-enabled. */
+    if (!s_enabled && was_enabled) {
+        voice_stop_all();
+        /* Reset tick scheduling so that when re-enabled we start fresh. */
+        for (int d = 0; d < MAX_DRIVES; d++)
+            s_tick_countdown[d] = s_tick_period[d];
+        memset(s_activity_countdown, 0, sizeof(s_activity_countdown));
+    }
+
+    /* If re-enabling while some drives' motors are already on, start the
+     * steady-state spin sound and re-arm index ticks so audio reflects the
+     * current machine state. Do not play spin-up here to avoid a fake ramp. */
+    if (s_enabled && !was_enabled) {
+        for (int d = 0; d < MAX_DRIVES; d++) {
+            if (s_motor_active[d]) {
+                if (s_spinloop.data)
+                    voice_start(&s_spinloop, 1, 0.35f);
+                if (s_tick.data && s_tick.length > 0) {
+                    int rpm = fdd_getrpm(d);
+                    if (rpm <= 0) rpm = 300;
+                    double period_sec      = 60.0 / (double)rpm;
+                    int    period_samples  = (int)(period_sec * (double)SOUND_FREQ + 0.5);
+                    if (period_samples < 1) period_samples = SOUND_FREQ / 5;
+                    s_tick_period[d]    = period_samples;
+                    s_tick_countdown[d] = period_samples;
+                } else {
+                    s_tick_period[d] = s_tick_countdown[d] = 0;
+                }
+                /* Start a short activity window so we don't sustain indefinitely. */
+                s_activity_countdown[d] = SOUND_FREQ / 3; /* ~333ms */
+            }
+        }
+    }
 }
 
 int fdd_sfx_is_enabled(void) { return s_enabled; }
@@ -232,44 +304,55 @@ int fdd_sfx_is_enabled(void) { return s_enabled; }
 void fdd_sfx_motor(int drive, int on)
 {
     (void)drive;
-    if (!s_inited || !s_enabled) return;
+    if (!s_inited) return;
+
     if (on) {
         if (!s_motor_active[drive]) {
-            if (s_spinup.data)
-                voice_start(&s_spinup, 0, 0.8f);
-            if (s_spinloop.data)
-                voice_start(&s_spinloop, 1, 0.35f);
+            /* Only emit sounds if enabled, but always update state. */
+            if (s_enabled) {
+                if (s_spinup.data)
+                    voice_start(&s_spinup, 0, 0.8f);
+                if (s_spinloop.data)
+                    voice_start(&s_spinloop, 1, 0.35f);
+            }
             s_motor_active[drive] = 1;
             /* setup index tick period from current RPM */
             if (s_tick.data && s_tick.length > 0) {
                 int rpm = fdd_getrpm(drive);
                 if (rpm <= 0) rpm = 300;
-                double period_sec = 60.0 / (double)rpm;
-                int period_samples = (int)(period_sec * (double)SOUND_FREQ + 0.5);
+                double period_sec     = 60.0 / (double)rpm;
+                int    period_samples = (int)(period_sec * (double)SOUND_FREQ + 0.5);
                 if (period_samples < 1) period_samples = SOUND_FREQ / 5; /* sane default */
                 s_tick_period[drive]    = period_samples;
                 s_tick_countdown[drive] = period_samples;
             } else {
                 s_tick_period[drive] = s_tick_countdown[drive] = 0;
             }
+            /* Create/refresh a transient activity window. */
+            s_activity_countdown[drive] = SOUND_FREQ / 2; /* ~500ms */
         }
     } else {
         if (s_motor_active[drive]) {
+            /* Always stop the loop regardless of enabled state to prevent
+             * a stuck loop when toggling the feature off during activity. */
             voice_stop_loop_of(&s_spinloop);
-            if (s_spindown.data)
+            if (s_enabled && s_spindown.data)
                 voice_start(&s_spindown, 0, 0.8f);
             s_motor_active[drive] = 0;
             s_tick_period[drive] = s_tick_countdown[drive] = 0;
+            s_activity_countdown[drive] = 0;
         }
     }
 }
 
 void fdd_sfx_step(int drive)
 {
-    (void)drive;
     if (!s_inited || !s_enabled) return;
     if (s_step.data)
         voice_start(&s_step, 0, 0.9f);
+    /* Refresh activity window on seek so the spin loop can continue briefly. */
+    if (drive >= 0 && drive < MAX_DRIVES)
+        s_activity_countdown[drive] = SOUND_FREQ / 4; /* ~250ms */
 }
 
 void fdd_sfx_insert(int drive)
