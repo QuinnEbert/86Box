@@ -4839,7 +4839,7 @@ const machine_t machines[] = {
         .kbc_p1 = 0x00000cf0,
         .gpio = 0xffffffff,
         .gpio_acpi = 0xffffffff,
-        .device = NULL,
+        .device = &ps2_model_50_device,
         .kbd_device = NULL,
         .fdc_device = NULL,
         .sio_device = NULL,
@@ -12055,7 +12055,7 @@ const machine_t machines[] = {
             .max_multi = 1.5
         },
         .bus_flags = MACHINE_PCI,
-        .flags = MACHINE_IDE | MACHINE_APM,
+        .flags = MACHINE_PS2_KBC | MACHINE_IDE | MACHINE_APM,
         .ram = {
             .min = 2048,
             .max = 262144,
