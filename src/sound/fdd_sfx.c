@@ -18,6 +18,10 @@
 
 #define MAX_VOICES 16
 #define MAX_DRIVES 4
+/* Hard cap for any single playback instance. */
+#define VOICE_MAX_LIFE_SAMPLES (5 * SOUND_FREQ)
+/* Short fade to avoid clicks on forced stop (~5ms at 48kHz). */
+#define VOICE_FADE_SAMPLES     (SOUND_FREQ / 200)
 
 typedef struct sample_t {
     int16_t *data;
@@ -32,6 +36,7 @@ typedef struct voice_t {
     uint32_t        pos_fp;    /* 16.16 fixed */
     uint32_t        inc_fp;    /* increment per output sample */
     int             active;
+    int             life_left; /* in output samples; hard failsafe */
 } voice_t;
 
 static int      s_enabled = 1;
@@ -167,6 +172,8 @@ static void voice_start(const sample_t *smp, int loop, float gain)
             s_voices[i].inc_fp = (uint32_t)lrint(inc * 65536.0);
             if (s_voices[i].inc_fp == 0) s_voices[i].inc_fp = 1;
             s_voices[i].active = 1;
+            /* Hard lifetime cap: never let a voice run >5s continuously. */
+            s_voices[i].life_left = VOICE_MAX_LIFE_SAMPLES;
             return;
         }
     }
@@ -223,6 +230,7 @@ static void fdd_sfx_get_buffer(int32_t *buffer, int len, void *priv)
         for (int v = 0; v < MAX_VOICES; v++) {
             voice_t *vc = &s_voices[v];
             if (!vc->active) continue;
+            if (vc->life_left <= 0) { vc->active = 0; continue; }
             const sample_t *sm = vc->smp;
             uint32_t idx = vc->pos_fp >> 16;
             if (idx >= (uint32_t)sm->length) {
@@ -235,8 +243,15 @@ static void fdd_sfx_get_buffer(int32_t *buffer, int len, void *priv)
                 }
             }
             int32_t s = sm->data[idx];
-            mix += (int32_t)(s * vc->gain);
+            float   g = vc->gain;
+            if (vc->life_left <= VOICE_FADE_SAMPLES) {
+                /* Linear fade-out near end of lifetime to prevent clicks. */
+                g *= (float)vc->life_left / (float)VOICE_FADE_SAMPLES;
+            }
+            mix += (int32_t)(s * g);
             vc->pos_fp += vc->inc_fp;
+            /* Decrement lifetime after processing one output sample. */
+            vc->life_left--;
         }
         /* stereo: duplicate to both */
         buffer[(i<<1)+0] += mix;

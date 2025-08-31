@@ -823,13 +823,17 @@ fdc_write(uint16_t addr, uint8_t val, void *priv)
                 }
                 if ((val & 4) && !(fdc->dor & 4))
                     fdc_soft_reset(fdc);
-                /* We can now simplify this since each motor now spins separately. */
+                /* Drive motor control (bits 4..7 in DOR). Map logical bits to
+                 * the real (possibly swapped) drive numbers, and do not mutate
+                 * the original DOR value while iterating. */
                 for (int i = 0; i < FDD_NUM; i++) {
-                    drive_num = real_drive(fdc, i);
-                    if ((!fdd_get_flags(drive_num)) || (drive_num >= FDD_NUM))
-                        val &= ~(0x10 << drive_num);
-                    else
-                        fdd_set_motor_enable(i, (val & (0x10 << drive_num)));
+                    int bit_set  = (val & (0x10 << i)) ? 1 : 0;   /* bit for logical drive i */
+                    drive_num    = real_drive(fdc, i);           /* physical drive index */
+                    if ((drive_num < 0) || (drive_num >= FDD_NUM) || !fdd_get_flags(drive_num))
+                        bit_set = 0; /* invalid/unavailable drive => force motor off */
+
+                    /* Apply to the correct physical drive. */
+                    fdd_set_motor_enable(drive_num, bit_set);
                 }
                 drive_num     = real_drive(fdc, val & 0x03);
                 current_drive = drive_num;
