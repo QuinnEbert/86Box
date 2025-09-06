@@ -142,16 +142,11 @@ if(APPLE)
     endif()
 endif()
 
-find_package(Freetype REQUIRED)
-include_directories(${FREETYPE_INCLUDE_DIRS})
-if(FREETYPE_INCLUDE_DIR_ft2build)
-    include_directories(${FREETYPE_INCLUDE_DIR_ft2build})
-endif()
-if(APPLE)
-    # Freetype is dynamically loaded by the emulator, however, we link it
-    # on macOS so it gets copied to the bundle by the installation process
-    target_link_libraries(86Box Freetype::Freetype)
-endif()
+# Freetype is linked where needed (printer) via pkg-config on non-Windows.
+# Avoid forcing a specific system Freetype here to prevent architecture
+# mismatches on macOS systems with both Intel and Apple Silicon Homebrew.
+# On macOS, printer CMake links FreeType via pkg-config; avoid linking
+# an imported Freetype target here to prevent mismatched SDK/arch.
 
 find_package(PNG REQUIRED)
 include_directories(${PNG_INCLUDE_DIRS})
