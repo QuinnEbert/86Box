@@ -37,6 +37,8 @@ list(APPEND net_sources
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SLIRP REQUIRED IMPORTED_TARGET slirp)
+# Link the final executable against libslirp; add the include dirs to the
+# object library after it is created below.
 target_link_libraries(86Box PkgConfig::SLIRP)
 
 if(WIN32)
@@ -97,3 +99,11 @@ if (UNIX AND NOT APPLE) # Support for TAP on Linux and BSD, supposedly.
 endif()
 
 add_library(net OBJECT ${net_sources})
+# Ensure net_slirp.c sees libslirp headers via the imported target
+target_link_libraries(net PRIVATE PkgConfig::SLIRP)
+# Some pkg-config providers (e.g. Homebrew) expose cflags with
+# include/slirp while headers expect inclusion as <slirp/libslirp.h>.
+# Add the parent include dir to cover both layouts.
+if(DEFINED SLIRP_INCLUDEDIR)
+    target_include_directories(net PRIVATE ${SLIRP_INCLUDEDIR})
+endif()

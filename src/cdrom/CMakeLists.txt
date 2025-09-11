@@ -25,12 +25,16 @@ add_library(cdrom OBJECT
     cdrom_image_viso.c
     cdrom_mke.c
 )
+# Ensure headers from libsndfile are visible when compiling this object library.
 if(NOT WIN32)
-	target_include_directories(86Box PRIVATE PkgConfig::SNDFILE)
+    # Consume libsndfile via its imported target so include dirs propagate to
+    # this object library during compilation.
+    target_link_libraries(cdrom PRIVATE PkgConfig::SNDFILE)
 endif()
 if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
 	target_include_directories(cdrom PRIVATE /usr/local/include)
 endif()
+# Link libsndfile to the final executable
 target_link_libraries(86Box PkgConfig::SNDFILE)
 
 if(CDROM_MITSUMI)

@@ -61,22 +61,25 @@ endif ()
 # Ensure Qt headers are searched before generic Homebrew includes.
 # This avoids pulling in mismatched Qt5 headers from /opt/homebrew/include
 # when building against Qt6, which causes macro clashes and redefinitions.
+# Ensure Qt headers are searched before generic includes and take precedence.
+# Avoid marking them as SYSTEM so they are added with -I (higher priority than
+# any accidental system include paths like /usr/local/include on macOS).
 if (TARGET Qt${QT_MAJOR}::Core)
     get_target_property(_qt_core_includes Qt${QT_MAJOR}::Core INTERFACE_INCLUDE_DIRECTORIES)
     if (_qt_core_includes)
-        include_directories(BEFORE SYSTEM ${_qt_core_includes})
+        include_directories(BEFORE ${_qt_core_includes})
     endif()
 endif()
 if (TARGET Qt${QT_MAJOR}::Gui)
     get_target_property(_qt_gui_includes Qt${QT_MAJOR}::Gui INTERFACE_INCLUDE_DIRECTORIES)
     if (_qt_gui_includes)
-        include_directories(BEFORE SYSTEM ${_qt_gui_includes})
+        include_directories(BEFORE ${_qt_gui_includes})
     endif()
 endif()
 if (TARGET Qt${QT_MAJOR}::Widgets)
     get_target_property(_qt_widgets_includes Qt${QT_MAJOR}::Widgets INTERFACE_INCLUDE_DIRECTORIES)
     if (_qt_widgets_includes)
-        include_directories(BEFORE SYSTEM ${_qt_widgets_includes})
+        include_directories(BEFORE ${_qt_widgets_includes})
     endif()
 endif()
 
