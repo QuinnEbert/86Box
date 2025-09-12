@@ -71,9 +71,6 @@ extern "C" {
 #    include <86box/win.h>
 #    include <shobjidl.h>
 #    include <windows.h>
-#    include <io.h>
-#    include <fcntl.h>
-#    include <wchar.h>
 #endif
 
 #include <thread>
@@ -112,142 +109,6 @@ void qt_set_sequence_auto_mnemonic(bool b);
 
 #ifdef Q_OS_WINDOWS
 bool acp_utf8 = false;
-
-#ifdef USE_NEW_DYNAREC
-// Duplicate stdout/stderr to files while preserving console output (Windows).
-// Enabled for Windows Qt builds using the New Dynarec (NDR) to ease debugging
-// by capturing console output to files next to the executable.
-namespace {
-    struct TeeContext {
-        HANDLE read_end;
-        HANDLE console_handle; // original console handle (may be INVALID_HANDLE_VALUE)
-        HANDLE file_handle;    // destination file
-    };
-
-    static DWORD WINAPI tee_thread_proc(LPVOID param)
-    {
-        TeeContext* ctx = reinterpret_cast<TeeContext*>(param);
-        if (!ctx) return 0;
-        const DWORD buf_size = 4096;
-        char buffer[buf_size];
-        for (;;) {
-            DWORD bytes_read = 0;
-            BOOL ok = ReadFile(ctx->read_end, buffer, buf_size, &bytes_read, nullptr);
-            if (!ok || bytes_read == 0) break;
-
-            DWORD written = 0;
-            if (ctx->console_handle != INVALID_HANDLE_VALUE && ctx->console_handle != nullptr)
-                WriteFile(ctx->console_handle, buffer, bytes_read, &written, nullptr);
-            if (ctx->file_handle != INVALID_HANDLE_VALUE && ctx->file_handle != nullptr)
-                WriteFile(ctx->file_handle, buffer, bytes_read, &written, nullptr);
-        }
-        return 0;
-    }
-
-    static HANDLE open_append_file(const wchar_t* path)
-    {
-        return CreateFileW(path,
-                           FILE_APPEND_DATA,
-                           FILE_SHARE_READ | FILE_SHARE_WRITE,
-                           nullptr,
-                           OPEN_ALWAYS,
-                           FILE_ATTRIBUTE_NORMAL,
-                           nullptr);
-    }
-
-    static void setup_one_std_tee(DWORD std_id, const wchar_t* filename)
-    {
-        // Resolve executable directory
-        wchar_t mod_path[32768] = {0};
-        const size_t mod_path_count = sizeof(mod_path) / sizeof(mod_path[0]);
-        DWORD len = GetModuleFileNameW(nullptr, mod_path, static_cast<DWORD>(mod_path_count));
-        if (len == 0 || len >= mod_path_count) return;
-
-        // Truncate to directory
-        wchar_t* last_sep = nullptr;
-        for (wchar_t* p = mod_path; *p; ++p) {
-            if (*p == L'\\' || *p == L'/') last_sep = p;
-        }
-        if (!last_sep) return;
-        *last_sep = L'\0';
-
-        // Build full path: <exe_dir>\\filename
-        wchar_t out_path[32768] = {0};
-        const size_t out_path_count = sizeof(out_path) / sizeof(out_path[0]);
-        wcsncpy(out_path, mod_path, out_path_count - 1);
-        size_t cur_len = wcslen(out_path);
-        if (cur_len > 0 && cur_len < out_path_count - 1 && out_path[cur_len - 1] != L'\\' && out_path[cur_len - 1] != L'/') {
-            out_path[cur_len++] = L'\\';
-            out_path[cur_len] = L'\0';
-        }
-        if (cur_len + wcslen(filename) < out_path_count) {
-            wcscat(out_path, filename);
-        } else {
-            return;
-        }
-
-        HANDLE file_handle = open_append_file(out_path);
-
-        // Save original console handle if present
-        HANDLE orig = GetStdHandle(std_id);
-        if (orig == nullptr) orig = INVALID_HANDLE_VALUE;
-
-        // Create a pipe: we'll redirect std stream to its write-end and tee from the read-end
-        SECURITY_ATTRIBUTES sa{};
-        sa.nLength = sizeof(sa);
-        sa.bInheritHandle = TRUE;
-        HANDLE read_end = nullptr, write_end = nullptr;
-        if (!CreatePipe(&read_end, &write_end, &sa, 0)) {
-            if (file_handle != INVALID_HANDLE_VALUE) CloseHandle(file_handle);
-            return;
-        }
-        // Ensure read end is not inherited by child processes
-        SetHandleInformation(read_end, HANDLE_FLAG_INHERIT, 0);
-
-        // Make C runtime stream unbuffered and point it to the pipe
-        int fd_write = _open_osfhandle(reinterpret_cast<intptr_t>(write_end), _O_TEXT);
-        if (fd_write != -1) {
-            if (std_id == STD_OUTPUT_HANDLE) {
-                _dup2(fd_write, _fileno(stdout));
-                setvbuf(stdout, nullptr, _IONBF, 0);
-            } else if (std_id == STD_ERROR_HANDLE) {
-                _dup2(fd_write, _fileno(stderr));
-                setvbuf(stderr, nullptr, _IONBF, 0);
-            }
-        }
-        // Also set the Windows std handle for APIs using GetStdHandle
-        SetStdHandle(std_id, write_end);
-
-        // Duplicate original console handle so the CRT close doesn't invalidate it
-        HANDLE dup_console = INVALID_HANDLE_VALUE;
-        if (orig != INVALID_HANDLE_VALUE) {
-            DuplicateHandle(GetCurrentProcess(), orig,
-                            GetCurrentProcess(), &dup_console,
-                            0, FALSE, DUPLICATE_SAME_ACCESS);
-        }
-
-        // Start a thread to tee from pipe to console and file
-        auto* ctx = new TeeContext{ read_end, dup_console, file_handle };
-        HANDLE hThread = CreateThread(nullptr, 0, tee_thread_proc, ctx, 0, nullptr);
-        if (hThread) {
-            CloseHandle(hThread); // detach; thread ends when pipe closes
-        } else {
-            // Cleanup on failure
-            if (ctx->file_handle != INVALID_HANDLE_VALUE) CloseHandle(ctx->file_handle);
-            if (ctx->console_handle != INVALID_HANDLE_VALUE) CloseHandle(ctx->console_handle);
-            CloseHandle(ctx->read_end);
-            delete ctx;
-        }
-        // Do not close write_end; it is now owned by the CRT std stream
-    }
-
-    static void setup_windows_stdio_tees()
-    {
-        setup_one_std_tee(STD_OUTPUT_HANDLE, L"stdout.txt");
-        setup_one_std_tee(STD_ERROR_HANDLE,  L"stderr.txt");
-    }
-} // namespace
-#endif // USE_NEW_DYNAREC
 
 static void
 keyboard_getkeymap()
@@ -729,12 +590,6 @@ main(int argc, char *argv[])
 #endif
 
     QApplication app(argc, argv);
-#ifdef Q_OS_WINDOWS
-#  ifdef USE_NEW_DYNAREC
-    // Copy stdout and stderr to stdout.txt and stderr.txt while keeping console output
-    setup_windows_stdio_tees();
-#  endif
-#endif
     QLocale::setDefault(QLocale::C);
     setlocale(LC_NUMERIC, "C");
 
