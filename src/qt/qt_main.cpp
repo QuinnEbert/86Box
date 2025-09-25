@@ -677,12 +677,28 @@ main(int argc, char *argv[])
         return items.join(QString());
     };
 
-    auto showRomPathsError = [&](QMessageBox::Icon icon, const QString &title, const QString &msgWithPlaceholder) {
-        QString msg = msgWithPlaceholder.arg(romDirListHtml());
+    auto showMissingRomDialog = [&](QMessageBox::Icon icon,
+                                    const QString &title,
+                                    const QString &missingHtml,
+                                    bool fatal) {
+        QString msg;
 
-        const QString missingHtml = missingFileListHtml(device_get_missing_roms());
         if (!missingHtml.isEmpty()) {
-            msg += QObject::tr("<br><br>Missing ROM files:<ul>%1</ul>").arg(missingHtml);
+            msg = fatal
+                      ? QObject::tr("86Box cannot start because the following ROM files are missing:<ul>%1</ul>")
+                            .arg(missingHtml)
+                      : QObject::tr("86Box could not find the following ROM files:<ul>%1</ul>")
+                            .arg(missingHtml);
+        } else {
+            msg = fatal ? QObject::tr("86Box cannot start because no ROM images were found.")
+                        : QObject::tr("86Box did not find any ROM images.");
+        }
+
+        const QString romDirs = romDirListHtml();
+        if (!romDirs.isEmpty()) {
+            msg += QObject::tr("<br><br>ROM search paths:<ul>%1</ul>").arg(romDirs);
+        } else {
+            msg += QObject::tr("<br><br>No ROM search paths are configured.");
         }
 
         QMessageBox box(icon, title, msg, QMessageBox::Ok);
@@ -691,13 +707,11 @@ main(int argc, char *argv[])
     };
 
     if (!pc_init_roms()) {
-        showRomPathsError(
-            QMessageBox::Icon::Critical,
-            QObject::tr("No ROMs found"),
-            QObject::tr(
-                "86Box could not find any usable ROM images.<br><br>"
-                "Please <a href=\"https://github.com/86Box/roms/releases/latest\">download</a> "
-                "a ROM set and extract it into one of the following directories:<ul>%1</ul>"));
+        const QString missingHtml = missingFileListHtml(device_get_missing_roms());
+        showMissingRomDialog(QMessageBox::Icon::Critical,
+                             QObject::tr("Missing ROM files"),
+                             missingHtml,
+                             true);
         return 6;
     }
 
@@ -745,28 +759,19 @@ main(int argc, char *argv[])
 
     const bool modulesInitialized = pc_init_modules();
     if (!modulesInitialized) {
-        showRomPathsError(
-            QMessageBox::Icon::Critical,
-            QObject::tr("No ROMs found"),
-            QObject::tr(
-                "86Box could not find any usable ROM images.<br><br>"
-                "Please <a href=\"https://github.com/86Box/roms/releases/latest\">download</a> "
-                "a ROM set and extract it into one of the following directories:<ul>%1</ul>"));
+        const QString missingHtml = missingFileListHtml(device_get_missing_roms());
+        showMissingRomDialog(QMessageBox::Icon::Critical,
+                             QObject::tr("Missing ROM files"),
+                             missingHtml,
+                             true);
         return 6;
     }
 
-    const QString missingRomHtml = missingFileListHtml(device_get_missing_roms());
-    if (!missingRomHtml.isEmpty()) {
-        const QString msg = QObject::tr(
-                                   "86Box could not find the following ROM files:<ul>%1</ul><br><br>"
-                                   "Please make sure these files are present in one of the following directories:<ul>%2</ul>")
-                               .arg(missingRomHtml, romDirListHtml());
-        QMessageBox warnbox(QMessageBox::Icon::Warning,
-                            QObject::tr("Missing ROM files"),
-                            msg,
-                            QMessageBox::Ok);
-        warnbox.setTextFormat(Qt::TextFormat::RichText);
-        warnbox.exec();
+    if (const QString missingRomHtml = missingFileListHtml(device_get_missing_roms()); !missingRomHtml.isEmpty()) {
+        showMissingRomDialog(QMessageBox::Icon::Warning,
+                             QObject::tr("Missing ROM files"),
+                             missingRomHtml,
+                             false);
     }
 
     if (start_vmm) {
