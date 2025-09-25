@@ -8,15 +8,12 @@
  *
  *          OPTi MediaCHIPS 82C929A (also known as OPTi MAD16 Pro) audio controller emulation.
  *
- *
- *
  * Authors: Cacodemon345
  *          Eluan Costa Miranda <eluancm@gmail.com>
  *
  *          Copyright 2022 Cacodemon345.
  *          Copyright 2020 Eluan Costa Miranda.
  */
-
 #include <math.h>
 #include <stdarg.h>
 #include <stdint.h>
@@ -85,7 +82,7 @@ optimc_filter_opl(void *priv, double *out_l, double *out_r)
     if (optimc->cur_wss_enabled) {
         *out_l /= optimc->sb->mixer_sbpro.fm_l;
         *out_r /= optimc->sb->mixer_sbpro.fm_r;
-        ad1848_filter_aux2((void *) &optimc->ad1848, out_l, out_r);
+        ad1848_filter_channel((void *) &optimc->ad1848, AD1848_AUX2, out_l, out_r);
     }
 }
 
@@ -380,6 +377,7 @@ optimc_init(const device_t *info)
     else
         ad1848_init(&optimc->ad1848, AD1848_TYPE_DEFAULT);
 
+    ad1848_set_cd_audio_channel(&optimc->ad1848, (info->local & 0x100) ? AD1848_LINE_IN : AD1848_AUX1);
     ad1848_setirq(&optimc->ad1848, optimc->cur_wss_irq);
     ad1848_setdma(&optimc->ad1848, optimc->cur_wss_dma);
 

@@ -1,18 +1,16 @@
 /*
- * 86Box     A hypervisor and IBM PC system emulator that specializes in
- *           running old operating systems and software designed for IBM
- *           PC systems and compatibles from 1981 through fairly recent
- *           system designs based on the PCI bus.
+ * 86Box    A hypervisor and IBM PC system emulator that specializes in
+ *          running old operating systems and software designed for IBM
+ *          PC systems and compatibles from 1981 through fairly recent
+ *          system designs based on the PCI bus.
  *
- *           This file is part of the 86Box distribution.
+ *          This file is part of the 86Box distribution.
  *
- *           Crystal CS423x (SBPro/WSS compatible sound chips) emulation.
+ *          Crystal CS423x (SBPro/WSS compatible sound chips) emulation.
  *
+ * Authors: RichardG, <richardg867@gmail.com>
  *
- *
- * Authors:  RichardG, <richardg867@gmail.com>
- *
- *           Copyright 2021-2025 RichardG.
+ *          Copyright 2021-2025 RichardG.
  */
 #include <math.h>
 #include <stdarg.h>
@@ -273,8 +271,10 @@ cs423x_write(uint16_t addr, uint8_t val, void *priv)
             }
             switch (dev->regs[3] & 0x0f) {
                 case 0: /* WSS Master Control */
-                    if ((dev->type < CRYSTAL_CS4235) && (val & 0x80))
+                    if ((dev->type < CRYSTAL_CS4235) && (val & 0x80)) {
                         ad1848_init(&dev->ad1848, dev->ad1848_type);
+                        ad1848_set_cd_audio_channel(&dev->ad1848, AD1848_AUX2);
+                    }
                     val = 0x00;
                     break;
 
@@ -865,6 +865,7 @@ cs423x_reset(void *priv)
 
     /* Reset WSS codec. */
     ad1848_init(&dev->ad1848, dev->ad1848_type);
+    ad1848_set_cd_audio_channel(&dev->ad1848, AD1848_AUX2);
 
     /* Reset PnP resource data, state and logical devices. */
     dev->pnp_enable = 1;

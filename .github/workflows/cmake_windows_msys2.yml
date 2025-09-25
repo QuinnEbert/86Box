@@ -1,4 +1,4 @@
-name: CMake (Windows, msys2)
+name: CMake (Windows)
 
 on:
   workflow_dispatch:
@@ -49,14 +49,15 @@ jobs:
             new: on
             slug: -NDR
         ui:
-          - name: Qt GUI
+          - name: Qt 5 GUI
             qt: on
+            slug: -Qt5
             static: on
-            slug: -Qt
             packages: >-
-              qt5-base:p
-              qt5-tools:p
+              qt5-static:p
               vulkan-headers:p
+#              qt5-base:p
+#              qt5-tools:p
         environment:
 #          - msystem: MSYS
 #            toolchain: ./cmake/flags-gcc-x86_64.cmake
@@ -70,10 +71,12 @@ jobs:
 #            prefix: mingw-w64-clang-x86_64
 #            toolchain: ./cmake/llvm-win32-x86_64.cmake
 #            slug: "CLANG64"
+#            runner: windows-2022
 #          - msystem: UCRT64
 #            prefix: mingw-w64-ucrt-x86_64
 #            toolchain: ./cmake/flags-gcc-x86_64.cmake
 #            slug: "UCRT64"
+#            runner: windows-2022
           - msystem: CLANGARM64
             toolchain: ./cmake/flags-gcc-aarch64.cmake
             slug: -arm64
@@ -103,7 +106,7 @@ jobs:
           cmake -G Ninja -S . -B build --preset ${{ matrix.build.preset }}
           --toolchain ${{ matrix.environment.toolchain }}
           -D NEW_DYNAREC=${{ matrix.dynarec.new }}
-          -D CMAKE_INSTALL_PREFIX=./build/artifacts
+          -D QT=${{ matrix.ui.qt }}
 
       - name: Build
         run: cmake --build build
