@@ -90,10 +90,16 @@ HWND   rw_hwnd;
 #endif
 
 RendererStack::RendererStack(QWidget *parent, int monitor_index)
-    : QStackedWidget(parent)
+    : QWidget(parent)
+    , boxLayout(new QBoxLayout(QBoxLayout::TopToBottom, this))
     , ui(new Ui::RendererStack)
 {
+    boxLayout->setContentsMargins(0, 0, 0, 0);
     setAttribute(Qt::WA_AcceptTouchEvents, true);
+#ifdef Q_OS_WINDOWS
+    setAttribute(Qt::WA_NativeWindow, true);
+    (void)winId();
+#endif
     rendererTakesScreenshots = false;
 #ifdef Q_OS_WINDOWS
     int raw = 1;
@@ -189,6 +195,7 @@ RendererStack::mouseReleaseEvent(QMouseEvent *event)
     rw_hwnd        = (HWND) this->winId();                
 #endif
 
+    event->accept();
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     if (!dopause && this->geometry().contains(m_monitor_index >= 1 ? event->globalPosition().toPoint() : event->position().toPoint()) &&
 #else
@@ -348,7 +355,7 @@ RendererStack::switchRenderer(Renderer renderer)
     switchInProgress = true;
     if (current) {
         rendererWindow->finalize();
-        removeWidget(current.get());
+        boxLayout->removeWidget(current.get());
         disconnect(this, &RendererStack::blitToRenderer, nullptr, nullptr);
 
         /* Create new renderer only after previous is destroyed! */
@@ -444,9 +451,9 @@ RendererStack::createRenderer(Renderer renderer)
     current->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     current->setStyleSheet("background-color: black");
     current->setAttribute(Qt::WA_AlwaysStackOnTop);
-    addWidget(current.get());
 
     this->setStyleSheet("background-color: black");
+    boxLayout->addWidget(current.get());
 
     rendererWindow->r_monitor_index = m_monitor_index;
 
@@ -538,7 +545,7 @@ RendererStack::event(QEvent* event)
                 if (mouse_x_abs > 1) mouse_x_abs = 1;
                 if (mouse_y_abs > 1) mouse_y_abs = 1;
             }
-            return QStackedWidget::event(event);
+            return QWidget::event(event);
         }
 
 #ifdef Q_OS_WINDOWS
@@ -561,7 +568,7 @@ RendererStack::event(QEvent* event)
 
             if (mouse_x_abs > 1) mouse_x_abs = 1;
             if (mouse_y_abs > 1) mouse_y_abs = 1;
-            return QStackedWidget::event(event);
+            return QWidget::event(event);
         }
 #endif
 
@@ -681,10 +688,10 @@ RendererStack::event(QEvent* event)
         }
 
         default:
-            return QStackedWidget::event(event);
+            return QWidget::event(event);
     }
 
-    return QStackedWidget::event(event);
+    return QWidget::event(event);
 }
 
 void

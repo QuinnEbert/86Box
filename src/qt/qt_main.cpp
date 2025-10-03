@@ -100,6 +100,7 @@ extern "C" {
 #include <86box/timer.h>
 #include <86box/nvr.h>
 extern int qt_nvr_save(void);
+extern void exit_pause(void);
 
 bool cpu_thread_running = false;
 }
@@ -444,7 +445,7 @@ main_thread_fn()
     int      frames;
 
     QThread::currentThread()->setPriority(QThread::HighestPriority);
-    plat_set_thread_name(nullptr, "main_thread_fn");
+    plat_set_thread_name(nullptr, "main_thread");
     framecountx = 0;
     // title_update = 1;
     uint64_t old_time = elapsed_timer.elapsed();
@@ -613,7 +614,6 @@ main(int argc, char *argv[])
     if (QFile(QApplication::applicationDirPath() + "/opengl32.dll").exists()) {
         qputenv("QT_OPENGL_DLL", QFileInfo(QApplication::applicationDirPath() + "/opengl32.dll").absoluteFilePath().toUtf8());
     }
-    QApplication::setAttribute(Qt::AA_NativeWindows);
 
     if (!util::isWindowsLightTheme()) {
         QFile f(":qdarkstyle/dark/darkstyle.qss");
@@ -873,6 +873,14 @@ main(int argc, char *argv[])
     discord_load();
 #endif
 
+#ifdef Q_OS_WINDOWS
+    // On Win32 the accuracy of Sleep() depends on the timer resolution, which can be set by calling timeBeginPeriod
+    // https://learn.microsoft.com/en-us/windows/win32/api/timeapi/nf-timeapi-timebeginperiod
+    exit_pause();
+    timeBeginPeriod(1);
+    atexit([] () -> void { timeEndPeriod(1); });
+#endif
+
     main_window = new MainWindow();
     if (startMaximized) {
         main_window->showMaximized();
@@ -1013,6 +1021,8 @@ main(int argc, char *argv[])
 
     /* Initialize the rendering window, or fullscreen. */
     QTimer::singleShot(0, &app, [] {
+        plat_set_thread_name(nullptr, "qt_thread");
+
 #ifdef Q_OS_WINDOWS
         extern bool NewDarkMode;
         NewDarkMode = util::isWindowsLightTheme();

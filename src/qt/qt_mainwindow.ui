@@ -1186,7 +1186,7 @@
    
   <customwidget>
    <class>RendererStack</class>
-   <extends>QStackedWidget</extends>
+   <extends>QWidget</extends>
    <header>qt_rendererstack.hpp</header>
    <container>1</container>
   </customwidget>
