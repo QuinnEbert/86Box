@@ -99,6 +99,7 @@ typedef struct hdd_preset_t {
     uint32_t    max_multiple;
     double      full_stroke_ms;
     double      track_seek_ms;
+    const char *version_ex;
 } hdd_preset_t;
 
 typedef struct hdd_cache_seg_t {
@@ -197,6 +198,8 @@ typedef struct hard_disk_t {
     uint8_t            shared_fs_type;       /* 0=auto, 12=FAT12, 16=FAT16, 32=FAT32 */
     uint8_t            shared_os_level;      /* 0=auto, 1=MS-DOS 3-6.x, 2=Win9x/ME, 3=NT/2000+ */
     uint8_t            shared_layout;        /* 0=auto, 1=partitioned (MBR), 2=superfloppy */
+
+    const char        *version_ex;
 
     hdd_zone_t         zones[HDD_MAX_ZONES];
 
