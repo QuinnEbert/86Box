@@ -510,10 +510,13 @@ main_thread_fn()
             if (++slow_counter > turbo_slow_cycles)
                 slow_counter = 0;
         } else if (drawits > 0 && !dopause) {
-            /* Yes, so do one frame now. */
-            drawits -= force_10ms ? 10 : 1;
-            if (drawits > 50)
-                drawits = 0;
+            /* Yes, so run frames now. */
+            do {
+#ifdef USE_INSTRUMENT
+                uint64_t start_time = elapsed_timer.nsecsElapsed();
+#endif
+                /* Run a block of code. */
+                pc_run();
 
 #ifdef USE_INSTRUMENT
                 if (instru_enabled) {
