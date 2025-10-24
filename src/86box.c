@@ -1895,23 +1895,25 @@ pc_run(void)
      * running only ~1ms worth of cycles per iteration.
      */
     int ms_per_call = (force_10ms ? 10 : 1);
+    int32_t cycs;
     if (turbo_mode) {
+        /* In turbo mode, execute as many cycles as possible without rate limiting.
+         * Use a very large cycle count to let the CPU run at maximum speed.
+         * The main loop already handles calling pc_run() rapidly in turbo mode. */
         if (turbo_batch_ms == 0) {
-            /* Auto: Aim for ~16ms batches while turbo is active for better scaling. */
-            if (ms_per_call < 16)
-                ms_per_call = 16;
+            /* Auto: Use 100x the rated speed for maximum performance */
+            cycs = (int32_t) (((int64_t) cpu_s->rspeed * 100) / 1000);
         } else if (turbo_batch_ms < 0) {
-            /* Unlimited: choose a large batch to minimize overhead but still keep UI responsive. */
-            ms_per_call = 64;
+            /* Unlimited: Use 500x the rated speed for absolute maximum */
+            cycs = (int32_t) (((int64_t) cpu_s->rspeed * 500) / 1000);
         } else {
-            /* Explicit value in milliseconds. */
-            if (turbo_batch_ms < ms_per_call)
-                ms_per_call = ms_per_call; /* respect 10ms minimum when forced */
-            else
-                ms_per_call = turbo_batch_ms;
+            /* Explicit: Use configured multiplier (treat as ms but execute that many ms worth at once) */
+            cycs = (int32_t) (((int64_t) cpu_s->rspeed * turbo_batch_ms) / 1000);
         }
+    } else {
+        /* Normal mode: execute cycles at rated speed */
+        cycs = (int32_t) (((int64_t) cpu_s->rspeed * ms_per_call) / 1000);
     }
-    int32_t cycs = (int32_t) (((int64_t) cpu_s->rspeed * ms_per_call) / 1000);
     cpu_exec(cycs);
     ack_pause();
 #ifdef USE_GDBSTUB /* avoid a KBC FIFO overflow when CPU emulation is stalled */
