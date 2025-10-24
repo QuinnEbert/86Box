@@ -53,10 +53,12 @@ find_package(Qt${QT_MAJOR} COMPONENTS Core Widgets Network OpenGL Gui REQUIRED)
 # Try to find Vulkan headers; if missing, skip Vulkan renderer sources
 find_package(Vulkan QUIET)
 find_package(Qt${QT_MAJOR}LinguistTools REQUIRED NO_CMAKE_FIND_ROOT_PATH)
-if(NOT USE_QT6)
-    # For <qpa/qplatformwindow.h>  in src/qt/qt_mainwindow.cpp
+if(USE_QT6)
+    set(QT_NO_PRIVATE_MODULE_WARNING ON)
+    find_package(Qt6 COMPONENTS GuiPrivate)
+else()
     include_directories(${Qt5Gui_PRIVATE_INCLUDE_DIRS})
-endif ()
+endif()
 
 # Ensure Qt headers are searched before generic Homebrew includes.
 # This avoids pulling in mismatched Qt5 headers from /opt/homebrew/include
