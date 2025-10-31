@@ -902,7 +902,7 @@ static const device_config_t dtk_config[] = {
         .name           = "bios",
         .description    = "BIOS Version",
         .type           = CONFIG_BIOS,
-        .default_string = "dtk_242",
+        .default_string = "dtk",
         .default_int    = 0,
         .file_filter    = NULL,
         .spinner        = { 0 },
@@ -919,7 +919,7 @@ static const device_config_t dtk_config[] = {
             },
             {
                 .name          = "2.42",
-                .internal_name = "dtk_242",
+                .internal_name = "dtk",
                 .bios_type     = BIOS_NORMAL,
                 .files_no      = 1,
                 .local         = 0,
@@ -1259,7 +1259,7 @@ static const device_config_t pc500_config[] = {
     {
         .name           = "rtc_port",
         .description    = "RTC Port Address",
-        .type           = CONFIG_HEX16,
+        .type           = CONFIG_SELECTION,
         .default_string = NULL,
         .default_int    = 0,
         .file_filter    = NULL,
@@ -1310,7 +1310,7 @@ machine_xt_pc500_init(const machine_t *model)
     if (bios_only || !ret)
         return ret;
 
-    device_add(&kbc_xtclone_device);
+    device_add(&kbc_pc82_device);
 
     machine_xt_common_init(model, 0);
 
@@ -1379,7 +1379,7 @@ static const device_config_t pc500plus_config[] = {
     {
         .name           = "rtc_port",
         .description    = "Onboard RTC",
-        .type           = CONFIG_HEX16,
+        .type           = CONFIG_SELECTION,
         .default_string = NULL,
         .default_int    = 0,
         .file_filter    = NULL,
@@ -1429,9 +1429,7 @@ machine_xt_pc500plus_init(const machine_t *model)
     if (bios_only || !ret)
         return ret;
 
-    device_add(&kbc_xtclone_device);
-
-    machine_xt_common_init(model, 0);
+    machine_xt_clone_init(model, 0);
 
     if (rtc_port != 0)
         device_add(&rtc58167_device);
@@ -1507,7 +1505,7 @@ machine_xt_pc700_init(const machine_t *model)
     if (bios_only || !ret)
         return ret;
 
-    device_add(&kbc_pc_device);
+    device_add(&kbc_pc82_device);
 
     machine_xt_common_init(model, 0);
 

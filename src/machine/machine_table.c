@@ -1128,7 +1128,7 @@ const machine_t machines[] = {
         .nvrmask                  = 0,
         .jumpered_ecp_dma         = 0,
         .default_jumpered_ecp_dma = -1,
-        .kbc_device               = &kbc_pc_device,
+        .kbc_device               = &kbc_pc82_device,
         .kbc_params               = 0x00000000,
         .kbc_p1                   = 0xff,
         .gpio                     = 0xffffffff,
@@ -1171,7 +1171,7 @@ const machine_t machines[] = {
         .nvrmask                  = 0,
         .jumpered_ecp_dma         = 0,
         .default_jumpered_ecp_dma = -1,
-        .kbc_device               = &kbc_pc_device,
+        .kbc_device               = &kbc_xtclone_device,
         .kbc_params               = 0x00000000,
         .kbc_p1                   = 0xff,
         .gpio                     = 0xffffffff,
@@ -1214,7 +1214,7 @@ const machine_t machines[] = {
         .nvrmask                  = 0,
         .jumpered_ecp_dma         = 0,
         .default_jumpered_ecp_dma = -1,
-        .kbc_device               = &kbc_pc_device,
+        .kbc_device               = &kbc_pc82_device,
         .kbc_params               = 0x00000000,
         .kbc_p1                   = 0xff,
         .gpio                     = 0xffffffff,
@@ -6853,7 +6853,7 @@ const machine_t machines[] = {
     },
     /* Has IBM PS/55 5551-Sxx, Txx stage 2 firmware. */
     {
-        .name              = "[MCA] IBM PS/55 model 5550-T",
+        .name              = "[MCA] IBM PS/55 model 5550-S/T Stage II",
         .internal_name     = "ibmps55_m50t",
         .type              = MACHINE_TYPE_386DX,
         .chipset           = MACHINE_CHIPSET_PROPRIETARY,
@@ -6878,50 +6878,6 @@ const machine_t machines[] = {
             .min  = 2048,
             .max  = 16384,
             .step = 2048
-        },
-        .nvrmask                  = 63,
-        .jumpered_ecp_dma         = 0,
-        .default_jumpered_ecp_dma = -1,
-        .kbc_device               = &kbc_at_device,
-        .kbc_params               = KBC_VEN_IBM,
-        .kbc_p1                   = 0x00000cf0,
-        .gpio                     = 0xffffffff,
-        .gpio_acpi                = 0xffffffff,
-        .device                   = NULL,
-        .kbd_device               = NULL,
-        .fdc_device               = NULL,
-        .sio_device               = NULL,
-        .vid_device               = NULL,
-        .snd_device               = NULL,
-        .net_device               = NULL
-    },
-    /* Has IBM PS/55 5551-V0x, V1x firmware. */
-    {
-        .name              = "[MCA] IBM PS/55 model 5550-V",
-        .internal_name     = "ibmps55_m50v",
-        .type              = MACHINE_TYPE_386DX,
-        .chipset           = MACHINE_CHIPSET_PROPRIETARY,
-        .init              = machine_ps55_model_50v_init,
-        .p1_handler        = machine_generic_p1_handler,
-        .gpio_handler      = NULL,
-        .available_flag    = MACHINE_AVAILABLE,
-        .gpio_acpi_handler = NULL,
-        .cpu               = {
-            .package     = CPU_PKG_386DX | CPU_PKG_486BL,
-            .block       = CPU_BLOCK_NONE,
-            .min_bus     = 0,
-            .max_bus     = 0,
-            .min_voltage = 0,
-            .max_voltage = 0,
-            .min_multi   = 0,
-            .max_multi   = 0
-        },
-        .bus_flags = MACHINE_PS2_MCA,
-        .flags     = MACHINE_VIDEO | MACHINE_KEYBOARD_JIS | MACHINE_APM,
-        .ram       = {
-            .min  = 4096,
-            .max  = 16384,
-            .step = 4096
         },
         .nvrmask                  = 63,
         .jumpered_ecp_dma         = 0,
@@ -7145,6 +7101,50 @@ const machine_t machines[] = {
             .min  = 2048,
             .max  = 65536,
             .step = 2048
+        },
+        .nvrmask                  = 63,
+        .jumpered_ecp_dma         = 0,
+        .default_jumpered_ecp_dma = -1,
+        .kbc_device               = &kbc_at_device,
+        .kbc_params               = KBC_VEN_IBM,
+        .kbc_p1                   = 0x00000cf0,
+        .gpio                     = 0xffffffff,
+        .gpio_acpi                = 0xffffffff,
+        .device                   = NULL,
+        .kbd_device               = NULL,
+        .fdc_device               = NULL,
+        .sio_device               = NULL,
+        .vid_device               = NULL,
+        .snd_device               = NULL,
+        .net_device               = NULL
+    },
+    /* Has IBM PS/55 5551-V0x, V1x firmware. */
+    {
+        .name              = "[MCA] IBM PS/55 model 5550-V0/V1",
+        .internal_name     = "ibmps55_m50v",
+        .type              = MACHINE_TYPE_386DX_486,
+        .chipset           = MACHINE_CHIPSET_PROPRIETARY,
+        .init              = machine_ps55_model_50v_init,
+        .p1_handler        = machine_generic_p1_handler,
+        .gpio_handler      = NULL,
+        .available_flag    = MACHINE_AVAILABLE,
+        .gpio_acpi_handler = NULL,
+        .cpu               = {
+            .package     = CPU_PKG_386DX | CPU_PKG_486BL | CPU_PKG_SOCKET1,
+            .block       = CPU_BLOCK_NONE,
+            .min_bus     = 0,
+            .max_bus     = 0,
+            .min_voltage = 0,
+            .max_voltage = 0,
+            .min_multi   = 0,
+            .max_multi   = 0
+        },
+        .bus_flags = MACHINE_PS2_MCA,
+        .flags     = MACHINE_VIDEO | MACHINE_KEYBOARD_JIS | MACHINE_APM,
+        .ram       = {
+            .min  = 4096,
+            .max  = 16384,
+            .step = 4096
         },
         .nvrmask                  = 63,
         .jumpered_ecp_dma         = 0,
@@ -13380,10 +13380,10 @@ const machine_t machines[] = {
     },
     {
         .name              = "[i430FX] HP Vectra VE 5/xxx Series 2",
-        .internal_name     = "hpvectravexxx",
+        .internal_name     = "vectra52",
         .type              = MACHINE_TYPE_SOCKET7_3V,
         .chipset           = MACHINE_CHIPSET_INTEL_430FX,
-        .init              = machine_at_hpvectravexxx_init,
+        .init              = machine_at_vectra52_init,
         .p1_handler        = machine_generic_p1_handler,
         .gpio_handler      = NULL,
         .available_flag    = MACHINE_AVAILABLE,
@@ -13413,7 +13413,7 @@ const machine_t machines[] = {
         .kbc_p1                   = 0x00000cf0,
         .gpio                     = 0xffffffff,
         .gpio_acpi                = 0xffffffff,
-        .device                   = &hpvectravexxx_device,
+        .device                   = &vectra52_device,
 		.kbd_device               = NULL,
         .fdc_device               = NULL,
         .sio_device               = NULL,
@@ -13490,7 +13490,7 @@ const machine_t machines[] = {
             .max_multi   = 3.0
         },
         .bus_flags = MACHINE_PS2_PCI,
-        .flags     = MACHINE_IDE_DUAL | MACHINE_VIDEO | MACHINE_APM,  /* Machine has onboard sound: Crystal CS4232-KQ */
+        .flags     = MACHINE_IDE_DUAL | MACHINE_VIDEO | MACHINE_SOUND | MACHINE_GAMEPORT | MACHINE_APM,  /* Machine has onboard sound: Crystal CS4232-KQ */
         .ram       = {
             .min  = 8192,
             .max  = 131072,
@@ -13509,7 +13509,7 @@ const machine_t machines[] = {
         .fdc_device               = NULL,
         .sio_device               = NULL,
         .vid_device               = &mach64ct_device_onboard,
-        .snd_device               = NULL,
+        .snd_device               = &cs4232_onboard_device,
         .net_device               = NULL
     },
     /* According to tests from real hardware: This has AMI MegaKey KBC firmware on the
@@ -13536,7 +13536,7 @@ const machine_t machines[] = {
             .max_multi   = 3.0
         },
         .bus_flags = MACHINE_PS2_PCI,
-        .flags     = MACHINE_IDE_DUAL | MACHINE_VIDEO | MACHINE_APM | MACHINE_GAMEPORT, /* Machine has optional onboard sound: Crystal CS4232-KQ */
+        .flags     = MACHINE_IDE_DUAL | MACHINE_VIDEO | MACHINE_APM | MACHINE_SOUND | MACHINE_GAMEPORT, /* Machine has optional onboard sound: Crystal CS4232-KQ */
         .ram       = {
             .min  = 8192,
             .max  = 131072,
@@ -13555,7 +13555,7 @@ const machine_t machines[] = {
         .fdc_device               = NULL,
         .sio_device               = NULL,
         .vid_device               = &s3_phoenix_trio64vplus_onboard_pci_device,
-        .snd_device               = NULL,
+        .snd_device               = &cs4232_onboard_device,
         .net_device               = NULL
     },
     /* According to tests from real hardware: This has AMI MegaKey KBC firmware on the
@@ -13628,7 +13628,7 @@ const machine_t machines[] = {
             .max_multi   = 3.0
         },
         .bus_flags = MACHINE_PS2_PCI,
-        .flags     = MACHINE_IDE_DUAL | MACHINE_VIDEO | MACHINE_APM,  /* Machine has onboard sound: Crystal CS4232-KQ */
+        .flags     = MACHINE_IDE_DUAL | MACHINE_VIDEO | MACHINE_SOUND | MACHINE_GAMEPORT | MACHINE_APM,  /* Machine has onboard sound: Crystal CS4232-KQ */
         .ram       = {
             .min  = 8192,
             .max  = 131072,
@@ -13647,7 +13647,7 @@ const machine_t machines[] = {
         .fdc_device               = NULL,
         .sio_device               = NULL,
         .vid_device               = &mach64ct_device_onboard,
-        .snd_device               = NULL,
+        .snd_device               = &cs4232_onboard_device,
         .net_device               = NULL
     },
     /* This has an AMIKey-2, which is type 'H'. */
@@ -15412,7 +15412,7 @@ const machine_t machines[] = {
        PC87306 Super I/O chip, command 0xA1 returns '5'.
        Command 0xA0 copyright string: (C)1994 AMI . */
     {
-        .name              = "[i430VX] Packard Bell Orlando/2D/2D/MMX (PB680/PB682/PB683/PB685)",
+        .name              = "[i430VX] Packard Bell Orlando/2D/3D/MMX (PB680/PB682/PB683/PB685)",
         .internal_name     = "pb680",
         .type              = MACHINE_TYPE_SOCKET7,
         .chipset           = MACHINE_CHIPSET_INTEL_430VX,
@@ -16223,7 +16223,7 @@ const machine_t machines[] = {
         .kbc_p1                   = 0x00000cf0,
         .gpio                     = 0xffffffff,
         .gpio_acpi                = 0xffffffff,
-        .device                   = NULL,
+        .device                   = &ms5146_device,
         .kbd_device               = NULL,
         .fdc_device               = NULL,
         .sio_device               = NULL,
@@ -18438,7 +18438,7 @@ const machine_t machines[] = {
         .kbc_p1                   = 0x00000cf0,
         .gpio                     = 0xffffffff,
         .gpio_acpi                = 0xffffffff,
-        .device                   = NULL,
+        .device                   = &p6sba_device,
         .kbd_device               = NULL,
         .fdc_device               = NULL,
         .sio_device               = NULL,
@@ -20321,7 +20321,7 @@ machine_get_nvr_name_ex(int m)
 
     if (dev != NULL) {
         device_context(dev);
-        const char *bios = device_get_config_string("bios");
+        const char *bios = device_get_config_bios("bios");
         if ((bios != NULL) && (strcmp(bios, "") != 0))
             ret = bios;
         device_context_restore();
