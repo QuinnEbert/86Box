@@ -214,7 +214,6 @@ int      video_fullscreen_scale_maximized       = 0;              /* (C) Whether
                                                                          also apply when maximized. */
 int      do_auto_pause                          = 0;              /* (C) Auto-pause the emulator on focus
                                                                          loss */
-int      force_constant_mouse                   = 0;              /* (C) Force constant updating of the mouse */
 int      hook_enabled                           = 1;              /* (C) Keyboard hook is enabled */
 int      test_mode                              = 0;              /* (C) Test mode */
 char     uuid[MAX_UUID_LEN]                     = { '\0' };       /* (C) UUID or machine identifier */
@@ -222,6 +221,10 @@ int      sound_muted                            = 0;              /* (C) Is soun
 int      jumpered_internal_ecp_dma              = 0;              /* (C) Jumpered internal EPC DMA */
 int      inhibit_multimedia_keys;                                 /* (G) Inhibit multimedia keys on Windows. */
 int      force_10ms;                                              /* (C) Force 10ms CPU frame intervals. */
+int      turbo_mode                             = 0;              /* (C) Run emulator at maximum speed */
+int      turbo_slow_cycles                      = 0;              /* (C) Cycle skip count when turbo is off */
+int      turbo_batch_ms                         = 0;              /* (C) Turbo batch size in ms: 0=auto, -1=unlimited */
+int      virtualized_cpu                        = 0;              /* (C) Use virtualized CPU when allowed */
 int      vmm_disabled                           = 0;              /* (G) disable built-in manager */
 char     vmm_path_cfg[1024]                     = { '\0' };       /* (G) VMs path (unless -E is used)*/
 
