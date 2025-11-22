@@ -171,6 +171,7 @@ int      vid_api                                = 0;              /* (C) video r
 int      vid_cga_contrast                       = 0;              /* (C) video */
 int      video_fullscreen                       = 0;              /* (C) video */
 int      video_fullscreen_scale                 = 0;              /* (C) video */
+int      fullscreen_ui_visible                  = 0;              /* (C) video */
 int      enable_overscan                        = 0;              /* (C) video */
 int      force_43                               = 0;              /* (C) video */
 int      video_filter_method                    = 1;              /* (C) video */
@@ -213,10 +214,7 @@ int      video_fullscreen_scale_maximized       = 0;              /* (C) Whether
                                                                          also apply when maximized. */
 int      do_auto_pause                          = 0;              /* (C) Auto-pause the emulator on focus
                                                                          loss */
-int      turbo_mode                             = 0;              /* Run emulator at maximum speed */
-int      turbo_slow_cycles                      = 0;              /* Cycle skip count when turbo is off */
-int      turbo_batch_ms                         = 0;              /* Turbo batch size in ms: 0=auto, -1=unlimited */
-int      virtualized_cpu                        = 0;              /* Use virtualized CPU when allowed */
+int      force_constant_mouse                   = 0;              /* (C) Force constant updating of the mouse */
 int      hook_enabled                           = 1;              /* (C) Keyboard hook is enabled */
 int      test_mode                              = 0;              /* (C) Test mode */
 char     uuid[MAX_UUID_LEN]                     = { '\0' };       /* (C) UUID or machine identifier */
@@ -266,6 +264,11 @@ struct accelKey def_acc_keys[NUM_ACCELS] = {
         .seq="Ctrl+Alt+PgUp"
     },
     {
+        .name="toggle_ui_fullscreen",
+        .desc="Toggle UI in fullscreen",
+        .seq="Ctrl+Alt+PgDown"
+    },
+    {
         .name="screenshot",
         .desc="Screenshot",
         .seq="Ctrl+F11"
@@ -301,7 +304,7 @@ extern int readlnum;
 extern int writelnum;
 
 /* emulator % */
-int speed_percent;
+int fps;
 int framecount;
 
 extern int CPUID;
@@ -1294,7 +1297,6 @@ pc_init_roms(void)
     }
     if (c == 0) {
         /* No usable ROMs found, aborting. */
-        fprintf(stderr, "No usable ROM sets found. Missing ROM files may be the reason.\n");
         return 0;
     }
     pc_log("A total of %d ROM sets have been loaded.\n", c);
@@ -1312,24 +1314,11 @@ pc_init_modules(void)
     /* Load the ROMs for the selected machine. */
     if (!machine_available(machine)) {
         swprintf(temp, sizeof_w(temp), plat_get_string(STRING_HW_NOT_AVAILABLE_MACHINE), machine_getname());
-        wchar_t msg[1024] = { 0 };
-        const char *missing = device_get_missing_roms();
-        if (missing && missing[0]) {
-            wchar_t wmissing[1024] = { 0 };
-            mbstowcs(wmissing, missing, 1023);
-            swprintf(msg, sizeof_w(msg), L"%ls\nMissing ROM files:\n%ls", temp, wmissing);
-        } else {
-            wcsncpy(msg, temp, sizeof_w(msg));
-        }
-
-        char cmsg[1024] = { 0 };
-        wcstombs(cmsg, msg, sizeof(cmsg) - 1);
-        fprintf(stderr, "%s\n", cmsg);
         c       = 0;
         machine = -1;
         while (machine_get_internal_name_ex(c) != NULL) {
             if (machine_available(c)) {
-                ui_msgbox_header(MBX_INFO, plat_get_string(STRING_HW_NOT_AVAILABLE_TITLE), msg);
+                ui_msgbox_header(MBX_INFO, plat_get_string(STRING_HW_NOT_AVAILABLE_TITLE), temp);
                 machine = c;
                 config_save();
                 break;
@@ -1347,9 +1336,6 @@ pc_init_modules(void)
         memset(tempc, 0, sizeof(tempc));
         device_get_name(video_card_getdevice(gfxcard[0]), 0, tempc);
         swprintf(temp, sizeof_w(temp), plat_get_string(STRING_HW_NOT_AVAILABLE_VIDEO), tempc);
-        char ctemp[512] = { 0 };
-        wcstombs(ctemp, temp, sizeof(ctemp) - 1);
-        fprintf(stderr, "%s\n", ctemp);
         c = 0;
         while (video_get_internal_name(c) != NULL) {
             gfxcard[0] = -1;
@@ -1373,9 +1359,6 @@ pc_init_modules(void)
             char tempc[512] = { 0 };
             device_get_name(video_card_getdevice(gfxcard[i]), 0, tempc);
             swprintf(temp, sizeof_w(temp), plat_get_string(STRING_HW_NOT_AVAILABLE_VIDEO2), tempc);
-            char ctemp2[512] = { 0 };
-            wcstombs(ctemp2, temp, sizeof(ctemp2) - 1);
-            fprintf(stderr, "%s\n", ctemp2);
             ui_msgbox_header(MBX_INFO, plat_get_string(STRING_HW_NOT_AVAILABLE_TITLE), temp);
             gfxcard[i] = 0;
         }
@@ -1743,16 +1726,6 @@ pc_reset_hard_init(void)
     ui_hard_reset_completed();
 }
 
-static const wchar_t *
-exec_mode_string(void)
-{
-    if (turbo_mode)
-        return L"Turbo";
-    if (turbo_slow_cycles > 0)
-        return L"Cycle skip";
-    return L"Normal";
-}
-
 void
 update_mouse_msg(void)
 {
@@ -1773,19 +1746,19 @@ update_mouse_msg(void)
         *(wcp - 1) = L'\0';
     mbstowcs(wcpu, cpu_s->name, strlen(cpu_s->name) + 1);
 #ifdef _WIN32
-    swprintf(mouse_msg[0], sizeof_w(mouse_msg[0]), L"%%i%%%% - %%ls - %ls",
+    swprintf(mouse_msg[0], sizeof_w(mouse_msg[0]), L"%%i%%%% - %ls",
              plat_get_string(STRING_MOUSE_CAPTURE));
-    swprintf(mouse_msg[1], sizeof_w(mouse_msg[1]), L"%%i%%%% - %%ls - %ls",
+    swprintf(mouse_msg[1], sizeof_w(mouse_msg[1]), L"%%i%%%% - %ls",
              (mouse_get_buttons() > 2) ? plat_get_string(STRING_MOUSE_RELEASE) : plat_get_string(STRING_MOUSE_RELEASE_MMB));
-    wcsncpy(mouse_msg[2], L"%i%% - %ls", sizeof_w(mouse_msg[2]));
+    wcsncpy(mouse_msg[2], L"%i%%", sizeof_w(mouse_msg[2]));
 #else
-    swprintf(mouse_msg[0], sizeof_w(mouse_msg[0]), L"%ls v%ls - %%i%%%% - %%ls - %ls/%ls - %ls",
+    swprintf(mouse_msg[0], sizeof_w(mouse_msg[0]), L"%ls v%ls - %%i%%%% - %ls - %ls/%ls - %ls",
              EMU_NAME_W, EMU_VERSION_FULL_W, wmachine, wcpufamily, wcpu,
              plat_get_string(STRING_MOUSE_CAPTURE));
-    swprintf(mouse_msg[1], sizeof_w(mouse_msg[1]), L"%ls v%ls - %%i%%%% - %%ls - %ls/%ls - %ls",
+    swprintf(mouse_msg[1], sizeof_w(mouse_msg[1]), L"%ls v%ls - %%i%%%% - %ls - %ls/%ls - %ls",
              EMU_NAME_W, EMU_VERSION_FULL_W, wmachine, wcpufamily, wcpu,
              (mouse_get_buttons() > 2) ? plat_get_string(STRING_MOUSE_RELEASE) : plat_get_string(STRING_MOUSE_RELEASE_MMB));
-    swprintf(mouse_msg[2], sizeof_w(mouse_msg[2]), L"%ls v%ls - %%i%%%% - %%ls - %ls/%ls",
+    swprintf(mouse_msg[2], sizeof_w(mouse_msg[2]), L"%ls v%ls - %%i%%%% - %ls - %ls/%ls",
              EMU_NAME_W, EMU_VERSION_FULL_W, wmachine, wcpufamily, wcpu);
 #endif
 }
@@ -1892,32 +1865,7 @@ pc_run(void)
 
     /* Run a block of code. */
     startblit();
-    /*
-     * In Turbo mode, increase the time slice per call to reduce per-call overhead
-     * and allow higher aggregate throughput. This avoids a fixed cap caused by
-     * running only ~1ms worth of cycles per iteration.
-     */
-    int ms_per_call = (force_10ms ? 10 : 1);
-    int32_t cycs;
-    if (turbo_mode) {
-        /* In turbo mode, execute as many cycles as possible without rate limiting.
-         * Use a very large cycle count to let the CPU run at maximum speed.
-         * The main loop already handles calling pc_run() rapidly in turbo mode. */
-        if (turbo_batch_ms == 0) {
-            /* Auto: Use 100x the rated speed for maximum performance */
-            cycs = (int32_t) (((int64_t) cpu_s->rspeed * 100) / 1000);
-        } else if (turbo_batch_ms < 0) {
-            /* Unlimited: Use 500x the rated speed for absolute maximum */
-            cycs = (int32_t) (((int64_t) cpu_s->rspeed * 500) / 1000);
-        } else {
-            /* Explicit: Use configured multiplier (treat as ms but execute that many ms worth at once) */
-            cycs = (int32_t) (((int64_t) cpu_s->rspeed * turbo_batch_ms) / 1000);
-        }
-    } else {
-        /* Normal mode: execute cycles at rated speed */
-        cycs = (int32_t) (((int64_t) cpu_s->rspeed * ms_per_call) / 1000);
-    }
-    cpu_exec(cycs);
+    cpu_exec((int32_t) cpu_s->rspeed / (force_10ms ? 100 : 1000));
     ack_pause();
 #ifdef USE_GDBSTUB /* avoid a KBC FIFO overflow when CPU emulation is stalled */
     if (gdbstub_step == GDBSTUB_EXEC) {
@@ -1931,16 +1879,21 @@ pc_run(void)
     endblit();
 
     /* Done with this frame, update statistics. */
-    framecount += ms_per_call;
-    framecountx += ms_per_call;
-    if (framecountx >= (force_10ms ? 100 : 1000)) {
+    framecount++;
+    if (++framecountx >= (force_10ms ? 100 : 1000)) {
         framecountx = 0;
         frames      = 0;
     }
 
     if (title_update) {
         mouse_msg_idx = ((mouse_type == MOUSE_TYPE_NONE) || (mouse_input_mode >= 1)) ? 2 : !!mouse_capture;
-        swprintf(temp, sizeof_w(temp), mouse_msg[mouse_msg_idx], speed_percent, exec_mode_string());
+#ifdef SCREENSHOT_MODE
+        if (force_10ms)
+            fps = ((fps + 2) / 5) * 5;
+        else
+            fps = ((fps + 20) / 50) * 50;
+#endif
+        swprintf(temp, sizeof_w(temp), mouse_msg[mouse_msg_idx], fps / (force_10ms ? 1 : 10));
 #ifdef __APPLE__
         /* Needed due to modifying the UI on the non-main thread is a big no-no. */
         dispatch_async_f(dispatch_get_main_queue(), wcsdup((const wchar_t *) temp), _ui_window_title);
@@ -1955,10 +1908,9 @@ pc_run(void)
 void
 pc_onesec(void)
 {
-    static uint64_t last_tsc = 0;
-    speed_percent = (int) (((tsc - last_tsc) * 100) / cpu_s->rspeed);
-    last_tsc = tsc;
+    fps        = framecount;
     framecount = 0;
+
     title_update = 1;
 }
 
