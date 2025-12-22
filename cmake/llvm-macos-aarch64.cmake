@@ -19,4 +19,6 @@
 string(APPEND CMAKE_C_FLAGS_INIT    " -march=armv8.5-a+simd")
 string(APPEND CMAKE_CXX_FLAGS_INIT  " -march=armv8.5-a+simd")
 
+set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS deployment version")
+
 include(${CMAKE_CURRENT_LIST_DIR}/flags-gcc.cmake)
