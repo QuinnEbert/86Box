@@ -176,6 +176,8 @@ static void update_slow_turbo_checkboxes(Ui::MainWindow *ui, QAction *selected, 
 static void update_turbo_batch_checkboxes(Ui::MainWindow *ui, QAction *selected, int value);
 static void update_virtualized_tooltip(Ui::MainWindow *ui);
 
+extern int      cpu_force_interpreter;
+
 extern void     qt_mouse_capture(int);
 extern "C" void qt_blit(int x, int y, int w, int h, int monitor_index);
 
@@ -313,8 +315,24 @@ MainWindow::MainWindow(QWidget *parent)
         vmname.truncate(vmname.size() - 1);
     this->setWindowTitle(QString("%1 - %2 %3").arg(vmname, EMU_NAME, EMU_VERSION_FULL));
 
+    connect(this, &MainWindow::forceInterpretationCompleted, this, [this]() {
+        const auto fi_icon      = cpu_force_interpreter ? QIcon(":/menuicons/qt/icons/recompiler.ico") :
+                                                          QIcon(":/menuicons/qt/icons/interpreter.ico");
+        const auto tooltip_text = cpu_force_interpreter ? QString(tr("Allow recompilation")) :
+                                                          QString(tr("Force interpretation"));
+        const auto menu_text    = cpu_force_interpreter ? QString(tr("&Allow recompilation")) :
+                                                          QString(tr("&Force interpretation"));
+
+        ui->actionForce_interpretation->setIcon(fi_icon);
+        ui->actionForce_interpretation->setToolTip(tooltip_text);
+        ui->actionForce_interpretation->setText(menu_text);
+        ui->actionForce_interpretation->setChecked(cpu_force_interpreter);
+        ui->actionForce_interpretation->setEnabled(cpu_use_dynarec);
+    });
+
     connect(this, &MainWindow::hardResetCompleted, this, [this]() {
         ui->actionMCA_devices->setVisible(machine_has_bus(machine, MACHINE_BUS_MCA));
+        ui_update_force_interpreter();
         num_label->setVisible(machine_has_bus(machine, MACHINE_BUS_PS2_PORTS | MACHINE_BUS_AT_KBD));
         scroll_label->setVisible(machine_has_bus(machine, MACHINE_BUS_PS2_PORTS | MACHINE_BUS_AT_KBD));
         caps_label->setVisible(machine_has_bus(machine, MACHINE_BUS_PS2_PORTS | MACHINE_BUS_AT_KBD));
@@ -348,20 +366,7 @@ MainWindow::MainWindow(QWidget *parent)
             return;
         }
         if (!hide_tool_bar)
-#ifdef _WIN32
             toolbar_label->setText(title);
-#else
-        {
-            /* get the percentage and mouse message, TODO: refactor ui_window_title() */
-            auto parts = title.split(" - ");
-            if (parts.size() >= 2) {
-                if (parts.size() < 5)
-                    toolbar_label->setText(parts[1]);
-                else
-                    toolbar_label->setText(QString("%1 - %2").arg(parts[1], parts.last()));
-            }
-        }
-#endif
     });
     connect(this, &MainWindow::getTitleForNonQtThread, this, &MainWindow::getTitle_, Qt::BlockingQueuedConnection);
 
@@ -867,10 +872,6 @@ MainWindow::MainWindow(QWidget *parent)
     ui->actionVirtualized_CPU->setChecked(virtualized_cpu > 0);
     update_virtualized_tooltip(ui);
 
-#ifdef Q_OS_MACOS
-    ui->actionCtrl_Alt_Del->setShortcutVisibleInContextMenu(true);
-    ui->actionTake_screenshot->setShortcutVisibleInContextMenu(true);
-#endif
     if (!vnc_enabled)
         video_setblit(qt_blit);
 
@@ -898,10 +899,6 @@ MainWindow::MainWindow(QWidget *parent)
             mtr_stop();
             mtr_shutdown();
         };
-#    ifdef Q_OS_MACOS
-        ui->actionBegin_trace->setShortcutVisibleInContextMenu(true);
-        ui->actionEnd_trace->setShortcutVisibleInContextMenu(true);
-#    endif
         static bool trace = false;
         connect(ui->actionBegin_trace, &QAction::triggered, this, [this] {
             if (trace)
@@ -1074,6 +1071,12 @@ MainWindow::closeEvent(QCloseEvent *event)
 }
 
 void
+ui_update_force_interpreter()
+{
+    emit main_window->forceInterpretationCompleted();
+}
+
+void
 MainWindow::updateShortcuts()
 {
     /*
@@ -1091,6 +1094,7 @@ MainWindow::updateShortcuts()
     ui->actionHard_Reset->setShortcut(QKeySequence());
     ui->actionPause->setShortcut(QKeySequence());
     ui->actionMute_Unmute->setShortcut(QKeySequence());
+    ui->actionForce_interpretation->setShortcut(QKeySequence());
 
     int          accID;
     QKeySequence seq;
@@ -1122,6 +1126,10 @@ MainWindow::updateShortcuts()
     accID = FindAccelerator("mute");
     seq   = QKeySequence::fromString(acc_keys[accID].seq);
     ui->actionMute_Unmute->setShortcut(seq);
+
+    accID = FindAccelerator("force_interpretation");
+    seq   = QKeySequence::fromString(acc_keys[accID].seq);
+    ui->actionForce_interpretation->setShortcut(seq);
 }
 
 void
@@ -1162,7 +1170,7 @@ MainWindow::initRendererMonitorSlot(int monitor_index)
             this->renderers[monitor_index]->show();
         });
         secondaryRenderer->setWindowFlags(Qt::CustomizeWindowHint | Qt::WindowTitleHint | Qt::WindowCloseButtonHint);
-        secondaryRenderer->setWindowTitle(QObject::tr("86Box Monitor #") + QString::number(monitor_index + 1));
+        secondaryRenderer->setWindowTitle(QObject::tr("86Box Monitor #%1").arg(monitor_index + 1));
         secondaryRenderer->setContextMenuPolicy(Qt::PreventContextMenu);
 
         for (int i = 0; i < this->actions().size(); i++) {
@@ -1820,6 +1828,7 @@ MainWindow::refreshMediaMenu()
     status->refresh(ui->statusbar);
     ui->actionMCA_devices->setVisible(machine_has_bus(machine, MACHINE_BUS_MCA));
     ui->actionACPI_Shutdown->setEnabled(!!acpi_enabled);
+    ui_update_force_interpreter();
 
     num_label->setToolTip(QShortcut::tr("Num Lock"));
     num_label->setVisible(machine_has_bus(machine, MACHINE_BUS_PS2_PORTS | MACHINE_BUS_AT_KBD));
@@ -2006,6 +2015,13 @@ void
 MainWindow::on_actionInverted_VGA_monitor_triggered()
 {
     video_toggle_option(ui->actionInverted_VGA_monitor, &invert_display);
+}
+
+void
+MainWindow::on_actionForce_interpretation_triggered()
+{
+    cpu_force_interpreter ^= 1;
+    ui_update_force_interpreter();
 }
 
 static void

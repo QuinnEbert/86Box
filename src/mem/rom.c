@@ -55,34 +55,54 @@ rom_log(const char *fmt, ...)
 #    define rom_log(fmt, ...)
 #endif
 
+static void
+add_path(rom_path_t *list, const char *path)
+{
+    rom_path_t *rom_path = calloc(1, sizeof(rom_path_t));
+
+    /* Save the path, turning it into absolute if needed. */
+    if (!path_abs((char *) path)) {
+        plat_getcwd(rom_path->path, sizeof(rom_path->path));
+        path_append_filename(rom_path->path, rom_path->path, path);
+    } else {
+        strncpy(rom_path->path, path, sizeof(rom_path->path) - 1);
+    }
+
+    /* Ensure the path ends with a separator. */
+    path_slash(rom_path->path);
+
+    /* Iterate to the end of the list. */
+    if (list->path[0] != '\0') {
+        while (1) {
+            /* Check for duplicates. */
+            if (!strcmp(list->path, rom_path->path)) {
+                free(rom_path);
+                return;
+            }
+            if (list->next == NULL)
+                break;
+            list = list->next;
+        }
+
+        /* Add the new entry. */
+        list->next = rom_path;
+    } else {
+        /* Set path on the first entry. */
+        memcpy(list, rom_path, sizeof(rom_path_t));
+        free(rom_path);
+    }
+}
+
 void
 rom_add_path(const char *path)
 {
-    char cwd[1024] = { 0 };
+    add_path(&rom_paths, path);
+}
 
-    rom_path_t *rom_path = &rom_paths;
-
-    if (rom_paths.path[0] != '\0') {
-        // Iterate to the end of the list.
-        while (rom_path->next != NULL) {
-            rom_path = rom_path->next;
-        }
-
-        // Allocate the new entry.
-        rom_path = rom_path->next = calloc(1, sizeof(rom_path_t));
-    }
-
-    // Save the path, turning it into absolute if needed.
-    if (!path_abs((char *) path)) {
-        plat_getcwd(cwd, sizeof(cwd));
-        path_slash(cwd);
-        snprintf(rom_path->path, sizeof(rom_path->path), "%s%s", cwd, path);
-    } else {
-        snprintf(rom_path->path, sizeof(rom_path->path), "%s", path);
-    }
-
-    // Ensure the path ends with a separator.
-    path_slash(rom_path->path);
+void
+asset_add_path(const char *path)
+{
+    add_path(&asset_paths, path);
 }
 
 static int
@@ -129,6 +149,31 @@ rom_get_full_path(char *dest, const char *fn)
     }
 }
 
+void
+asset_get_full_path(char *dest, const char *fn)
+{
+    char temp[1024] = { 0 };
+
+    dest[0] = 0x00;
+
+    if (!strncmp(fn, "assets/", 7)) {
+        /* Relative path */
+        for (rom_path_t *asset_path = &asset_paths; asset_path != NULL; asset_path = asset_path->next) {
+            path_append_filename(temp, asset_path->path, fn + 7);
+
+            if (rom_check(temp)) {
+                strcpy(dest, temp);
+                return;
+            }
+        }
+
+        return;
+    } else {
+        /* Absolute path */
+        strcpy(dest, fn);
+    }
+}
+
 FILE *
 rom_fopen(const char *fn, char *mode)
 {
@@ -142,6 +187,31 @@ rom_fopen(const char *fn, char *mode)
         /* Relative path */
         for (rom_path_t *rom_path = &rom_paths; rom_path != NULL; rom_path = rom_path->next) {
             path_append_filename(temp, rom_path->path, fn + 5);
+
+            if ((fp = plat_fopen(temp, mode)) != NULL)
+                return fp;
+        }
+
+        return fp;
+    } else {
+        /* Absolute path */
+        return plat_fopen(fn, mode);
+    }
+}
+
+FILE *
+asset_fopen(const char *fn, char *mode)
+{
+    char        temp[1024];
+    FILE       *fp = NULL;
+
+    if ((fn == NULL) || (mode == NULL))
+        return NULL;
+
+    if (!strncmp(fn, "assets/", 7)) {
+        /* Relative path */
+        for (rom_path_t *asset_path = &asset_paths; asset_path != NULL; asset_path = asset_path->next) {
+            path_append_filename(temp, asset_path->path, fn + 7);
 
             if ((fp = plat_fopen(temp, mode)) != NULL)
                 return fp;
@@ -183,6 +253,34 @@ rom_getfile(const char *fn, char *s, int size)
 }
 
 int
+asset_getfile(const char *fn, char *s, int size)
+{
+    char        temp[1024];
+
+    if (!strncmp(fn, "assets/", 7)) {
+        /* Relative path */
+        for (rom_path_t *asset_path = &asset_paths; asset_path != NULL; asset_path = asset_path->next) {
+            path_append_filename(temp, asset_path->path, fn + 7);
+
+            if (plat_file_check(temp)) {
+                strncpy(s, temp, size);
+                return 1;
+            }
+        }
+
+        return 0;
+    } else {
+        /* Absolute path */
+        if (plat_file_check(fn)) {
+            strncpy(s, fn, size);
+            return 1;
+        }
+
+        return 0;
+    }
+}
+
+int
 rom_present(const char *fn)
 {
     char temp[1024];
@@ -194,6 +292,30 @@ rom_present(const char *fn)
         /* Relative path */
         for (rom_path_t *rom_path = &rom_paths; rom_path != NULL; rom_path = rom_path->next) {
             path_append_filename(temp, rom_path->path, fn + 5);
+
+            if (plat_file_check(temp))
+                return 1;
+        }
+
+        return 0;
+    } else {
+        /* Absolute path */
+        return plat_file_check(fn);
+    }
+}
+
+int
+asset_present(const char *fn)
+{
+    char temp[1024];
+
+    if (fn == NULL)
+        return 0;
+
+    if (!strncmp(fn, "assets/", 7)) {
+        /* Relative path */
+        for (rom_path_t *asset_path = &asset_paths; asset_path != NULL; asset_path = asset_path->next) {
+            path_append_filename(temp, asset_path->path, fn + 7);
 
             if (plat_file_check(temp))
                 return 1;

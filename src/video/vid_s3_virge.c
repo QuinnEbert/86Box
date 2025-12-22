@@ -290,9 +290,9 @@ typedef struct virge_t {
     s3d_t s3d_tri;
 
     s3d_t      s3d_buffer[RB_SIZE];
-    atomic_int s3d_read_idx;
-    atomic_int s3d_write_idx;
-    atomic_int s3d_busy;
+    ATOMIC_INT s3d_read_idx;
+    ATOMIC_INT s3d_write_idx;
+    ATOMIC_INT s3d_busy;
 
     struct {
         uint32_t pri_ctrl;
@@ -332,15 +332,15 @@ typedef struct virge_t {
     } streams;
 
     fifo_entry_t fifo[FIFO_SIZE];
-    atomic_int   fifo_read_idx, fifo_write_idx;
-    atomic_int   fifo_thread_run, render_thread_run;
+    ATOMIC_INT   fifo_read_idx, fifo_write_idx;
+    ATOMIC_INT   fifo_thread_run, render_thread_run;
 
     thread_t *fifo_thread;
     event_t  *wake_fifo_thread;
     event_t  *fifo_not_full_event;
 
-    atomic_int  virge_busy;
-    atomic_uint irq_pending;
+    ATOMIC_INT   virge_busy;
+    ATOMIC_UINT  irq_pending;
 
     uint8_t subsys_stat;
     uint8_t subsys_cntl;
@@ -4842,7 +4842,7 @@ s3_virge_colorkey(virge_t* virge, uint32_t x, uint32_t y)
     uint8_t shift = ((virge->streams.chroma_ctrl >> 24) & 7) ^ 7;
     bool is15bpp = false;
 
-    uint32_t base_addr = svga->memaddr_latch;
+    uint32_t base_addr = svga->memaddr_latch << 2;
     uint32_t stride = (virge->chip < S3_VIRGEGX2) ? virge->streams.pri_stride : (svga->rowoffset << 3);
 
     bool color_key = false;

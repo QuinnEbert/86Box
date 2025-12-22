@@ -124,7 +124,7 @@ VMManagerSystem::scanForConfigs(QWidget *parent, const QString &searchPath)
     QProgressDialog progDialog(parent);
     unsigned int    found = 0;
     progDialog.setCancelButton(nullptr);
-    progDialog.setWindowTitle(tr("Searching for VMs..."));
+    progDialog.setWindowTitle(tr("Searching for VMs…"));
     progDialog.setMinimumDuration(0);
     progDialog.setValue(0);
     progDialog.setMinimum(0);
@@ -305,15 +305,11 @@ void
 VMManagerSystem::generateSearchTerms()
 {
     searchTerms.clear();
-    for (const auto &config_key : config_hash.keys()) {
-        // searchTerms.append(config_hash[config_key].values());
-        // brute force temporarily don't add paths
-        for (const auto &value : config_hash[config_key].values()) {
-            if (!value.startsWith("/"))
-                searchTerms.append(value);
-        }
-    }
-    searchTerms.append(display_table.values());
+    for (const auto &value : display_table.values())
+        if (value.contains(";"))
+            searchTerms.append(value.split(';'));
+        else
+            searchTerms.append(value);
     searchTerms.append(displayName);
     searchTerms.append(config_name);
     QRegularExpression whitespaceRegex("\\s+");
@@ -394,9 +390,8 @@ VMManagerSystem::has86BoxBinary()
 }
 
 void
-VMManagerSystem::launchMainProcess()
+VMManagerSystem::launch86Box(bool settings)
 {
-
     if (!has86BoxBinary()) {
         qWarning("No binary found! returning");
         return;
@@ -410,22 +405,31 @@ VMManagerSystem::launchMainProcess()
             return;
         }
     }
-    // If the system is already running, bring it to front
+    // If the system is already running, bring it to front or instruct it to show settings
     if (process->processId() != 0) {
 #ifdef Q_OS_WINDOWS
         if (this->id) {
             SetForegroundWindow((HWND) this->id);
         }
 #endif
+        if (settings)
+            socket_server->serverSendMessage(VMManagerProtocol::ManagerMessage::ShowSettings);
         return;
     }
+
+    // Otherwise, launch the system
     setProcessEnvVars();
+    window_obscured     = settings;
     QString     program = main_binary.filePath();
     QStringList args;
     args << "--vmpath" << config_dir;
     args << "--vmname" << displayName;
+    if (settings)
+        args << "--settings";
     if (rom_path[0] != '\0')
         args << "--rompath" << QString(rom_path);
+    if (asset_path[0] != '\0')
+        args << "--assetpath" << QString(asset_path);
     if (global_cfg_overridden)
         args << "--global" << QString(global_cfg_path);
     if (!hook_enabled)
@@ -440,71 +444,11 @@ VMManagerSystem::launchMainProcess()
     process->start();
     updateTimestamp();
 
+    disconnect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), nullptr, nullptr);
     connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
             [=](const int exitCode, const QProcess::ExitStatus exitStatus) {
                 if (exitCode != 0 || exitStatus != QProcess::NormalExit) {
-                    qInfo().nospace().noquote() << "Abnormal program termination while launching main process: exit code " << exitCode << ", exit status " << exitStatus;
-                    QMessageBox::critical(this, tr("Virtual machine crash"),
-                                          tr("The virtual machine \"%1\"'s process has unexpectedly terminated with exit code %2.").arg(displayName, QString::number(exitCode)));
-                    return;
-                }
-            });
-}
-
-void
-VMManagerSystem::startButtonPressed()
-{
-    launchMainProcess();
-}
-
-void
-VMManagerSystem::launchSettings()
-{
-    if (!has86BoxBinary()) {
-        qWarning("No binary found! returning");
-        return;
-    }
-
-    // start the server first to get the socket name
-    if (!serverIsRunning) {
-        if (!startServer()) {
-            // FIXME: Better error handling
-            qInfo("Failed to start VM Manager server");
-            return;
-        }
-    }
-
-    // If the system is already running, instruct it to show settings
-    if (process->processId() != 0) {
-#ifdef Q_OS_WINDOWS
-        if (this->id) {
-            SetForegroundWindow((HWND) this->id);
-        }
-#endif
-        socket_server->serverSendMessage(VMManagerProtocol::ManagerMessage::ShowSettings);
-        return;
-    }
-
-    // Otherwise, launch the system with the settings parameter
-    setProcessEnvVars();
-    window_obscured     = true;
-    QString     program = main_binary.filePath();
-    QStringList open_command_args;
-    QStringList args;
-    args << "--vmpath" << config_dir << "--settings";
-    if (rom_path[0] != '\0')
-        args << "--rompath" << QString(rom_path);
-    if (global_cfg_overridden)
-        args << "--global" << QString(global_cfg_path);
-    process->setProgram(program);
-    process->setArguments(args);
-    qDebug() << Q_FUNC_INFO << " Full Command:" << process->program() << " " << process->arguments();
-    process->start();
-
-    connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            [=](const int exitCode, const QProcess::ExitStatus exitStatus) {
-                if (exitCode != 0 || exitStatus != QProcess::NormalExit) {
-                    qInfo().nospace().noquote() << "Abnormal program termination while launching settings: exit code " << exitCode << ", exit status " << exitStatus;
+                    qInfo().nospace().noquote() << "Abnormal program termination while launching system: exit code " << exitCode << ", exit status " << exitStatus;
                     QMessageBox::critical(this, tr("Virtual machine crash"),
                                           tr("The virtual machine \"%1\"'s process has unexpectedly terminated with exit code %2.").arg(displayName, QString("%1 (0x%2)").arg(QString::number(exitCode), QString::number(exitCode, 16))));
                     return;
@@ -512,6 +456,18 @@ VMManagerSystem::launchSettings()
 
                 configurationChangeReceived();
             });
+}
+
+void
+VMManagerSystem::startButtonPressed()
+{
+    launch86Box(false);
+}
+
+void
+VMManagerSystem::launchSettings()
+{
+    launch86Box(true);
 }
 
 void
@@ -713,7 +669,7 @@ VMManagerSystem::setupVars()
             diskSizeFinal = QString::number(diskSizeRaw);
         }
         // Only prefix each disk when there are multiple disks
-        QString diskNumberDisplay = disks.count() > 1 ? tr("Disk %1: ").arg(disk_number) : "";
+        QString diskNumberDisplay = disks.count() > 1 ? tr("Disk %1:").arg(disk_number).append(" ") : "";
         new_disk_display.append(QString("%1%2 %3 (%4)").arg(diskNumberDisplay, diskSizeFinal, unit, bus_type.toUpper()));
     }
     if (new_disk_display.isEmpty()) {
@@ -1239,8 +1195,9 @@ void
 VMManagerSystem::configurationChangeReceived()
 {
     reloadConfig();
-    emit configurationChanged(this->uuid);
+    emit configurationChanged(this);
 }
+
 void
 VMManagerSystem::reloadConfig()
 {

@@ -667,8 +667,12 @@ et4000_recalctimings(svga_t *svga)
     }
 
     svga->clock = (cpuclock * (double) (1ULL << 32)) / svga->getclock(clk_sel, svga->clock_gen);
-    if (clk_sel < 2)
+    if (!(svga->gdcreg[6] & 1) && !(svga->attrregs[0x10] & 1)) {
         svga->clock *= 2.0;
+    } else {
+        if ((svga->bpp <= 8) || ((svga->gdcreg[5] & 0x60) <= 0x20))
+            svga->clock *= 2.0;
+    }
 
     switch (svga->bpp) {
         case 15:
@@ -846,7 +850,7 @@ et4000_init(const device_t *info)
                           et4000k_in, NULL, NULL, et4000k_out, NULL, NULL, dev);
             io_sethandler(0x32cb, 1,
                           et4000k_in, NULL, NULL, et4000k_out, NULL, NULL, dev);
-            loadfont(KOREAN_FONT_ROM_PATH, 6);
+            video_load_font(KOREAN_FONT_ROM_PATH, FONT_FORMAT_KSC6501, LOAD_FONT_NO_OFFSET);
             fn = KOREAN_BIOS_ROM_PATH;
             break;
 
@@ -880,7 +884,7 @@ et4000_init(const device_t *info)
                           et4000_kasan_in, NULL, NULL, et4000_kasan_out, NULL, NULL, dev);
             io_sethandler(0x0258, 2,
                           et4000_kasan_in, NULL, NULL, et4000_kasan_out, NULL, NULL, dev);
-            loadfont(KASAN_FONT_ROM_PATH, 6);
+            video_load_font(KASAN_FONT_ROM_PATH, FONT_FORMAT_KSC6501, LOAD_FONT_NO_OFFSET);
             fn = KASAN_BIOS_ROM_PATH;
             break;
 

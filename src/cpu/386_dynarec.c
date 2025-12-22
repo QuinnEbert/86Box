@@ -72,6 +72,7 @@
 
 #define CPU_BLOCK_END() cpu_block_end = 1
 
+int cpu_force_interpreter   = 0;
 int cpu_override_dynarec    = 0;
 int inrecomp                = 0;
 int cpu_block_end           = 0;
@@ -819,142 +820,114 @@ exec386_dynarec(int32_t cycs)
         cycles += cyc_period;
         cycles_start = cycles;
 
-        if (ndr_virtualize_mode) {
-            oldcyc     = cycles;
-            cycles_old = cycles;
-            oldtsc     = tsc;
-            tsc_old    = tsc;
-            if ((!CACHE_ON()) || cpu_override_dynarec)
+        while (cycles > 0) {
+#    ifndef USE_NEW_DYNAREC
+            oldcs           = CS;
+            cpu_state.oldpc = cpu_state.pc;
+            oldcpl          = CPL;
+            cpu_state.op32  = use32;
+
+            cycdiff = 0;
+#    endif
+            oldcyc = oldcyc2 = cycles;
+            cycles_old       = cycles;
+            oldtsc           = tsc;
+            tsc_old          = tsc;
+            if (cpu_force_interpreter || cpu_override_dynarec ||  (!CACHE_ON())) /*Interpret block*/
+            {
                 exec386_dynarec_int();
-            else
+            } else {
                 exec386_dynarec_dyn();
-            cycles  = 0;
+            }
+
+            if (cpu_init) {
+                cpu_init = 0;
+                resetx86();
+            }
+
+            if (cpu_state.abrt) {
+                flags_rebuild();
+                tempi          = cpu_state.abrt & ABRT_MASK;
+                cpu_state.abrt = 0;
+                x86_doabrt(tempi);
+                if (cpu_state.abrt) {
+                    cpu_state.abrt = 0;
+                    cpu_state.pc   = cpu_state.oldpc;
+#    ifndef USE_NEW_DYNAREC
+                    CS = oldcs;
+#    endif
+                    pmodeint(8, 0);
+                    if (cpu_state.abrt) {
+                        cpu_state.abrt = 0;
+                        softresetx86();
+                        cpu_set_edx();
+#    ifdef ENABLE_386_DYNAREC_LOG
+                        x386_dynarec_log("Triple fault - reset\n");
+#    endif
+                    }
+                }
+            }
+
+            if (new_ne) {
+#    ifndef USE_NEW_DYNAREC
+                oldcs = CS;
+#    endif
+                cpu_state.oldpc = cpu_state.pc;
+                new_ne          = 0;
+                x86_int(16);
+            }
+
+            if (smi_line)
+                enter_smm_check(0);
+            else if (nmi && nmi_enable && nmi_mask) {
+#    ifndef USE_NEW_DYNAREC
+                oldcs = CS;
+#    endif
+                cpu_state.oldpc = cpu_state.pc;
+                x86_int(2);
+                nmi_enable = 0;
+#    ifdef OLD_NMI_BEHAVIOR
+                if (nmi_auto_clear) {
+                    nmi_auto_clear = 0;
+                    nmi            = 0;
+                }
+#    else
+                nmi = 0;
+#    endif
+            } else if ((cpu_state.flags & I_FLAG) && pic.int_pending) {
+                vector = picinterrupt();
+                if (vector != -1) {
+#    ifndef USE_NEW_DYNAREC
+                    oldcs = CS;
+#    endif
+                    cpu_state.oldpc = cpu_state.pc;
+                    x86_int(vector);
+                }
+            }
+
             cycdiff = oldcyc - cycles;
             delta   = tsc - oldtsc;
             if (delta > 0) {
+                /* TSC has changed, this means interim timer processing has happened,
+                   see how much we still need to add. */
                 cycdiff -= delta;
                 if (cycdiff > 0)
                     tsc += cycdiff;
             } else {
+                /* TSC has not changed. */
                 tsc += cycdiff;
             }
+
             if (cycdiff > 0) {
                 if (TIMER_VAL_LESS_THAN_VAL(timer_target, (uint32_t) tsc))
                     timer_process();
             }
+
 #    ifdef USE_GDBSTUB
             if (gdbstub_instruction())
                 return;
 #    endif
-        } else
-            while (cycles > 0) {
-#    ifndef USE_NEW_DYNAREC
-                oldcs           = CS;
-                cpu_state.oldpc = cpu_state.pc;
-                oldcpl          = CPL;
-                cpu_state.op32  = use32;
-
-                cycdiff = 0;
-#    endif
-                oldcyc = oldcyc2 = cycles;
-                cycles_old       = cycles;
-                oldtsc           = tsc;
-                tsc_old          = tsc;
-                if ((!CACHE_ON()) || cpu_override_dynarec) /*Interpret block*/
-                {
-                    exec386_dynarec_int();
-                } else {
-                    exec386_dynarec_dyn();
-                }
-
-                if (cpu_init) {
-                    cpu_init = 0;
-                    resetx86();
-                }
-
-                if (cpu_state.abrt) {
-                    flags_rebuild();
-                    tempi          = cpu_state.abrt & ABRT_MASK;
-                    cpu_state.abrt = 0;
-                    x86_doabrt(tempi);
-                    if (cpu_state.abrt) {
-                        cpu_state.abrt = 0;
-                        cpu_state.pc   = cpu_state.oldpc;
-#    ifndef USE_NEW_DYNAREC
-                        CS = oldcs;
-#    endif
-                        pmodeint(8, 0);
-                        if (cpu_state.abrt) {
-                            cpu_state.abrt = 0;
-                            softresetx86();
-                            cpu_set_edx();
-#    ifdef ENABLE_386_DYNAREC_LOG
-                            x386_dynarec_log("Triple fault - reset\n");
-#    endif
-                        }
-                    }
-                }
-
-                if (new_ne) {
-#    ifndef USE_NEW_DYNAREC
-                    oldcs = CS;
-#    endif
-                    cpu_state.oldpc = cpu_state.pc;
-                    new_ne          = 0;
-                    x86_int(16);
-                }
-
-                if (smi_line)
-                    enter_smm_check(0);
-                else if (nmi && nmi_enable && nmi_mask) {
-#    ifndef USE_NEW_DYNAREC
-                    oldcs = CS;
-#    endif
-                    cpu_state.oldpc = cpu_state.pc;
-                    x86_int(2);
-                    nmi_enable = 0;
-#    ifdef OLD_NMI_BEHAVIOR
-                    if (nmi_auto_clear) {
-                        nmi_auto_clear = 0;
-                        nmi            = 0;
-                    }
-#    else
-                    nmi = 0;
-#    endif
-                } else if ((cpu_state.flags & I_FLAG) && pic.int_pending) {
-                    vector = picinterrupt();
-                    if (vector != -1) {
-#    ifndef USE_NEW_DYNAREC
-                        oldcs = CS;
-#    endif
-                        cpu_state.oldpc = cpu_state.pc;
-                        x86_int(vector);
-                    }
-                }
-
-                cycdiff = oldcyc - cycles;
-                delta   = tsc - oldtsc;
-                if (delta > 0) {
-                    /* TSC has changed, this means interim timer processing has happened,
-                       see how much we still need to add. */
-                    cycdiff -= delta;
-                    if (cycdiff > 0)
-                        tsc += cycdiff;
-                } else {
-                    /* TSC has not changed. */
-                    tsc += cycdiff;
-                }
-
-                if (cycdiff > 0) {
-                    if (TIMER_VAL_LESS_THAN_VAL(timer_target, (uint32_t) tsc))
-                        timer_process();
-                }
-
-#    ifdef USE_GDBSTUB
-                if (gdbstub_instruction())
-                    return;
-#    endif
-            }
+        }
 
         cycles_main -= (cycles_start - cycles);
     }

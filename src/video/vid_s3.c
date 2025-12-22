@@ -354,7 +354,7 @@ typedef struct s3_t {
         int        input;
         int        len, start;
         int        odf, idf, yuv;
-        atomic_int busy;
+        ATOMIC_INT busy;
     } videoengine;
 
     struct
@@ -390,7 +390,7 @@ typedef struct s3_t {
     } streams;
 
     fifo_entry_t fifo[FIFO_SIZE];
-    atomic_int   fifo_read_idx, fifo_write_idx;
+    ATOMIC_INT   fifo_read_idx, fifo_write_idx;
 
     uint8_t fifo_thread_run;
 
@@ -398,7 +398,7 @@ typedef struct s3_t {
     event_t  *wake_fifo_thread;
     event_t  *fifo_not_full_event;
 
-    atomic_int blitter_busy;
+    ATOMIC_INT blitter_busy;
     uint64_t blitter_time;
     uint64_t status_time;
 
@@ -410,7 +410,7 @@ typedef struct s3_t {
     int        translate;
     int        enable_8514;
     int        color_16bit;
-    atomic_int busy, force_busy;
+    ATOMIC_INT busy, force_busy;
 
     bool color_key_enabled;
 
@@ -2727,7 +2727,7 @@ s3_trio64v_colorkey(s3_t* s3, uint32_t x, uint32_t y)
     uint8_t shift = ((s3->streams.chroma_ctrl >> 24) & 7) ^ 7;
     bool is15bpp = false;
 
-    uint32_t base_addr = svga->memaddr_latch;
+    uint32_t base_addr = svga->memaddr_latch << 2;
     uint32_t stride = s3->streams.pri_stride;
 
     if (!s3->color_key_enabled)
@@ -4702,8 +4702,8 @@ s3_recalctimings(svga_t *svga)
                 svga->read_bank = 0;
             }
             /*In non-enhanced/IBM VGA modes, reset the misc index registers.*/
-            s3->accel.multifunc[0xd] = 0xd000;
-            s3->accel.multifunc[0xe] = 0xe000;
+            s3->accel.multifunc[0xd] = 0x000;
+            s3->accel.multifunc[0xe] = 0x000;
         }
     }
 
@@ -5306,6 +5306,7 @@ s3_accel_in(uint16_t port, void *priv)
         case 0x9949:
         case 0x9ae9:
             temp = 0;
+            s3_log("FIFO=%x, cmd=%d, sy=%d.\n", s3_enable_fifo(s3), s3->accel.cmd >> 13, s3->accel.sy);
             if (s3_enable_fifo(s3)) {
                 if (!s3->blitter_busy)
                     wake_fifo_thread(s3);
@@ -5332,17 +5333,26 @@ s3_accel_in(uint16_t port, void *priv)
                 else {
                     switch (s3->accel.cmd >> 13) { /*Some drivers may not set FIFO on but may still turn on FIFO empty bits!*/
                         case 0:
-                            if (!s3->accel.ssv_len)
+                            if (s3->accel.cmd & 0x100) {
+                                if (!s3->accel.ssv_len)
+                                    temp |= 0x04;
+                            } else
                                 temp |= 0x04;
                             break;
                         case 1:
-                            if (!s3->accel.sy)
+                            if (s3->accel.cmd & 0x100) {
+                                if (!s3->accel.sy)
+                                    temp |= 0x04;
+                            } else
                                 temp |= 0x04;
                             break;
                         case 2:
                         case 6:
                         case 7:
-                            if (s3->accel.sy < 0)
+                            if (s3->accel.cmd & 0x100) {
+                                if (s3->accel.sy < 0)
+                                    temp |= 0x04;
+                            } else
                                 temp |= 0x04;
                             break;
 

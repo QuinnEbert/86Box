@@ -120,7 +120,6 @@
 /* Stuff that used to be globally declared in plat.h but is now extern there
    and declared here instead. */
 int          dopause = 1;  /* system is paused */
-atomic_flag  doresize; /* screen resize requested */
 volatile int is_quit;  /* system exit requested */
 uint64_t     timer_freq;
 char         emu_version[200]; /* version ID string */
@@ -144,10 +143,12 @@ int confirm_exit_cmdl = 1; /* (O) do not ask for confirmation on quit if set to 
 uint64_t unique_id   = 0;
 uint64_t source_hwnd = 0;
 #endif
-char       rom_path[1024] = { '\0' };     /* (O) full path to ROMs */
-rom_path_t rom_paths      = { "", NULL }; /* (O) full paths to ROMs */
-char       log_path[1024] = { '\0' };     /* (O) full path of logfile */
-char       vm_name[1024]  = { '\0' };     /* (O) display name of the VM */
+char       rom_path[1024]   = { '\0' };     /* (O) full path to ROMs */
+rom_path_t rom_paths        = { "", NULL }; /* (O) full paths to ROMs */
+char       asset_path[1024] = { '\0' };     /* (O) full path to assets */
+rom_path_t asset_paths      = { "", NULL }; /* (O) full paths to assets */
+char       log_path[1024]   = { '\0' };     /* (O) full path of logfile */
+char       vm_name[1024]    = { '\0' };     /* (O) display name of the VM */
 int      do_nothing                             = 0;
 int      dump_missing                           = 0;
 int      clear_cmos                             = 0;
@@ -295,6 +296,11 @@ struct accelKey def_acc_keys[NUM_ACCELS] = {
         .name="mute",
         .desc="Toggle mute",
         .seq="Ctrl+Alt+M"
+    },
+    {
+        .name="force_interpretation",
+        .desc="Force interpretation",
+        .seq="Ctrl+Alt+I"
     }
 };
 
@@ -340,8 +346,8 @@ __thread int is_cpu_thread = 0;
 
 static wchar_t mouse_msg[3][200];
 
-static volatile atomic_int do_pause_ack = 0;
-static volatile atomic_int pause_ack = 0;
+static ATOMIC_INT do_pause_ack = 0;
+static ATOMIC_INT pause_ack = 0;
 
 #define LOG_SIZE_BUFFER 8192            /* Log size buffer */
 
@@ -666,6 +672,7 @@ pc_show_usage(char *s)
             "\n%sUsage: 86box [options] [cfg-file]\n\n"
             "Valid options are:\n\n"
             "-? or --help\t\t\t- show this information\n"
+            "-A or --assetpath path\t\t- set 'path' to be asset path\n"
 #ifdef SHOW_EXTRA_PARAMS
             "-C or --config path\t\t- set 'path' to be config file\n"
 #endif
@@ -736,6 +743,7 @@ pc_init(int argc, char *argv[])
 {
     char            *ppath = NULL;
     char            *rpath = NULL;
+    char            *apath = NULL;
     char            *cfg = NULL;
     char            *global = NULL;
     char            *p;
@@ -762,8 +770,10 @@ pc_init(int argc, char *argv[])
     p  = path_get_filename(exe_path);
     *p = '\0';
 #if defined(__APPLE__)
+    char contents_path[2048] = {0};
     c = strlen(exe_path);
     if ((c >= 16) && !strcmp(&exe_path[c - 16], "/Contents/MacOS/")) {
+        strncpy(contents_path, exe_path, c - 7);
         exe_path[c - 16] = '\0';
         p                = path_get_filename(exe_path);
         *p               = '\0';
@@ -802,6 +812,7 @@ pc_init(int argc, char *argv[])
      */
     plat_getcwd(usr_path, sizeof(usr_path) - 1);
     plat_getcwd(rom_path, sizeof(rom_path) - 1);
+    plat_getcwd(asset_path, sizeof(asset_path) - 1);
 
     for (c = 1; c < argc; c++) {
         if (argv[c][0] != '-')
@@ -855,6 +866,12 @@ usage:
 
             rpath = argv[++c];
             rom_add_path(rpath);
+        } else if (!strcasecmp(argv[c], "--assetpath") || !strcasecmp(argv[c], "-A")) {
+            if ((c + 1) == argc)
+                goto usage;
+
+            apath = argv[++c];
+            asset_add_path(apath);
         } else if (!strcasecmp(argv[c], "--config") || !strcasecmp(argv[c], "-C")) {
             if ((c + 1) == argc || plat_dir_check(argv[c + 1]))
                 goto usage;
@@ -978,6 +995,7 @@ usage:
 
     path_slash(usr_path);
     path_slash(rom_path);
+    path_slash(asset_path);
 
     /*
      * If the user provided a path for files, use that
@@ -1018,6 +1036,33 @@ usage:
 
     plat_init_rom_paths();
 
+    // Add the VM-local asset path.
+    path_append_filename(temp, usr_path, "assets");
+    asset_add_path(temp);
+
+    // Add the standard asset path in the same directory as the executable.
+    path_append_filename(temp, exe_path, "assets");
+    asset_add_path(temp);
+
+#if defined(__APPLE__)
+    // Add the standard asset path within the app bundle.
+    if (contents_path[0] != '\0') {
+        path_append_filename(temp, contents_path, "Resources/assets");
+        asset_add_path(temp);
+    }
+#elif !defined(_WIN32)
+    // Add the standard asset paths within the AppImage.
+    p = getenv("APPDIR");
+    if (p && (p[0] != '\0')) {
+        path_append_filename(temp, p, "usr/local/share/" EMU_NAME "/assets");
+        asset_add_path(temp);
+        path_append_filename(temp, p, "usr/share/" EMU_NAME "/assets");
+        asset_add_path(temp);
+    }
+#endif
+
+    plat_init_asset_paths();
+
     /*
      * If the user provided a path for ROMs, use that
      * instead of the current working directory. We do
@@ -1047,6 +1092,36 @@ usage:
             plat_dir_create(rom_path);
     } else
         rom_path[0] = '\0';
+
+    /*
+     * If the user provided a path for ROMs, use that
+     * instead of the current working directory. We do
+     * make sure that if that was a relative path, we
+     * make it absolute.
+     */
+    if (apath != NULL) {
+        if (!path_abs(apath)) {
+            /*
+             * This looks like a relative path.
+             *
+             * Add it to the current working directory
+             * to convert it (back) to an absolute path.
+             */
+            strcat(asset_path, apath);
+        } else {
+            /*
+             * The user-provided path seems like an
+             * absolute path, so just use that.
+             */
+            strcpy(asset_path, apath);
+        }
+
+        /* If the specified path does not yet exist,
+           create it. */
+        if (!plat_dir_check(asset_path))
+            plat_dir_create(asset_path);
+    } else
+        asset_path[0] = '\0';
 
     /* Grab the name of the configuration file. */
     if (cfg == NULL)
@@ -1085,6 +1160,8 @@ usage:
     path_slash(usr_path);
     if (rom_path[0] != '\0')
         path_slash(rom_path);
+    if (asset_path[0] != '\0')
+        path_slash(asset_path);
 
     /* At this point, we can safely create the full path name. */
     path_append_filename(cfg_path, usr_path, p);
@@ -1184,6 +1261,10 @@ usage:
 
         for (rom_path_t *rom_path = &rom_paths; rom_path != NULL; rom_path = rom_path->next) {
             pclog("# ROM path: %s\n", rom_path->path);
+        }
+
+        for (rom_path_t *asset_path = &asset_paths; asset_path != NULL; asset_path = asset_path->next) {
+            pclog("# Asset path: %s\n", asset_path->path);
         }
 
         /*
@@ -1732,6 +1813,7 @@ pc_reset_hard_init(void)
 void
 update_mouse_msg(void)
 {
+#ifdef USE_SDL_UI
     wchar_t  wcpufamily[2048];
     wchar_t  wcpu[2048];
     wchar_t  wmachine[2048];
@@ -1748,13 +1830,6 @@ update_mouse_msg(void)
     if (wcp) /* remove parentheses */
         *(wcp - 1) = L'\0';
     mbstowcs(wcpu, cpu_s->name, strlen(cpu_s->name) + 1);
-#ifdef _WIN32
-    swprintf(mouse_msg[0], sizeof_w(mouse_msg[0]), L"%%i%%%% - %ls",
-             plat_get_string(STRING_MOUSE_CAPTURE));
-    swprintf(mouse_msg[1], sizeof_w(mouse_msg[1]), L"%%i%%%% - %ls",
-             (mouse_get_buttons() > 2) ? plat_get_string(STRING_MOUSE_RELEASE) : plat_get_string(STRING_MOUSE_RELEASE_MMB));
-    wcsncpy(mouse_msg[2], L"%i%%", sizeof_w(mouse_msg[2]));
-#else
     swprintf(mouse_msg[0], sizeof_w(mouse_msg[0]), L"%ls v%ls - %%i%%%% - %ls - %ls/%ls - %ls",
              EMU_NAME_W, EMU_VERSION_FULL_W, wmachine, wcpufamily, wcpu,
              plat_get_string(STRING_MOUSE_CAPTURE));
@@ -1763,6 +1838,12 @@ update_mouse_msg(void)
              (mouse_get_buttons() > 2) ? plat_get_string(STRING_MOUSE_RELEASE) : plat_get_string(STRING_MOUSE_RELEASE_MMB));
     swprintf(mouse_msg[2], sizeof_w(mouse_msg[2]), L"%ls v%ls - %%i%%%% - %ls - %ls/%ls",
              EMU_NAME_W, EMU_VERSION_FULL_W, wmachine, wcpufamily, wcpu);
+#else
+    swprintf(mouse_msg[0], sizeof_w(mouse_msg[0]), L"%%i%%%% - %ls",
+             plat_get_string(STRING_MOUSE_CAPTURE));
+    swprintf(mouse_msg[1], sizeof_w(mouse_msg[1]), L"%%i%%%% - %ls",
+             (mouse_get_buttons() > 2) ? plat_get_string(STRING_MOUSE_RELEASE) : plat_get_string(STRING_MOUSE_RELEASE_MMB));
+    wcsncpy(mouse_msg[2], L"%i%%", sizeof_w(mouse_msg[2]));
 #endif
 }
 
@@ -1844,9 +1925,9 @@ _ui_window_title(void *s)
 void
 ack_pause(void)
 {
-    if (atomic_load(&do_pause_ack)) {
-        atomic_store(&do_pause_ack, 0);
-        atomic_store(&pause_ack, 1);
+    if (ATOMIC_LOAD(do_pause_ack)) {
+        ATOMIC_STORE(do_pause_ack, 0);
+        ATOMIC_STORE(pause_ack, 1);
     }
 }
 
@@ -2060,17 +2141,6 @@ set_screen_size_natural(void)
         set_screen_size(monitors[i].mon_unscaled_size_x, monitors[i].mon_unscaled_size_y);
 }
 
-int
-get_actual_size_x(void)
-{
-    return (unscaled_size_x);
-}
-
-int
-get_actual_size_y(void)
-{
-    return (efscrnsz_y);
-}
 
 void
 do_pause(int p)
@@ -2081,10 +2151,10 @@ do_pause(int p)
         do_pause_ack = p;
     dopause = !!p;
     if ((p == 1) && !old_p) {
-        while (!atomic_load(&pause_ack))
+        while (!ATOMIC_LOAD(pause_ack))
             ;
     }
-    atomic_store(&pause_ack, 0);
+    ATOMIC_STORE(pause_ack, 0);
 }
 
 // Helper to find an accelerator key and return it's index in acc_keys

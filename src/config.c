@@ -417,8 +417,7 @@ load_machine(void)
     p                        = ini_section_get_string(cat, "cpu_family", NULL);
     if (p) {
         /* Migrate CPU family changes. */
-        if ((!strcmp(machines[machine].internal_name, "deskpro386") ||
-            !strcmp(machines[machine].internal_name, "deskpro386_05_1988")))
+        if (machines[machine].init == machine_at_deskpro386_init)
             cpu_f = cpu_get_family("i386dx_deskpro386");
         else
             cpu_f = cpu_get_family(p);
@@ -748,6 +747,25 @@ load_sound(void)
             }
         }
     }
+
+    /* Correct Aztech codec selection in old configs so the OPTi 930 AD1848 type isn't selected */
+    for (int i = 0; i < (sizeof(sound_card_current) / sizeof(sound_card_current[0])); i++) {
+        sprintf(temp, "Aztech Sound Galaxy Pro 16 AB (Washington) #%i", i + 1);
+        ini_section_t c = ini_find_section(config, temp);
+        if (c != NULL) {
+            if (ini_section_get_int(c, "codec", 1) == 2)
+                ini_section_set_int(c, "codec", 3);
+        }
+    }
+    for (int i = 0; i < (sizeof(sound_card_current) / sizeof(sound_card_current[0])); i++) {
+        sprintf(temp, "Aztech Sound Galaxy Nova 16 Extra (Clinton) #%i", i + 1);
+        ini_section_t c = ini_find_section(config, temp);
+        if (c != NULL) {
+            if (ini_section_get_int(c, "codec", 1) == 2)
+                ini_section_set_int(c, "codec", 3);
+        }
+    }
+
 
     memset(temp, '\0', sizeof(temp));
     p = ini_section_get_string(cat, "sound_type", "float");
@@ -1509,11 +1527,14 @@ load_floppy_and_cdrom_drives(void)
             sprintf(temp, "fdd_%02i_check_bpb", c + 1);
             ini_section_delete_var(cat, temp);
         }
-        sprintf(temp, "fdd_%02i_audio", c + 1);        
+        sprintf(temp, "fdd_%02i_audio", c + 1);
 #ifndef DISABLE_FDD_AUDIO
-        p    = ini_section_get_string(cat, temp, "none");
-        int prof = fdd_audio_get_profile_by_internal_name(p);
-        fdd_set_audio_profile(c, prof);
+        p = ini_section_get_string(cat, temp, "none");
+        if (!strcmp(p, "panasonic"))
+            d = fdd_audio_get_profile_by_internal_name("panasonic_ju4755_40t");
+        else
+            d = fdd_audio_get_profile_by_internal_name(p);
+        fdd_set_audio_profile(c, d);
 #else
         fdd_set_audio_profile(c, 0);
 #endif        
