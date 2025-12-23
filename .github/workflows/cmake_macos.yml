@@ -51,7 +51,7 @@ jobs:
             qt: on
             slug: -Qt
             packages: >-
-              qt
+              qt@5
 
     steps:
       - name: Install dependencies
