@@ -41,6 +41,14 @@ project(86Box
     HOMEPAGE_URL "https://86box.net"
     LANGUAGES C CXX)
 
+# Use @rpath for dynamic libraries on macOS instead of @executable_path
+# This allows Qt frameworks to be found via LC_RPATH entries
+if(APPLE)
+    set(CMAKE_MACOSX_RPATH TRUE)
+    set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+    set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+endif()
+
 include(CPack)
 include(CMakeDependentOption)
 
