@@ -48,11 +48,11 @@ jobs:
             qt: off
             slug: -SDL
             static: on
-          - name: Qt 5 GUI
+          - name: Qt GUI
             qt: on
-            slug: -Qt5
+            slug: -Qt
             packages: >-
-              qt@5
+              qt
         environment:
           - arch: x86_64
             toolchain: ./cmake/flags-gcc-x86_64.cmake
@@ -88,8 +88,6 @@ jobs:
           --toolchain ${{ matrix.environment.toolchain }}
           -D NEW_DYNAREC=${{ matrix.dynarec.new }}
           -D QT=${{ matrix.ui.qt }}
-          -D Qt5_ROOT=$(brew --prefix qt@5)
-          -D Qt5LinguistTools_ROOT=$(brew --prefix qt@5)
           -D OpenAL_ROOT=$(brew --prefix openal-soft)
           -D LIBSERIALPORT_ROOT=$(brew --prefix libserialport)
 
@@ -184,8 +182,6 @@ jobs:
           -D NEW_DYNAREC=${{ matrix.dynarec.new }}
           -D CMAKE_INSTALL_PREFIX=./build/artifacts
           -D QT=${{ matrix.ui.qt }}
-          -D Qt5_ROOT=$(brew --prefix qt@5)
-          -D Qt5LinguistTools_ROOT=$(brew --prefix qt@5)
           -D OpenAL_ROOT=$(brew --prefix openal-soft)
           -D LIBSERIALPORT_ROOT=$(brew --prefix libserialport)
 
