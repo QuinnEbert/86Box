@@ -218,11 +218,12 @@ SettingsMachine::on_comboBoxMachineType_currentIndexChanged(int index)
             if ((machine_get_type(i) == ui->comboBoxMachineType->currentData().toInt()) &&
                 machine_available(i)) {
                 QString name = QString::fromUtf8(machines[i].name);
-                int     year = machine_get_type_year(machine_get_type(i));
-                if (year >= 1990)
-                    name += QString(" (%1 - %2)")
-                                .arg(machine_get_typical_cpu_name(i))
-                                .arg(machine_get_supported_cpu_names(i));
+                // TODO: Restore CPU info display when upstream adds these APIs
+                // int     year = machine_get_type_year(machine_get_type(i));
+                // if (year >= 1990)
+                //     name += QString(" (%1 - %2)")
+                //                 .arg(machine_get_typical_cpu_name(i))
+                //                 .arg(machine_get_supported_cpu_names(i));
 
                 int row = Models::AddEntry(model, name, i);
                 if (i == machine)
