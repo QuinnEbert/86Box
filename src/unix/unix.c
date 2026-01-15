@@ -63,6 +63,7 @@ int             update_icons;
 int             kbd_req_capture;
 int             hide_status_bar;
 int             hide_tool_bar;
+bool            fast_forward = false;
 int             fixed_size_x = 640;
 int             fixed_size_y = 480;
 extern int      title_set;
@@ -585,9 +586,7 @@ main_thread(UNUSED(void *param))
     {
         /* See if it is time to run a frame of code. */
         new_time = SDL_GetTicks();
-#ifndef __APPLE__
-        cpu_set_ndr_virtualize(virtualized_cpu && (turbo_mode || turbo_slow_cycles > 0));
-#endif
+
 #ifdef USE_GDBSTUB
         if (gdbstub_next_asap && (drawits <= 0))
             drawits = 10;
@@ -598,29 +597,10 @@ main_thread(UNUSED(void *param))
 #endif
 
         old_time = new_time;
-        if (turbo_mode && !dopause) {
-            pc_run();
-            if (++frames >= 200 && nvr_dosave) {
-                nvr_save();
-                nvr_dosave = 0;
-                frames     = 0;
-            }
-        } else if (turbo_slow_cycles > 0 && !dopause) {
-            static int slow_counter = 0;
-            if (slow_counter == 0) {
-                pc_run();
-                if (++frames >= 200 && nvr_dosave) {
-                    nvr_save();
-                    nvr_dosave = 0;
-                    frames     = 0;
-                }
-            }
-            if (++slow_counter > turbo_slow_cycles)
-                slow_counter = 0;
-        } else if (drawits > 0 && !dopause) {
+        if ((drawits > 0 || fast_forward) && !dopause) {
             /* Yes, so do one frame now. */
             drawits -= force_10ms ? 10 : 1;
-            if (drawits > 50)
+            if (drawits > 50 || fast_forward)
                 drawits = 0;
 
             /* Run a block of code. */
@@ -1125,6 +1105,8 @@ unix_executeLine(char *line)
                 "moeject <id> - eject image from MO drive <id>.\n\n"
                 "hardreset - hard reset the emulated system.\n"
                 "pause - pause the the emulated system.\n"
+                "fastfwd - toggle fast forward.\n"
+                "screenshot - save a screenshot.\n"
                 "fullscreen - toggle fullscreen.\n"
                 "version - print version and license information.\n"
                 "exit - exit " EMU_NAME ".\n");
@@ -1165,9 +1147,17 @@ unix_executeLine(char *line)
         } else if (strncasecmp(xargv[0], "fullscreen", 10) == 0) {
             video_fullscreen   = video_fullscreen ? 0 : 1;
             fullscreen_pending = 1;
+        } else if (strncasecmp(xargv[0], "screenshot", 10) == 0) {
+            startblit();
+            ++monitors[0].mon_screenshots_raw;
+            endblit();
+            device_force_redraw();
         } else if (strncasecmp(xargv[0], "pause", 5) == 0) {
             plat_pause(dopause ^ 1);
             printf("%s", dopause ? "Paused.\n" : "Unpaused.\n");
+        } else if (strncasecmp(xargv[0], "fastfwd", 7) == 0) {
+            fast_forward ^= 1;
+            printf("%s", fast_forward ? "Fast forward on.\n" : "Fast forward off.\n");
         } else if (strncasecmp(xargv[0], "hardreset", 9) == 0) {
             pc_reset_hard();
         } else if (strncasecmp(xargv[0], "cdload", 6) == 0 && cmdargc >= 3) {
@@ -1356,51 +1346,11 @@ main(int argc, char **argv)
     if (ret == 0)
         return 0;
     if (!pc_init_roms()) {
-#ifdef __APPLE__
-        wchar_t msg[2048]  = { 0 };
-        wchar_t paths[2048] = { 0 };
-        for (rom_path_t *rom_path = &rom_paths; rom_path != NULL; rom_path = rom_path->next) {
-            if (rom_path->path[0]) {
-                wchar_t wpath[1024] = { 0 };
-                mbstowcs(wpath, rom_path->path, 1023);
-                wcsncat(paths, L"\n • ", sizeof_w(paths) - wcslen(paths) - 1);
-                wcsncat(paths, wpath, sizeof_w(paths) - wcslen(paths) - 1);
-            }
-        }
-        swprintf(msg, sizeof_w(msg),
-                 EMU_NAME_W L" could not find any usable ROM images.\n\n"
-                 L"Please download a ROM set and extract it into one of the following directories:%ls",
-                 paths);
-        ui_msgbox_header(MBX_FATAL, L"No ROMs found.", msg);
-#else
         ui_msgbox_header(MBX_FATAL, L"No ROMs found.", EMU_NAME_W L" could not find any usable ROM images.\n\nPlease download a ROM set and extract it into the \"roms\" directory.");
-#endif
         SDL_Quit();
         return 6;
     }
     pc_init_modules();
-#ifdef __APPLE__
-    const char *missing = device_get_missing_roms();
-    if (missing && missing[0]) {
-        wchar_t wmissing[1024] = { 0 };
-        mbstowcs(wmissing, missing, 1023);
-        wchar_t paths[2048] = { 0 };
-        for (rom_path_t *rom_path = &rom_paths; rom_path != NULL; rom_path = rom_path->next) {
-            if (rom_path->path[0]) {
-                wchar_t wpath[1024] = { 0 };
-                mbstowcs(wpath, rom_path->path, 1023);
-                wcsncat(paths, L"\n • ", sizeof_w(paths) - wcslen(paths) - 1);
-                wcsncat(paths, wpath, sizeof_w(paths) - wcslen(paths) - 1);
-            }
-        }
-        wchar_t msg[4096] = { 0 };
-        swprintf(msg, sizeof_w(msg),
-                 L"86Box could not find the following ROM files:\n%ls\n\n"
-                 L"Please make sure these files are present in one of the following directories:%ls",
-                 wmissing, paths);
-        ui_msgbox_header(MBX_WARNING, L"Missing ROM files", msg);
-    }
-#endif
 
     for (uint8_t i = 1; i < GFXCARD_MAX; i++)
         gfxcard[i]  = 0;

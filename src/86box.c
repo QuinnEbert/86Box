@@ -83,6 +83,7 @@
 #include <86box/fdc.h>
 #include <86box/fdc_ext.h>
 #include <86box/hdd.h>
+#include <86box/hdd_audio.h>
 #include <86box/hdc.h>
 #include <86box/hdc_ide.h>
 #include <86box/scsi.h>
@@ -274,8 +275,28 @@ struct accelKey def_acc_keys[NUM_ACCELS] = {
     },
     {
         .name="screenshot",
-        .desc="Screenshot",
+        .desc="Take screenshot",
         .seq="Ctrl+F11"
+    },
+    {
+        .name="raw_screenshot",
+        .desc="Take raw screenshot",
+        .seq=""
+    },
+    {
+        .name="copy_screenshot",
+        .desc="Copy screenshot",
+        .seq=""
+    },
+    {
+        .name="copy_raw_screenshot",
+        .desc="Copy raw screenshot",
+        .seq=""
+    },
+    {
+        .name="fast_forward",
+        .desc="Fast forward",
+        .seq="Ctrl+Alt+F"
     },
     {
         .name="release_mouse",
@@ -1356,7 +1377,7 @@ pc_init_roms(void)
         while (machine_get_internal_name_ex(c) != NULL) {
             m = machine_available(c);
             if (!m)
-                pclog("Missing machine: %s\n", machine_getname_ex(c));
+                pclog("Missing machine: %s\n", machine_getname(c));
             c++;
         }
 
@@ -1397,7 +1418,7 @@ pc_init_modules(void)
 
     /* Load the ROMs for the selected machine. */
     if (!machine_available(machine)) {
-        swprintf(temp, sizeof_w(temp), plat_get_string(STRING_HW_NOT_AVAILABLE_MACHINE), machine_getname());
+        swprintf(temp, sizeof_w(temp), plat_get_string(STRING_HW_NOT_AVAILABLE_MACHINE), machine_getname(machine));
         c       = 0;
         machine = -1;
         while (machine_get_internal_name_ex(c) != NULL) {
@@ -1479,6 +1500,8 @@ pc_init_modules(void)
         fdd_audio_load_profiles();
         fdd_audio_init();
     }
+    
+    hdd_audio_init();
 
     sound_init();
 
@@ -1578,12 +1601,22 @@ pc_send_cae(void)
    extern void     softresetx86(void);
    extern void     hardresetx86(void);
 
+   extern void     biu_set_bus_cycle(int bus_cycle);
+   extern void     biu_set_bus_state(int bus_state);
+   extern void     biu_set_bus_next_state(int bus_next_state);
+   extern void     biu_set_cycle_t1(void);
+   extern void     biu_set_next_cycle(void);
+   extern int      biu_get_bus_cycle(void);
+   extern int      biu_get_bus_state(void);
+   extern int      biu_get_bus_next_state(void);
    extern void     prefetch_queue_set_pos(int pos);
    extern void     prefetch_queue_set_ip(uint16_t ip);
-   extern void     prefetch_queue_set_prefetching(int p);
+   extern void     prefetch_queue_set_in(uint16_t in);
+   extern void     prefetch_queue_set_suspended(int p);
    extern int      prefetch_queue_get_pos(void);
    extern uint16_t prefetch_queue_get_ip(void);
-   extern int      prefetch_queue_get_prefetching(void);
+   extern uint16_t prefetch_queue_get_in(void);
+   extern int      prefetch_queue_get_suspended(void);
    extern int      prefetch_queue_get_size(void);
  */
 static void
@@ -1722,6 +1755,9 @@ pc_reset_hard_init(void)
 
     fdd_reset();
 
+    /* Reset HDD audio to pick up any profile changes */
+    hdd_audio_reset();
+
     /* Reset and reconfigure the SCSI layer. */
     scsi_card_init();
 
@@ -1819,7 +1855,7 @@ update_mouse_msg(void)
     wchar_t  wmachine[2048];
     wchar_t *wcp;
 
-    mbstowcs(wmachine, machine_getname(), strlen(machine_getname()) + 1);
+    mbstowcs(wmachine, machine_getname(machine), strlen(machine_getname(machine)) + 1);
 
     if (!cpu_override)
         mbstowcs(wcpufamily, cpu_f->name, strlen(cpu_f->name) + 1);

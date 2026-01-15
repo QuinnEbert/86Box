@@ -26,7 +26,6 @@
 #include <QDirIterator>
 #include <QLibraryInfo>
 #include <QString>
-#include <QStringList>
 #include <QFont>
 #include <QDialog>
 #include <QMessageBox>
@@ -50,7 +49,6 @@ extern "C" {
 #include <86box/plat.h>
 #include <86box/ui.h>
 #include <86box/video.h>
-#include <86box/rom.h>
 #ifdef DISCORD
 #    include <86box/discord.h>
 #endif
@@ -102,6 +100,7 @@ extern int  qt_nvr_save(void);
 extern void exit_pause(void);
 
 bool cpu_thread_running = false;
+bool fast_forward = false;
 }
 
 #include <locale.h>
@@ -447,9 +446,6 @@ main_thread_fn()
     while (!is_quit && cpu_thread_run) {
         /* See if it is time to run a frame of code. */
         const uint64_t new_time = elapsed_timer.elapsed();
-#ifndef __APPLE__
-        cpu_set_ndr_virtualize(virtualized_cpu && (turbo_mode || turbo_slow_cycles > 0));
-#endif
 #ifdef USE_GDBSTUB
         if (gdbstub_next_asap && (drawits <= 0))
             drawits = force_10ms ? 10 : 1;
@@ -457,53 +453,7 @@ main_thread_fn()
 #endif
             drawits += static_cast<int>(new_time - old_time);
         old_time = new_time;
-        if (turbo_mode && !dopause) {
-            #ifdef USE_INSTRUMENT
-            uint64_t start_time = elapsed_timer.nsecsElapsed();
-            #endif
-            pc_run();
-#ifdef USE_INSTRUMENT
-            if (instru_enabled) {
-                uint64_t elapsed_us       = (elapsed_timer.nsecsElapsed() - start_time) / 1000;
-                uint64_t total_elapsed_ms = (uint64_t) ((double) tsc / cpu_s->rspeed * 1000);
-                printf("[instrument] %llu, %llu\n", total_elapsed_ms, elapsed_us);
-                if (instru_run_ms && total_elapsed_ms >= instru_run_ms)
-                    break;
-            }
-#endif
-            if (++frames >= 200 && nvr_dosave) {
-                qt_nvr_save();
-                nvr_dosave = 0;
-                frames     = 0;
-            }
-        } else if (turbo_slow_cycles > 0 && !dopause) {
-            static int slow_counter = 0;
-#ifdef USE_INSTRUMENT
-            uint64_t start_time = 0;
-#endif
-            if (slow_counter == 0) {
-#ifdef USE_INSTRUMENT
-                start_time = elapsed_timer.nsecsElapsed();
-#endif
-                pc_run();
-#ifdef USE_INSTRUMENT
-                if (instru_enabled) {
-                    uint64_t elapsed_us       = (elapsed_timer.nsecsElapsed() - start_time) / 1000;
-                    uint64_t total_elapsed_ms = (uint64_t) ((double) tsc / cpu_s->rspeed * 1000);
-                    printf("[instrument] %llu, %llu\n", total_elapsed_ms, elapsed_us);
-                    if (instru_run_ms && total_elapsed_ms >= instru_run_ms)
-                        break;
-                }
-#endif
-                if (++frames >= 200 && nvr_dosave) {
-                    qt_nvr_save();
-                    nvr_dosave = 0;
-                    frames     = 0;
-                }
-            }
-            if (++slow_counter > turbo_slow_cycles)
-                slow_counter = 0;
-        } else if (drawits > 0 && !dopause) {
+        if ((drawits > 0 || fast_forward) && !dopause) {
             /* Yes, so run frames now. */
             do {
 #ifdef USE_INSTRUMENT
@@ -529,8 +479,9 @@ main_thread_fn()
                 }
                 
                 drawits -= force_10ms ? 10 : 1;
-                if (drawits > 50)
+                if (drawits > 50 || fast_forward)
                     drawits = 0;
+
             } while (drawits > 0);
         } else {
             /* Just so we dont overload the host OS. */
@@ -648,68 +599,6 @@ main(int argc, char *argv[])
         return 0;
     }
 
-    const auto romDirListHtml = []() -> QString {
-        QStringList romDirs;
-        for (rom_path_t *rom_path = &rom_paths; rom_path != nullptr; rom_path = rom_path->next) {
-            if (!rom_path->path || !rom_path->path[0])
-                continue;
-            const QString dir = QString::fromLocal8Bit(rom_path->path);
-            romDirs << QStringLiteral("<li>%1</li>").arg(dir.toHtmlEscaped());
-        }
-        return romDirs.join(QString());
-    };
-
-    const auto missingFileListHtml = [](const char *missing) -> QString {
-        if (!(missing && missing[0]))
-            return QString();
-        QStringList items;
-        const QStringList lines = QString::fromLocal8Bit(missing).split('\n', Qt::SkipEmptyParts);
-        for (const QString &line : lines) {
-            const QString trimmed = line.trimmed();
-            if (!trimmed.isEmpty())
-                items << QStringLiteral("<li>%1</li>").arg(trimmed.toHtmlEscaped());
-        }
-        return items.join(QString());
-    };
-
-    auto showMissingRomDialog = [&](QMessageBox::Icon icon,
-                                    const QString &title,
-                                    const QString &missingHtml,
-                                    bool fatal) {
-        QString msg;
-
-        if (!missingHtml.isEmpty()) {
-            msg = fatal
-                      ? QObject::tr("86Box cannot start because the following ROM files are missing:<ul>%1</ul>")
-                            .arg(missingHtml)
-                      : QObject::tr("86Box could not find the following ROM files:<ul>%1</ul>")
-                            .arg(missingHtml);
-        } else {
-            msg = fatal ? QObject::tr("86Box cannot start because no ROM images were found.")
-                        : QObject::tr("86Box did not find any ROM images.");
-        }
-
-        const QString romDirs = romDirListHtml();
-        if (!romDirs.isEmpty()) {
-            msg += QObject::tr("<br><br>ROM search paths:<ul>%1</ul>").arg(romDirs);
-        } else {
-            msg += QObject::tr("<br><br>No ROM search paths are configured.");
-        }
-
-        QMessageBox box(icon, title, msg, QMessageBox::Ok);
-        box.setTextFormat(Qt::TextFormat::RichText);
-        box.exec();
-    };
-
-    if (!pc_init_roms()) {
-        const QString missingHtml = missingFileListHtml(device_get_missing_roms());
-        showMissingRomDialog(QMessageBox::Icon::Critical,
-                             QObject::tr("Missing ROM files"),
-                             missingHtml,
-                             true);
-        return 6;
-    }
-
 #ifdef Q_OS_WINDOWS
     if (util::isWindowsLightTheme() && wasDarkTheme) {
         qApp->setStyleSheet("");
@@ -752,21 +641,13 @@ main(int argc, char *argv[])
 #    endif
 #endif
 
-    const bool modulesInitialized = pc_init_modules();
-    if (!modulesInitialized) {
-        const QString missingHtml = missingFileListHtml(device_get_missing_roms());
-        showMissingRomDialog(QMessageBox::Icon::Critical,
-                             QObject::tr("Missing ROM files"),
-                             missingHtml,
-                             true);
+    if (!pc_init_roms()) {
+        QMessageBox fatalbox(QMessageBox::Icon::Critical, QObject::tr("No ROMs found"),
+                             QObject::tr("86Box could not find any usable ROM images.\n\nPlease <a href=\"https://github.com/86Box/roms/releases/latest\">download</a> a ROM set and extract it into the \"roms\" directory."),
+                             QMessageBox::Ok);
+        fatalbox.setTextFormat(Qt::TextFormat::RichText);
+        fatalbox.exec();
         return 6;
-    }
-
-    if (const QString missingRomHtml = missingFileListHtml(device_get_missing_roms()); !missingRomHtml.isEmpty()) {
-        showMissingRomDialog(QMessageBox::Icon::Warning,
-                             QObject::tr("Missing ROM files"),
-                             missingRomHtml,
-                             false);
     }
 
     if (start_vmm) {
@@ -796,6 +677,8 @@ main(int argc, char *argv[])
         QApplication::exec();
         return 0;
     }
+
+    pc_init_modules();
 
     // UUID / copy / move detection
     if (!util::compareUuid()) {
@@ -1008,6 +891,7 @@ main(int argc, char *argv[])
         QObject::connect(&discordupdate, &QTimer::timeout, &app, [] {
             discord_run_callbacks();
         });
+        discordupdate.setInterval(1000);
         if (enable_discord)
             discordupdate.start(1000);
     }

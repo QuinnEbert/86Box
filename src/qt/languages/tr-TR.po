@@ -1,8 +1,14 @@
 msgid ""
 msgstr ""
+"PO-Revision-Date: 2026-01-01 20:06+0000\n"
+"Last-Translator: Umut Çağan Uçanok <ucucanok@outlook.com.tr>\n"
+"Language-Team: Turkish <https://weblate.86box.net/projects/86box/86box/tr/>\n"
+"Language: tr-TR\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 5.12.2\n"
 "X-Language: tr_TR\n"
 "X-Source-Language: en_US\n"
 
@@ -203,6 +209,27 @@ msgstr "Durum &çubuğu simgelerini güncelle"
 
 msgid "Take s&creenshot"
 msgstr "&Ekran görüntüsü al"
+
+msgid "Take screenshot"
+msgstr "Ekran görüntüsü al"
+
+msgid "Take &raw screenshot"
+msgstr "Ekran &ham görüntüsü al"
+
+msgid "Take raw screenshot"
+msgstr "Ekran ham görüntüsü al"
+
+msgid "C&opy screenshot"
+msgstr "Ekran görüntüsü k&opyala"
+
+msgid "Copy screenshot"
+msgstr "Ekran görüntüsü kopyala"
+
+msgid "Copy r&aw screenshot"
+msgstr "Ekran h&am görüntüsü kopyala"
+
+msgid "Copy raw screenshot"
+msgstr "Ekran ham görüntüsü kopyala"
 
 msgid "S&ound"
 msgstr "&Ses"
@@ -522,11 +549,11 @@ msgstr "Disket denetleyicisi:"
 msgid "CD-ROM controller:"
 msgstr "CD-ROM denetleyicisi:"
 
-msgid "[ISA16] Tertiary IDE Controller"
-msgstr "[ISA16] Üçüncül IDE denetleyicisi"
+msgid "Tertiary IDE Controller"
+msgstr "Üçüncül IDE denetleyicisi"
 
-msgid "[ISA16] Quaternary IDE Controller"
-msgstr "[ISA16] Dördüncül IDE denetleyicisi"
+msgid "Quaternary IDE Controller"
+msgstr "Dördüncül IDE denetleyicisi"
 
 msgid "Hard disk controllers"
 msgstr "Sabit disk denetleyicileri"
@@ -1128,8 +1155,8 @@ msgstr "Seçili yapılandırma dosyası okunmak için açılamıyor: %1"
 msgid "Use regular expressions in search box"
 msgstr "Arama kutusunda düzenli ifadeler kullan"
 
-msgid "%1 machine(s) are currently active. Are you sure you want to exit the VM manager anyway?"
-msgstr "%1 makine şu anda aktif. Yine de VM yöneticisinden çıkmak istediğinize emin misiniz?"
+msgid "%n machine(s) are currently active. Are you sure you want to exit the VM manager anyway?"
+msgstr "%n makine şu anda aktif. Yine de VM yöneticisinden çıkmak istediğinize emin misiniz?"
 
 msgid "Add new system wizard"
 msgstr "Yeni sistem ekleme sihirbazı"
@@ -1211,9 +1238,6 @@ msgstr "Yeni görünü adını girin (sıfırlamak için boş bırakın)"
 
 msgid "Change &display name…"
 msgstr "Görüntü adını &değiştirin…"
-
-msgid "Context Menu"
-msgstr "Bağlam Menüsü"
 
 msgid "&Open folder…"
 msgstr "Klas&örü aç…"
@@ -1762,7 +1786,7 @@ msgid "VDE Socket:"
 msgstr "VDE Soketi:"
 
 msgid "TAP Bridge Device:"
-msgstr ""
+msgstr "TAP Köprü Cihazı:"
 
 msgid "86Box Unit Tester"
 msgstr "86Box Test Cihazı"
@@ -1801,7 +1825,7 @@ msgid "PS/55 Keyboard"
 msgstr "PS/55 Klavyesi"
 
 msgid "Keys"
-msgstr "Keys"
+msgstr "Tuşlar"
 
 msgid "Logitech/Microsoft Bus Mouse"
 msgstr "Logitech/Microsoft Bus Faresi"
@@ -1836,8 +1860,8 @@ msgstr "3M MicroTouch (seri)"
 msgid "Default Baud rate"
 msgstr "Varsayılan Baud hızı"
 
-msgid "[COM] Standard Hayes-compliant Modem"
-msgstr "[COM] Standart Hayes Uyumlu Modem"
+msgid "Standard Hayes-compliant Modem"
+msgstr "Standart Hayes Uyumlu Modem"
 
 msgid "Roland MT-32 Emulation"
 msgstr "Roland MT-32 Emülasyonu"
@@ -2044,7 +2068,7 @@ msgid "Reverb Output Gain"
 msgstr "Yankı Çıkış Sesi Artışı"
 
 msgid "Reversed stereo"
-msgstr "Tersine çevirilmiş stereo"
+msgstr "Tersine çevrilmiş stereo"
 
 msgid "Nice ramp"
 msgstr "Güzel rampa"
@@ -2155,16 +2179,16 @@ msgid "WSS DMA"
 msgstr "WSS DMA"
 
 msgid "RTC IRQ"
-msgstr ""
+msgstr "RTC IRQ"
 
 msgid "RTC Port Address"
-msgstr ""
+msgstr "RTC Bağlantı Noktası Adresi"
 
 msgid "Onboard RTC"
-msgstr ""
+msgstr "Yerleşik RTC"
 
 msgid "Not installed"
-msgstr ""
+msgstr "Kurulu değil"
 
 msgid "Enable OPL"
 msgstr "OPL'yi etkinleştir"
@@ -2788,10 +2812,7 @@ msgid "Toggle fullscreen"
 msgstr "Tam ekran modunu ayarla"
 
 msgid "Toggle UI in fullscreen"
-msgstr ""
-
-msgid "Screenshot"
-msgstr "Ekran görüntüsü"
+msgstr "Arayüzü tam ekranda ayarla"
 
 msgid "Release mouse pointer"
 msgstr "Fare imlecini serbest bırak"
@@ -2993,3 +3014,12 @@ msgstr "&Yorumlanmasını zorla"
 
 msgid "&Allow recompilation"
 msgstr "&Derlenmesine izin ver"
+
+msgid "&Fast forward"
+msgstr ""
+
+msgid "Fast forward"
+msgstr ""
+
+msgid "To change the system directory, stop all running machines."
+msgstr ""

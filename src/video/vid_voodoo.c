@@ -338,11 +338,11 @@ voodoo_readl(uint32_t addr, void *priv)
                 break;
             case SST_hvRetrace:
                 {
-                    uint32_t line_time = (uint32_t) (voodoo->line_time >> 32);
-                    uint32_t diff      = (timer_get_ts_int(&voodoo->timer) > (tsc & 0xffffffff)) ? (timer_get_ts_int(&voodoo->timer) - (tsc & 0xffffffff)) : 0;
-                    uint32_t pre_div   = diff * voodoo->h_total;
-                    uint32_t post_div  = pre_div / line_time;
-                    uint32_t h_pos     = (voodoo->h_total - 1) - post_div;
+                    uint64_t line_time = (uint64_t) (voodoo->line_time >> 32);
+                    uint64_t diff      = (timer_get_ts_int(&voodoo->timer) > tsc) ? (timer_get_ts_int(&voodoo->timer) - tsc) : 0;
+                    uint64_t pre_div   = diff * voodoo->h_total;
+                    uint64_t post_div  = pre_div / line_time;
+                    uint64_t h_pos     = (voodoo->h_total - 1) - post_div;
 
                     if (h_pos >= voodoo->h_total)
                         h_pos = 0;
@@ -516,12 +516,17 @@ voodoo_writel(uint32_t addr, uint32_t val, void *priv)
                 break;
             case SST_fbiInit0:
                 if (voodoo->initEnable & 0x01) {
+                    int old_vga_pass = voodoo->fbiInit0 & FBIINIT0_VGA_PASS;
                     voodoo->fbiInit0 = val;
                     thread_wait_mutex(voodoo->force_blit_mutex);
                     voodoo->can_blit = (voodoo->fbiInit0 & FBIINIT0_VGA_PASS) ? 1 : 0;
                     if (!voodoo->can_blit)
                         voodoo->force_blit_count = 0;
                     thread_release_mutex(voodoo->force_blit_mutex);
+
+                    /* When VGA pass-through becomes active, mark all lines dirty to force full refresh */
+                    if (!old_vga_pass && (val & FBIINIT0_VGA_PASS))
+                        memset(voodoo->dirty_line, 1, sizeof(voodoo->dirty_line));
 
                     if (voodoo->set->nr_cards == 2)
                         svga_set_override(voodoo->svga, (voodoo->set->voodoos[0]->fbiInit0 | voodoo->set->voodoos[1]->fbiInit0) & 1);

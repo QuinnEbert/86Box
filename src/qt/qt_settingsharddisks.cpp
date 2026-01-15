@@ -20,6 +20,7 @@
 extern "C" {
 #include <86box/86box.h>
 #include <86box/hdd.h>
+#include <86box/hdd_audio.h>
 }
 
 #include <QStandardItemModel>
@@ -37,6 +38,7 @@ const int ColumnHeads     = 3;
 const int ColumnSectors   = 4;
 const int ColumnSize      = 5;
 const int ColumnSpeed     = 6;
+const int ColumnAudio     = 7;
 
 const int DataBus                = Qt::UserRole;
 const int DataBusChannel         = Qt::UserRole + 1;
@@ -114,6 +116,11 @@ addRow(QAbstractItemModel *model, hard_disk_t *hd)
     auto speedIndex = model->index(row, ColumnSpeed);
     model->setData(speedIndex, QObject::tr(hdd_preset_getname(hd->speed_preset)));
     model->setData(speedIndex, hd->speed_preset, Qt::UserRole);
+    
+    auto audioIndex = model->index(row, ColumnAudio);
+    const char *audioName = hdd_audio_get_profile_name(hd->audio_profile);
+    model->setData(audioIndex, audioName ? QObject::tr(audioName) : QObject::tr("None"));
+    model->setData(audioIndex, hd->audio_profile, Qt::UserRole);
 }
 
 SettingsHarddisks::SettingsHarddisks(QWidget *parent)
@@ -124,7 +131,7 @@ SettingsHarddisks::SettingsHarddisks(QWidget *parent)
 
     // (Host shared-folder configuration moved to its own Settings page.)
 
-    QAbstractItemModel *model = new QStandardItemModel(0, 7, this);
+    QAbstractItemModel *model = new QStandardItemModel(0, 8, this);
     model->setHeaderData(ColumnBus, Qt::Horizontal, tr("Bus"));
     model->setHeaderData(ColumnFilename, Qt::Horizontal, tr("File"));
     model->setHeaderData(ColumnCylinders, Qt::Horizontal, tr("C"));
@@ -132,6 +139,7 @@ SettingsHarddisks::SettingsHarddisks(QWidget *parent)
     model->setHeaderData(ColumnSectors, Qt::Horizontal, tr("S"));
     model->setHeaderData(ColumnSize, Qt::Horizontal, tr("MiB"));
     model->setHeaderData(ColumnSpeed, Qt::Horizontal, tr("Model"));
+    model->setHeaderData(ColumnAudio, Qt::Horizontal, tr("Audio"));
     ui->tableView->setModel(model);
 
     for (int i = 0; i < HDD_NUM; i++) {
@@ -150,6 +158,7 @@ SettingsHarddisks::SettingsHarddisks(QWidget *parent)
     onTableRowChanged(QModelIndex());
 
     Harddrives::populateBuses(ui->comboBoxBus->model());
+    
     on_comboBoxBus_currentIndexChanged(0);
 
     // (No inline shared-folder controls here.)
@@ -175,6 +184,7 @@ SettingsHarddisks::save()
         hdd[i].hpc          = idx.siblingAtColumn(ColumnHeads).data().toUInt();
         hdd[i].spt          = idx.siblingAtColumn(ColumnSectors).data().toUInt();
         hdd[i].speed_preset = idx.siblingAtColumn(ColumnSpeed).data(Qt::UserRole).toUInt();
+        hdd[i].audio_profile = idx.siblingAtColumn(ColumnAudio).data(Qt::UserRole).toUInt();
 
         QByteArray fileName = idx.siblingAtColumn(ColumnFilename).data(Qt::UserRole).toString().toUtf8();
         strncpy(hdd[i].fn, fileName.data(), sizeof(hdd[i].fn) - 1);
@@ -283,6 +293,53 @@ SettingsHarddisks::on_comboBoxSpeed_currentIndexChanged(int index)
         auto  col   = idx.siblingAtColumn(ColumnSpeed);
         model->setData(col, ui->comboBoxSpeed->currentData(Qt::UserRole), Qt::UserRole);
         model->setData(col, QObject::tr(hdd_preset_getname(ui->comboBoxSpeed->currentData(Qt::UserRole).toUInt())));
+        
+        /* Reset audio profile to None when speed/model changes */
+        auto audioCol = idx.siblingAtColumn(ColumnAudio);
+        model->setData(audioCol, 0, Qt::UserRole);
+        model->setData(audioCol, QObject::tr("None"));
+    }
+    
+    /* Repopulate audio profiles based on the selected speed preset's RPM */
+    populateAudioProfiles();
+}
+
+void
+SettingsHarddisks::populateAudioProfiles()
+{
+    ui->comboBoxAudio->clear();
+    
+    /* Get RPM from currently selected speed preset */
+    uint32_t target_rpm = hdd_preset_get_rpm(ui->comboBoxSpeed->currentData(Qt::UserRole).toUInt());
+    
+    /* Populate audio profile combobox with matching RPM profiles */
+    int profile_count = hdd_audio_get_profile_count();
+    for (int i = 0; i < profile_count; i++) {
+        const char *name = hdd_audio_get_profile_name(i);
+        uint32_t profile_rpm = hdd_audio_get_profile_rpm(i);
+        
+        /* Include profile if it has no RPM set (0) or matches target RPM */
+        if (name && (profile_rpm == 0 || profile_rpm == target_rpm)) {
+            ui->comboBoxAudio->addItem(name, i);
+        }
+    }
+}
+
+void
+SettingsHarddisks::on_comboBoxAudio_currentIndexChanged(int index)
+{
+    if (index < 0)
+        return;
+
+    auto idx = ui->tableView->selectionModel()->currentIndex();
+    if (idx.isValid()) {
+        auto *model = ui->tableView->model();
+        auto  col   = idx.siblingAtColumn(ColumnAudio);
+        int   prof  = ui->comboBoxAudio->currentData(Qt::UserRole).toInt();
+        model->setData(col, prof, Qt::UserRole);
+        
+        const char *audioName = hdd_audio_get_profile_name(prof);
+        model->setData(col, audioName ? QObject::tr(audioName) : QObject::tr("None"));
     }
 }
 
@@ -293,15 +350,18 @@ SettingsHarddisks::onTableRowChanged(const QModelIndex &current)
     ui->labelBus->setHidden(hidden);
     ui->labelChannel->setHidden(hidden);
     ui->labelSpeed->setHidden(hidden);
+    ui->labelAudio->setHidden(hidden);
     ui->comboBoxBus->setHidden(hidden);
     ui->comboBoxChannel->setHidden(hidden);
     ui->comboBoxSpeed->setHidden(hidden);
+    ui->comboBoxAudio->setHidden(hidden);
 
     // No inline shared-folder options here (see Shared folders page)
 
     uint32_t bus        = current.siblingAtColumn(ColumnBus).data(DataBus).toUInt();
     uint32_t busChannel = current.siblingAtColumn(ColumnBus).data(DataBusChannel).toUInt();
     uint32_t speed      = current.siblingAtColumn(ColumnSpeed).data(Qt::UserRole).toUInt();
+    uint32_t audio      = current.siblingAtColumn(ColumnAudio).data(Qt::UserRole).toUInt();
 
     auto *model = ui->comboBoxBus->model();
     auto  match = model->match(model->index(0, 0), Qt::UserRole, bus);
@@ -317,6 +377,14 @@ SettingsHarddisks::onTableRowChanged(const QModelIndex &current)
     match = model->match(model->index(0, 0), Qt::UserRole, speed);
     if (!match.isEmpty())
         ui->comboBoxSpeed->setCurrentIndex(match.first().row());
+
+    /* Populate audio profiles based on selected speed preset's RPM */
+    populateAudioProfiles();
+    
+    model = ui->comboBoxAudio->model();
+    match = model->match(model->index(0, 0), Qt::UserRole, audio);
+    if (!match.isEmpty())
+        ui->comboBoxAudio->setCurrentIndex(match.first().row());
 
     reloadBusChannels();
 

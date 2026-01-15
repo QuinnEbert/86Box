@@ -91,8 +91,6 @@
     </widget>
     <addaction name="actionAuto_pause"/>
     <addaction name="separator"/>
-    <addaction name="actionForce_interpretation"/>
-    <addaction name="separator"/>
     <addaction name="actionKeyboard_requires_capture"/>
     <addaction name="actionRight_CTRL_is_left_ALT"/>
     <addaction name="separator"/>
@@ -104,6 +102,10 @@
     <addaction name="menuSlow_turbo"/>
     <addaction name="menuTurbo_batch"/>
     <addaction name="actionVirtualized_CPU"/>
+    <addaction name="separator"/>
+    <addaction name="actionFast_forward"/>
+    <addaction name="separator"/>
+    <addaction name="actionForce_interpretation"/>
     <addaction name="separator"/>
     <addaction name="actionHard_Reset"/>
     <addaction name="actionCtrl_Alt_Del"/>
@@ -131,6 +133,10 @@
     <addaction name="actionEnable_Discord_integration"/>
     <addaction name="separator"/>
     <addaction name="actionTake_screenshot"/>
+    <addaction name="actionTake_raw_screenshot"/>
+    <addaction name="actionCopy_screenshot"/>
+    <addaction name="actionCopy_raw_screenshot"/>
+    <addaction name="separator"/>
     <addaction name="menuSound"/>
     <addaction name="separator"/>
     <addaction name="actionPreferences"/>
@@ -320,25 +326,23 @@
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
-   <addaction name="actionForce_interpretation"/>
-   <addaction name="separator"/>
    <addaction name="actionPause"/>
+   <addaction name="actionFast_forward"/>
    <addaction name="actionHard_Reset"/>
-   <addaction name="separator"/>
    <addaction name="actionACPI_Shutdown"/>
    <addaction name="separator"/>
    <addaction name="actionCtrl_Alt_Del"/>
    <addaction name="actionCtrl_Alt_Esc"/>
    <addaction name="separator"/>
    <addaction name="actionSettings"/>
+   <addaction name="separator"/>
+   <addaction name="actionTake_screenshot"/>
+   <addaction name="actionCopy_screenshot"/>
   </widget>
   <action name="actionForce_interpretation">
    <property name="icon">
     <iconset resource="../qt_resources.qrc">
      <normaloff>:/menuicons/qt/icons/interpreter.ico</normaloff>:/menuicons/qt/icons/interpreter.ico</iconset>
-   </property>
-   <property name="checkable">
-    <bool>true</bool>
    </property>
    <property name="text">
     <string>&amp;Force interpretation</string>
@@ -398,9 +402,6 @@
    </property>
    <property name="toolTip">
     <string>Press Ctrl+Alt+Del</string>
-   </property>
-   <property name="shortcut">
-    <string>Ctrl+F12</string>
    </property>
   </action>
   <action name="actionCtrl_Alt_Esc">
@@ -557,9 +558,6 @@
   <action name="actionFullscreen">
    <property name="text">
     <string>&amp;Fullscreen</string>
-   </property>
-   <property name="shortcut">
-    <string>Ctrl+Alt+PgUp</string>
    </property>
   </action>
   <action name="actionSoftware_Renderer">
@@ -878,8 +876,48 @@
    <property name="text">
     <string>Take s&amp;creenshot</string>
    </property>
-   <property name="shortcut">
-    <string>Ctrl+F11</string>
+   <property name="toolTip">
+    <string>Take screenshot</string>
+   </property>
+   <property name="icon">
+    <iconset resource="../qt_resources.qrc">
+     <normaloff>:/menuicons/qt/icons/take_screenshot.ico</normaloff>:/menuicons/qt/icons/take_screenshot.ico</iconset>
+   </property>
+  </action>
+  <action name="actionTake_raw_screenshot">
+   <property name="text">
+    <string>Take &amp;raw screenshot</string>
+   </property>
+   <property name="toolTip">
+    <string>Take raw screenshot</string>
+   </property>
+   <property name="icon">
+    <iconset resource="../qt_resources.qrc">
+     <normaloff>:/menuicons/qt/icons/take_raw_screenshot.ico</normaloff>:/menuicons/qt/icons/take_raw_screenshot.ico</iconset>
+   </property>
+  </action>
+  <action name="actionCopy_screenshot">
+   <property name="text">
+    <string>C&amp;opy screenshot</string>
+   </property>
+   <property name="toolTip">
+    <string>Copy screenshot</string>
+   </property>
+   <property name="icon">
+    <iconset resource="../qt_resources.qrc">
+     <normaloff>:/menuicons/qt/icons/copy_screenshot.ico</normaloff>:/menuicons/qt/icons/copy_screenshot.ico</iconset>
+   </property>
+  </action>
+  <action name="actionCopy_raw_screenshot">
+   <property name="text">
+    <string>Copy r&amp;aw screenshot</string>
+   </property>
+   <property name="toolTip">
+    <string>Copy raw screenshot</string>
+   </property>
+   <property name="icon">
+    <iconset resource="../qt_resources.qrc">
+     <normaloff>:/menuicons/qt/icons/copy_raw_screenshot.ico</normaloff>:/menuicons/qt/icons/copy_raw_screenshot.ico</iconset>
    </property>
   </action>
   <action name="actionMute_Unmute">
@@ -1175,6 +1213,21 @@
    </property>
    <property name="text">
     <string>&amp;8x</string>
+   </property>
+  </action>
+  <action name="actionFast_forward">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../qt_resources.qrc">
+     <normaloff>:/settings/qt/icons/fast_forward.ico</normaloff>:/settings/qt/icons/fast_forward.ico</iconset>
+   </property>
+   <property name="text">
+    <string>&amp;Fast forward</string>
+   </property>
+   <property name="toolTip">
+    <string>Fast forward</string>
    </property>
   </action>
  </widget>
