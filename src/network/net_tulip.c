@@ -733,7 +733,9 @@ tulip_tx(TULIPState *s, struct tulip_descriptor *desc)
         if ((s->csr[6] >> CSR6_OM_SHIFT) & CSR6_OM_MASK) {
             /* Internal or external Loopback */
             tulip_receive(s, s->tx_frame, s->tx_frame_len);
-        } else if (s->tx_frame_len <= sizeof(s->tx_frame)) {
+        } else if (net_cards_conf[s->nic->card_num].link_state & NET_LINK_DOWN)
+            desc->status |= (TDES0_ES | TDES0_NC);
+        else if (s->tx_frame_len <= sizeof(s->tx_frame)) {
             //pclog("Transmit!.\n");
             network_tx(s->nic, s->tx_frame, s->tx_frame_len);
         }
@@ -884,7 +886,6 @@ static void
 tulip_reset(void *priv)
 {
     TULIPState     *s           = (TULIPState *) priv;
-    const uint16_t *eeprom_data = nmc93cxx_eeprom_data(s->eeprom);
     s->csr[0]                   = 0xfe000000;
     s->csr[1]                   = 0xffffffff;
     s->csr[2]                   = 0xffffffff;
@@ -899,6 +900,8 @@ tulip_reset(void *priv)
     s->csr[14]                  = 0xffffffff;
     s->csr[15]                  = 0x8ff00000;
     if (s->device_info->local != 3) {
+        const uint16_t *eeprom_data = nmc93cxx_eeprom_data(s->eeprom);
+
         s->subsys_id                = eeprom_data[1];
         s->subsys_ven_id            = eeprom_data[0];
     }
@@ -1180,7 +1183,7 @@ tulip_srom_crc(uint8_t *eeprom)
 }
 
 static uint8_t
-tulip_pci_read(UNUSED(int func), int addr, void *priv)
+tulip_pci_read(UNUSED(int func), int addr, UNUSED(int len), void *priv)
 {
     const TULIPState *s = (TULIPState *) priv;
     uint8_t ret = 0;
@@ -1299,7 +1302,7 @@ tulip_pci_read(UNUSED(int func), int addr, void *priv)
 }
 
 static void
-tulip_pci_write(UNUSED(int func), int addr, uint8_t val, void *priv)
+tulip_pci_write(UNUSED(int func), int addr, UNUSED(int len), uint8_t val, void *priv)
 {
     TULIPState *s = (TULIPState *) priv;
 
@@ -1640,16 +1643,12 @@ nic_init(const device_t *info)
     }
 
     if (info->local != 3) {
-        params.nwords          = 64;
-        params.default_content = (uint16_t *) s->eeprom_data;
+        params.type            = NMC_93C46_x16_64;
+        params.default_content = s->eeprom_data;
         params.filename        = filename;
         int inst               = device_get_instance();
         snprintf(filename, sizeof(filename), "nmc93cxx_eeprom_%s_%d.nvr", info->internal_name, inst);
         s->eeprom = device_add_inst_params(&nmc93cxx_device, inst, &params);
-        if (s->eeprom == NULL) {
-            free(s);
-            return NULL;
-        }
     }
 
     s->tulip_pci_bar[0].addr_regs[0] = 1;

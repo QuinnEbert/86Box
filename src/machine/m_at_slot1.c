@@ -1431,20 +1431,20 @@ static const device_config_t vei8_config[] = {
         .name           = "bios",
         .description    = "BIOS Version",
         .type           = CONFIG_BIOS,
-        .default_string = "vei8",
+        .default_string = "6110zu",
         .default_int    = 0,
         .file_filter    = NULL,
         .spinner        = { 0 },
         .selection      = { { 0 } },
         .bios           = {
             {
-                .name          = "Award Modular BIOS v6.00PG - Revision QHW.10.01 (HP Sherwood-B)",
-                .internal_name = "vei8",
+                .name          = "Award Modular BIOS v6.00PG - Revision 61100003 (beta)",
+                .internal_name = "6110zu0003",
                 .bios_type     = BIOS_NORMAL,
                 .files_no      = 1,
                 .local         = 0,
                 .size          = 262144,
-                .files         = { "roms/machines/vei8/QHW1001.BIN", "" }
+                .files         = { "roms/machines/vei8/61100003.BIN", "" }
             },
             {
                 .name          = "Award Modular BIOS v6.00PG - Revision R804",
@@ -1454,6 +1454,15 @@ static const device_config_t vei8_config[] = {
                 .local         = 0,
                 .size          = 262144,
                 .files         = { "roms/machines/vei8/r804.bin", "" }
+            },
+            {
+                .name          = "Award Modular BIOS v6.00PG - Revision QHW.10.01 (HP Sherwood-B)",
+                .internal_name = "vei8",
+                .bios_type     = BIOS_NORMAL,
+                .files_no      = 1,
+                .local         = 0,
+                .size          = 262144,
+                .files         = { "roms/machines/vei8/QHW1001.BIN", "" }
             },
             { .files_no = 0 }
         }
@@ -1699,7 +1708,7 @@ static const device_config_t ms6199va_config[] = {
                 .files         = { "roms/machines/ms6199va/w6199vms.350", "" }
             },
             {
-                .name          = "Award Modular BIOS v4.51PG - Revision 2.0 (Compaq OEM)",
+                .name          = "Award Modular BIOS v4.51PG - Revision 2.0 (Compaq ProSignia/Deskpro 693A)",
                 .internal_name = "ms6199va_200",
                 .bios_type     = BIOS_NORMAL,
                 .files_no      = 1,
@@ -1708,7 +1717,7 @@ static const device_config_t ms6199va_config[] = {
                 .files         = { "roms/machines/ms6199va/W6199VC8.BIN", "" }
             },
             {
-                .name          = "Award Modular BIOS v4.51PG - Revision 2.0 (Compaq OEM) [Patched for larger drives]",
+                .name          = "Award Modular BIOS v4.51PG - Revision 2.0 (Compaq ProSignia/Deskpro 693A) [Patched for larger drives]",
                 .internal_name = "ms6199va_200p",
                 .bios_type     = BIOS_NORMAL,
                 .files_no      = 1,
@@ -1717,7 +1726,7 @@ static const device_config_t ms6199va_config[] = {
                 .files         = { "roms/machines/ms6199va/W6199VC8.PCD", "" }
             },
             {
-                .name          = "Award Modular BIOS v4.51PG - Revision 3.7 (Packard Bell OEM)",
+                .name          = "Award Modular BIOS v4.51PG - Revision 3.7 (Packard Bell Phoenix)",
                 .internal_name = "ms6199va_370",
                 .bios_type     = BIOS_NORMAL,
                 .files_no      = 1,

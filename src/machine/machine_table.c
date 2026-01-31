@@ -51,7 +51,7 @@ const machine_filter_t machine_types[] = {
     { "[1992] 486SLC",                    MACHINE_TYPE_486SLC     },
     { "[1985] i386DX",                    MACHINE_TYPE_386DX      },
     { "[1989] i386DX/i486",               MACHINE_TYPE_386DX_486  },
-    { "[1992] i486 (Socket 168 and 1)",   MACHINE_TYPE_486        },
+    { "[1989] i486 (Socket 168 and 1)",   MACHINE_TYPE_486        },
     { "[1992] i486 (Socket 2)",           MACHINE_TYPE_486_S2     },
     { "[1994] i486 (Socket 3)",           MACHINE_TYPE_486_S3     },
     { "[1994] i486 (Socket 3 PCI)",       MACHINE_TYPE_486_S3_PCI },
@@ -2984,7 +2984,7 @@ const machine_t machines[] = {
         .kbc_p1                   = 0xff,
         .gpio                     = 0xffffffff,
         .gpio_acpi                = 0xffffffff,
-        .device                   = NULL,
+        .device                   = &v86p_device,
         .kbd_device               = NULL,
         .fdc_device               = NULL,
         .sio_device               = NULL,
@@ -8448,6 +8448,50 @@ const machine_t machines[] = {
         .fdc_device               = NULL,
         .sio_device               = NULL,
         .vid_device               = &et4000w32_onboard_device,
+        .snd_device               = NULL,
+        .net_device               = NULL
+    },
+    /* Has a VLSI VL82C113A SCAMP Combination I/O which holds the KBC. */
+    {
+        .name              = "[VLSI 82C480] Intel Classic R/R Plus (Monsoon)",
+        .internal_name     = "monsoon",
+        .type              = MACHINE_TYPE_486_S2,
+        .chipset           = MACHINE_CHIPSET_VLSI_VL82C480,
+        .init              = machine_at_monsoon_init,
+        .p1_handler        = machine_generic_p1_handler,
+        .gpio_handler      = NULL,
+        .available_flag    = MACHINE_AVAILABLE,
+        .gpio_acpi_handler = NULL,
+        .cpu               = {
+            .package     = CPU_PKG_SOCKET3,
+            .block       = CPU_BLOCK_NONE,
+            .min_bus     = 0,
+            .max_bus     = 0,
+            .min_voltage = 0,
+            .max_voltage = 0,
+            .min_multi   = 0,
+            .max_multi   = 0
+        },
+        .bus_flags = MACHINE_PS2,
+        .flags     = MACHINE_IDE | MACHINE_VIDEO | MACHINE_APM,
+        .ram       = {
+            .min  = 2048,
+            .max  = 32768,
+            .step = 2048
+        },
+        .nvrmask                  = 127,
+        .jumpered_ecp_dma         = 0,
+        .default_jumpered_ecp_dma = -1,
+        .kbc_device               = NULL,
+        .kbc_params               = 0x00000000,
+        .kbc_p1                   = 0x00000ce0,
+        .gpio                     = 0xffffffff,
+        .gpio_acpi                = 0xffffffff,
+        .device                   = NULL,
+        .kbd_device               = NULL,
+        .fdc_device               = NULL,
+        .sio_device               = NULL,
+        .vid_device               = &gd5428_vlb_onboard_device,
         .snd_device               = NULL,
         .net_device               = NULL
     },
@@ -15862,51 +15906,6 @@ const machine_t machines[] = {
         .snd_device               = NULL,
         .net_device               = NULL
     },
-    /* Has a National Semiconductor PC87307 Super I/O with on-chip KBC, which has one of these
-       firmwares: AMI '5' MegaKey, Phoenix MultiKey/42 1.37, or Phoenix MultiKey/42i 4.16. */
-    {
-        .name              = "[i430TX] ASUS TX97-XV (HP OEM)",
-        .internal_name     = "tx97xv",
-        .type              = MACHINE_TYPE_SOCKET7,
-        .chipset           = MACHINE_CHIPSET_INTEL_430TX,
-        .init              = machine_at_tx97xv_init,
-        .p1_handler        = machine_generic_p1_handler,
-        .gpio_handler      = NULL,
-        .available_flag    = MACHINE_AVAILABLE,
-        .gpio_acpi_handler = NULL,
-        .cpu               = {
-            .package     = CPU_PKG_SOCKET5_7,
-            .block       = CPU_BLOCK_NONE,
-            .min_bus     = 50000000,
-            .max_bus     = 75000000,
-            .min_voltage = 2100,
-            .max_voltage = 3520,
-            .min_multi   = 1.5,
-            .max_multi   = 3.5
-        },
-        .bus_flags = MACHINE_PS2_PCI | MACHINE_BUS_USB,
-        .flags     = MACHINE_IDE_DUAL | MACHINE_APM | MACHINE_USB | MACHINE_VIDEO,
-        .ram       = {
-            .min  = 8192,
-            .max  = 262144,
-            .step = 8192
-        },
-        .nvrmask                  = 255,
-        .jumpered_ecp_dma         = 0,
-        .default_jumpered_ecp_dma = -1,
-        .kbc_device               = &kbc_at_device,
-        .kbc_params               = KBC_VEN_AMI | 0x00004600,
-        .kbc_p1                   = 0x00000cf0,
-        .gpio                     = 0xffffffff,
-        .gpio_acpi                = 0xffffffff,
-        .device                   = NULL,
-        .kbd_device               = NULL,
-        .fdc_device               = NULL,
-        .sio_device               = NULL,
-        .vid_device               = &mach64vt3_onboard_device,
-        .snd_device               = NULL,
-        .net_device               = NULL
-    },
     /* This has the AMIKey KBC firmware, which is type 'F' (YM430TX is based on the TX97). */
     {
         .name              = "[i430TX] ASUS TX97",
@@ -16049,6 +16048,51 @@ const machine_t machines[] = {
         .snd_device               = &cs4236b_onboard_device,
         .net_device               = &pcnet_am79c973_onboard_device
     },
+    /* Has a National Semiconductor PC87307 Super I/O with on-chip KBC, which has one of these
+       firmwares: AMI '5' MegaKey, Phoenix MultiKey/42 1.37, or Phoenix MultiKey/42i 4.16. */
+    {
+        .name              = "[i430TX] HP Pavilion 81xx (ASUS TX97-XV)",
+        .internal_name     = "tx97xv",
+        .type              = MACHINE_TYPE_SOCKET7,
+        .chipset           = MACHINE_CHIPSET_INTEL_430TX,
+        .init              = machine_at_tx97xv_init,
+        .p1_handler        = machine_generic_p1_handler,
+        .gpio_handler      = NULL,
+        .available_flag    = MACHINE_AVAILABLE,
+        .gpio_acpi_handler = NULL,
+        .cpu               = {
+            .package     = CPU_PKG_SOCKET5_7,
+            .block       = CPU_BLOCK_NONE,
+            .min_bus     = 50000000,
+            .max_bus     = 75000000,
+            .min_voltage = 2100,
+            .max_voltage = 3520,
+            .min_multi   = 1.5,
+            .max_multi   = 3.5
+        },
+        .bus_flags = MACHINE_PS2_PCI | MACHINE_BUS_USB,
+        .flags     = MACHINE_IDE_DUAL | MACHINE_APM | MACHINE_USB | MACHINE_VIDEO,
+        .ram       = {
+            .min  = 8192,
+            .max  = 262144,
+            .step = 8192
+        },
+        .nvrmask                  = 255,
+        .jumpered_ecp_dma         = 0,
+        .default_jumpered_ecp_dma = -1,
+        .kbc_device               = &kbc_at_device,
+        .kbc_params               = KBC_VEN_AMI | 0x00004600,
+        .kbc_p1                   = 0x00000cf0,
+        .gpio                     = 0xffffffff,
+        .gpio_acpi                = 0xffffffff,
+        .device                   = NULL,
+        .kbd_device               = NULL,
+        .fdc_device               = NULL,
+        .sio_device               = NULL,
+        .vid_device               = &mach64vt3_onboard_device,
+        .snd_device               = NULL,
+        .net_device               = NULL
+    },
     /* This has the Phoenix MultiKey KBC firmware on the NSC Super I/O chip. */
     {
         .name              = "[i430TX] Intel AN430TX (Anchorage)",
@@ -16183,6 +16227,51 @@ const machine_t machines[] = {
         .gpio                     = 0xffffffff,
         .gpio_acpi                = 0xffffffff,
         .device                   = NULL,
+        .kbd_device               = NULL,
+        .fdc_device               = NULL,
+        .sio_device               = NULL,
+        .vid_device               = NULL,
+        .snd_device               = NULL,
+        .net_device               = NULL
+    },
+    /* Has a Winbond W83977TF Super I/O chip with on-chip KBC with AMIKey-2 KBC
+       firmware. */
+    {
+        .name              = "[i430TX] MSI MS-5156",
+        .internal_name     = "ms5156",
+        .type              = MACHINE_TYPE_SOCKET7,
+        .chipset           = MACHINE_CHIPSET_INTEL_430TX,
+        .init              = machine_at_ms5156_init,
+        .p1_handler        = machine_generic_p1_handler,
+        .gpio_handler      = NULL,
+        .available_flag    = MACHINE_AVAILABLE,
+        .gpio_acpi_handler = NULL,
+        .cpu               = {
+            .package     = CPU_PKG_SOCKET5_7,
+            .block       = CPU_BLOCK_NONE,
+            .min_bus     = 55000000,
+            .max_bus     = 75000000,
+            .min_voltage = 2700,
+            .max_voltage = 3520,
+            .min_multi   = 1.5,
+            .max_multi   = 3.5
+        },
+        .bus_flags = MACHINE_PS2_PCI | MACHINE_BUS_USB,
+        .flags     = MACHINE_IDE_DUAL | MACHINE_APM | MACHINE_ACPI | MACHINE_USB,
+        .ram       = {
+            .min  = 4096,
+            .max  = 262144,
+            .step = 4096
+        },
+        .nvrmask                  = 255,
+        .jumpered_ecp_dma         = 0,
+        .default_jumpered_ecp_dma = -1,
+        .kbc_device               = NULL,
+        .kbc_params               = 0x00000000,
+        .kbc_p1                   = 0x00000cf0,
+        .gpio                     = 0xffffffff,
+        .gpio_acpi                = 0xffffffff,
+        .device                   = &ms5156_device,
         .kbd_device               = NULL,
         .fdc_device               = NULL,
         .sio_device               = NULL,
@@ -18246,7 +18335,7 @@ const machine_t machines[] = {
         .flags     = MACHINE_IDE_DUAL | MACHINE_APM | MACHINE_USB,
         .ram       = {
             .min  = 8192,
-            .max  = 1048576,
+            .max  = 786432, /* Manual mistakenly says 1 GB with 256 MB in each slot, even though it only has three slots */
             .step = 8192
         },
         .nvrmask                  = 255,
@@ -18430,7 +18519,7 @@ const machine_t machines[] = {
             .max_multi   = 5.0
         },
         .bus_flags = MACHINE_PS2_PCI | MACHINE_BUS_USB,
-        .flags     = MACHINE_IDE_DUAL | MACHINE_APM | MACHINE_ACPI | MACHINE_USB,
+        .flags     = MACHINE_IDE_DUAL | MACHINE_SOUND | MACHINE_APM | MACHINE_ACPI | MACHINE_USB,
         .ram       = {
             .min  = 8192,
             .max  = 262144,
