@@ -455,14 +455,14 @@ if (WIN32)
     )
 endif()
 
-target_link_libraries(plat PRIVATE
+target_link_libraries(plat PUBLIC
     Qt${QT_MAJOR}::Widgets
     Qt${QT_MAJOR}::Gui
     Qt${QT_MAJOR}::Network
     Threads::Threads
 )
 
-target_link_libraries(ui PRIVATE
+target_link_libraries(ui PUBLIC
     Qt${QT_MAJOR}::Widgets
     Qt${QT_MAJOR}::Gui
     Qt${QT_MAJOR}::OpenGL
