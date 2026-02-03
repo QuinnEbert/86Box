@@ -14,6 +14,7 @@
 CF_IMPLICIT_BRIDGING_ENABLED
 CF_EXTERN_C_BEGIN
 void getDefaultROMPath(char *);
+void macOSHideFromDock(void);
 int  toto(void);
 
 CF_EXTERN_C_END

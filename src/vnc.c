@@ -171,9 +171,16 @@ vnc_display(rfbClientPtr cl)
     }
 }
 
+static int vnc_blit_count = 0;
+
 static void
 vnc_blit(int x, int y, int w, int h, int monitor_index)
 {
+    vnc_blit_count++;
+    if (vnc_blit_count <= 10 || vnc_blit_count % 100 == 0) {
+        FILE *f = fopen("/tmp/86box-vnc-debug.log", "a");
+        if (f) { fprintf(f, "vnc_blit #%d: x=%d y=%d w=%d h=%d mon=%d buf32=%p\n", vnc_blit_count, x, y, w, h, monitor_index, (void*)buffer32); fclose(f); }
+    }
     if (monitor_index || (x < 0) || (y < 0) || (w < VNC_MIN_X) || (h < VNC_MIN_Y) || (w > VNC_MAX_X) || (h > VNC_MAX_Y) || (buffer32 == NULL)) {
         video_blit_complete_monitor(monitor_index);
         return;
@@ -195,6 +202,9 @@ vnc_blit(int x, int y, int w, int h, int monitor_index)
 int
 vnc_init(UNUSED(void *arg))
 {
+    FILE *f = fopen("/tmp/86box-vnc-debug.log", "a");
+    if (f) { fprintf(f, "vnc_init called: headless_mode=%d vnc_port=%d\n", headless_mode, vnc_port); fclose(f); }
+
     static char    title[128];
     rfbPixelFormat rpf = {
         /*
@@ -209,7 +219,10 @@ vnc_init(UNUSED(void *arg))
         32, 32, 0, 1, 255, 255, 255, 16, 8, 0, 0, 0
     };
 
-    plat_pause(1);
+    /* Skip plat_pause in headless mode - the emulation thread handshake doesn't work without SDL */
+    if (!headless_mode) {
+        plat_pause(1);
+    }
     cgapal_rebuild_monitor(0);
 
     if (rfb == NULL) {
@@ -233,6 +246,16 @@ vnc_init(UNUSED(void *arg))
         rfb->width  = allowedX;
         rfb->height = allowedY;
 
+        /* Configure VNC port and password. */
+        rfb->port = vnc_port;
+
+        if (vnc_password[0] != '\0') {
+            static char *password_list[2] = { NULL, NULL };
+            password_list[0] = vnc_password;
+            rfb->authPasswdData = (void *)password_list;
+            rfb->passwordCheck = rfbCheckPasswordByList;
+        }
+
         rfbInitServer(rfb);
 
         rfbRunEventLoop(rfb, -1, TRUE);
@@ -240,6 +263,9 @@ vnc_init(UNUSED(void *arg))
 
     /* Set up our BLIT handlers. */
     video_setblit(vnc_blit);
+
+    f = fopen("/tmp/86box-vnc-debug.log", "a");
+    if (f) { fprintf(f, "vnc_init complete: video_setblit(vnc_blit) called, rfb=%p\n", (void*)rfb); fclose(f); }
 
     clients = 0;
 
@@ -268,6 +294,9 @@ vnc_resize(int x, int y)
     rfbClientIteratorPtr iterator;
     rfbClientPtr         cl;
 
+    FILE *f = fopen("/tmp/86box-vnc-debug.log", "a");
+    if (f) { fprintf(f, "vnc_resize called: x=%d y=%d rfb=%p\n", x, y, (void*)rfb); fclose(f); }
+
     if (rfb == NULL)
         return;
 
@@ -281,7 +310,7 @@ vnc_resize(int x, int y)
         vnc_log("VNC: updating resolution: %dx%d\n", x, y);
 
         allowedX = (rfb->width < x) ? rfb->width : x;
-        allowedY = (rfb->width < y) ? rfb->width : y;
+        allowedY = (rfb->height < y) ? rfb->height : y;
 
         rfb->width  = x;
         rfb->height = y;

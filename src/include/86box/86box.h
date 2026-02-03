@@ -228,6 +228,12 @@ extern int      other_ide_present;          /* IDE controllers from non-IDE card
 extern int      other_scsi_present;         /* SCSI controllers from non-SCSI cards are present */
 extern int      is_pcjr;                    /* The current machine is PCjr. */
 
+#ifdef USE_VNC
+extern int    headless_mode;
+extern int    vnc_port;
+extern char   vnc_password[128];
+#endif
+
 extern int    hard_reset_pending;
 extern int    fixed_size_x;
 extern int    fixed_size_y;

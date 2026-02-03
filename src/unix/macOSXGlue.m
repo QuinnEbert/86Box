@@ -7,6 +7,14 @@
 //
 
 #import <Foundation/Foundation.h>
+#import <AppKit/AppKit.h>
+
+/* Hide app from Dock - used in headless mode */
+void
+macOSHideFromDock(void)
+{
+    [NSApp setActivationPolicy:NSApplicationActivationPolicyProhibited];
+}
 
 void
 getDefaultROMPath(char *Path)
@@ -26,6 +34,10 @@ getDefaultROMPath(char *Path)
     // app's bundle ID to it to specify the final directory.
     if (appSupportDir) {
         NSString *appBundleID = [[NSBundle mainBundle] bundleIdentifier];
+        // Fall back to "86Box" if no bundle identifier (running as standalone executable)
+        if (!appBundleID) {
+            appBundleID = @"86Box";
+        }
         appDirectory          = [appSupportDir URLByAppendingPathComponent:appBundleID];
         appDirectory          = [appDirectory URLByAppendingPathComponent:@"roms"];
     }
