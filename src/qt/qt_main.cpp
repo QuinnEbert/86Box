@@ -105,6 +105,7 @@ bool fast_forward = false;
 }
 
 #include <locale.h>
+#include <csignal>
 
 void qt_set_sequence_auto_mnemonic(bool b);
 
@@ -727,6 +728,35 @@ main(int argc, char *argv[])
         }
         return 0;
     }
+
+#ifdef USE_VNC
+    if (headless_mode) {
+        pc_init_modules();
+
+        QTimer onesec;
+        QObject::connect(&onesec, &QTimer::timeout, [] { pc_onesec(); });
+        onesec.setTimerType(Qt::PreciseTimer);
+        onesec.start(1000);
+
+        pc_reset_hard_init();
+        plat_pause(1);  /* VNC starts paused until client connects */
+
+        cpu_thread_running = true;
+        main_thread = new std::thread(main_thread_fn);
+
+        /* Signal handlers for clean shutdown */
+        signal(SIGINT, [](int) { is_quit = 1; QCoreApplication::quit(); });
+        signal(SIGTERM, [](int) { is_quit = 1; QCoreApplication::quit(); });
+
+        fprintf(stderr, "86Box: VNC server listening on port %d\n", vnc_port);
+
+        const auto ret = app.exec();
+        cpu_thread_run = 0;
+        main_thread->join();
+        pc_close(nullptr);
+        return ret;
+    }
+#endif
 
     /* Warn the user about unsupported configs */
     if (cpu_override) {

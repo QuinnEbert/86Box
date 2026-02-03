@@ -49,6 +49,9 @@
 #include <86box/video.h>
 #include <86box/ui.h>
 #include <86box/gdbstub.h>
+#ifdef USE_VNC
+#include <86box/vnc.h>
+#endif
 
 #define __USE_GNU 1 /* shouldn't be done, yet it is */
 #include <pthread.h>
@@ -618,13 +621,23 @@ main_thread(UNUSED(void *param))
 
         /* If needed, handle a screen resize. */
         if (atomic_load(&doresize_monitors[0]) && !video_fullscreen && !is_quit) {
+#ifdef USE_VNC
+            if (headless_mode) {
+                /* In headless mode, resize the VNC framebuffer */
+                if (vid_resize & 2)
+                    vnc_resize(fixed_size_x, fixed_size_y);
+                else
+                    vnc_resize(scrnsz_x, scrnsz_y);
+            } else
+#endif
+            {
+                if (vid_resize & 2)
+                    plat_resize(fixed_size_x, fixed_size_y, 0);
+                else
+                    plat_resize(scrnsz_x, scrnsz_y, 0);
+            }
 
-            if (vid_resize & 2)
-                plat_resize(fixed_size_x, fixed_size_y, 0);
-            else
-                plat_resize(scrnsz_x, scrnsz_y, 0);
-
-            atomic_store(&doresize_monitors[0], 1);
+            atomic_store(&doresize_monitors[0], 0);
         }
     }
 
@@ -1371,17 +1384,37 @@ main(int argc, char **argv)
     } else
         fprintf(stderr, "libedit not found, line editing will be limited.\n");
     mousemutex = SDL_CreateMutex();
-    sdl_initho();
+#ifdef USE_VNC
+    if (!headless_mode) {
+#endif
+        sdl_initho();
 
-    if (start_in_fullscreen) {
-        video_fullscreen = 1;
-        sdl_set_fs(1);
+        if (start_in_fullscreen) {
+            video_fullscreen = 1;
+            sdl_set_fs(1);
+        }
+#ifdef USE_VNC
+    } else {
+#ifdef __APPLE__
+        /* Hide from Dock in headless mode */
+        macOSHideFromDock();
+#endif
+        /* Minimal SDL init for audio/timing only (no video) */
+        SDL_Init(SDL_INIT_AUDIO | SDL_INIT_TIMER);
     }
+#endif
     /* Fire up the machine. */
     pc_reset_hard_init();
 
     /* Set the PAUSE mode depending on the renderer. */
     plat_pause(0);
+
+#ifdef USE_VNC
+    if (headless_mode) {
+        /* Initialize VNC server BEFORE starting emulation so blit handler is ready */
+        vnc_init(NULL);
+    }
+#endif
 
     /* Initialize the rendering window, or fullscreen. */
     do_start();
@@ -1390,6 +1423,22 @@ main(int argc, char **argv)
     thread_create(monitor_thread, NULL);
 #endif
 
+#ifdef USE_VNC
+    if (headless_mode) {
+        /* Unpause emulation */
+        plat_pause(0);
+
+        /* Set up timer for periodic tasks */
+        SDL_AddTimer(1000, timer_onesec, NULL);
+
+        /* Headless mode: simple wait loop, VNC handles all input */
+        while (!is_quit && !exit_event) {
+            SDL_Delay(100);  /* Sleep to avoid busy-waiting */
+        }
+        if (exit_event)
+            do_stop();
+    } else {
+#endif
     SDL_AddTimer(1000, timer_onesec, NULL);
     while (!is_quit)
     {
@@ -1633,6 +1682,9 @@ main(int argc, char **argv)
             break;
         }
     }
+#ifdef USE_VNC
+    } /* end of !headless_mode else block */
+#endif
     printf("\n");
     SDL_DestroyMutex(blitmtx);
     SDL_DestroyMutex(mousemutex);

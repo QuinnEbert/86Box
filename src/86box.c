@@ -105,11 +105,15 @@
 #include <86box/plat.h>
 #include <86box/version.h>
 #include <86box/gdbstub.h>
+#include <86box/monitor.h>
 #include <86box/machine_status.h>
 #include <86box/apm.h>
 #include <86box/acpi.h>
 #include <86box/nv/vid_nv_rivatimer.h>
 #include <86box/vfio.h>
+#ifdef USE_VNC
+#include <86box/renderdefs.h>
+#endif
 
 // Disable c99-designator to avoid the warnings about int ng
 #ifdef __clang__
@@ -159,6 +163,11 @@ uint64_t instru_run_ms                          = 0;
 #endif
 int      clear_flash                            = 0;
 int      auto_paused                            = 0;
+#ifdef USE_VNC
+int      headless_mode                          = 0;
+int      vnc_port                               = 5900;
+char     vnc_password[128]                      = { '\0' };
+#endif
 
 /* Configuration values. */
 int      window_remember;
@@ -739,6 +748,11 @@ pc_show_usage(void)
             "-Y or --donothing\t\t- do not show any UI or run the emulation\n"
 #endif
             "-Z or --lastvmpath\t\t- the last param. is VM path rather than config\n"
+#ifdef USE_VNC
+            "--headless\t\t\t- run without GUI window (VNC only)\n"
+            "--vnc-port PORT\t\t- set VNC server port (default: 5900)\n"
+            "--vnc-password PASS\t\t- set VNC authentication password\n"
+#endif
             "\nA config file can be specified. If none is, the default file will be used.\n");
 
 #ifdef _WIN32
@@ -990,6 +1004,27 @@ usage:
             instru_enabled = 1;
             sscanf(argv[++c], "%llu", &instru_run_ms);
 #endif
+#ifdef USE_VNC
+        } else if (!strcasecmp(argv[c], "--headless")) {
+            headless_mode = 1;
+            vid_api = RENDERER_VNC;
+        } else if (!strcasecmp(argv[c], "--vnc-port")) {
+            if ((c + 1) == argc)
+                goto usage;
+            int port = atoi(argv[++c]);
+            if (port < 1 || port > 65535)
+                goto usage;
+            vnc_port = port;
+        } else if (!strcasecmp(argv[c], "--vnc-password")) {
+            if ((c + 1) == argc)
+                goto usage;
+            strncpy(vnc_password, argv[++c], sizeof(vnc_password) - 1);
+            vnc_password[sizeof(vnc_password) - 1] = '\0';
+#endif
+        } else if (!strcasecmp(argv[c], "--monitor-port")) {
+            if ((c + 1) == argc)
+                goto usage;
+            monitor_port = atoi(argv[++c]);
         }
 
         /* Uhm... out of options here.. */
@@ -1334,6 +1369,7 @@ usage:
         lang_id = lang_init;
 
     gdbstub_init();
+    monitor_init();
 
     /* All good! */
     return 1;
@@ -1967,6 +2003,8 @@ pc_close(UNUSED(thread_t *ptr))
     scsi_disk_close();
 
     gdbstub_close();
+
+    monitor_close();
 
 }
 
