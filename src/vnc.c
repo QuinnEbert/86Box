@@ -120,9 +120,10 @@ vnc_clientgone(UNUSED(rfbClientPtr cl))
         vnc_log("VNC: no clients, pausing..\n");
 
         /* Disable the mouse. */
-#if 0
-        plat_mouse_capture(0);
-#endif
+        if (headless_mode)
+            mouse_capture = 0;
+        else
+            plat_mouse_capture(0);
 
         plat_pause(1);
     }
@@ -146,9 +147,10 @@ vnc_newclient(rfbClientPtr cl)
         vnc_log("VNC: unpausing..\n");
 
         /* Enable the mouse. */
-#if 0
-        plat_mouse_capture(1);
-#endif
+        if (headless_mode)
+            mouse_capture = 1;
+        else
+            plat_mouse_capture(1);
 
         plat_pause(0);
     }
