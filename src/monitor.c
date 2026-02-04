@@ -38,6 +38,9 @@
 #include <86box/plat.h>
 #include <86box/thread.h>
 #include <86box/monitor.h>
+#include <86box/timer.h>
+#include <86box/fdd.h>
+#include <86box/cdrom.h>
 
 #ifdef ENABLE_MONITOR_LOG
 int monitor_do_log = ENABLE_MONITOR_LOG;
@@ -73,7 +76,7 @@ static thread_t *monitor_thread = NULL;
 static void
 monitor_process_command(int client_socket, char *cmd)
 {
-    char response[256];
+    char response[1280];
     char *p;
 
     /* Trim trailing whitespace/newlines */
@@ -117,6 +120,108 @@ monitor_process_command(int client_socket, char *cmd)
         /* Send Ctrl+Alt+Delete */
         pc_send_cad();
         strcpy(response, "OK\n");
+    } else if (!strncasecmp(cmd, "change floppy", 13)) {
+        /* Mount/swap floppy image: change floppy<N> "<path>" */
+        int drive = -1;
+        char path[1024] = {0};
+        if (sscanf(cmd + 13, "%d", &drive) == 1 && drive >= 0 && drive < FDD_NUM) {
+            /* Find the path argument (after drive number, in quotes) */
+            char *quote_start = strchr(cmd, '"');
+            char *quote_end = quote_start ? strrchr(cmd, '"') : NULL;
+            if (quote_start && quote_end && quote_end > quote_start) {
+                size_t path_len = quote_end - quote_start - 1;
+                if (path_len > 0 && path_len < sizeof(path)) {
+                    strncpy(path, quote_start + 1, path_len);
+                    path[path_len] = '\0';
+                    /* Check if file exists */
+                    FILE *f = fopen(path, "rb");
+                    if (f) {
+                        fclose(f);
+                        fdd_load(drive, path);
+                        strcpy(response, "OK\n");
+                    } else {
+                        snprintf(response, sizeof(response), "ERROR: File not found '%s'\n", path);
+                    }
+                } else {
+                    strcpy(response, "ERROR: Empty path\n");
+                }
+            } else {
+                strcpy(response, "ERROR: Path must be quoted\n");
+            }
+        } else {
+            snprintf(response, sizeof(response), "ERROR: Invalid floppy drive number\n");
+        }
+    } else if (!strncasecmp(cmd, "eject floppy", 12)) {
+        /* Eject floppy drive: eject floppy<N> */
+        int drive = -1;
+        if (sscanf(cmd + 12, "%d", &drive) == 1 && drive >= 0 && drive < FDD_NUM) {
+            fdd_close(drive);
+            strcpy(response, "OK\n");
+        } else {
+            snprintf(response, sizeof(response), "ERROR: Invalid floppy drive number\n");
+        }
+    } else if (!strncasecmp(cmd, "change cdrom", 12)) {
+        /* Mount/swap CD-ROM image: change cdrom<N> "<path>" */
+        int id = -1;
+        char path[1024] = {0};
+        if (sscanf(cmd + 12, "%d", &id) == 1 && id >= 0 && id < CDROM_NUM) {
+            char *quote_start = strchr(cmd, '"');
+            char *quote_end = quote_start ? strrchr(cmd, '"') : NULL;
+            if (quote_start && quote_end && quote_end > quote_start) {
+                size_t path_len = quote_end - quote_start - 1;
+                if (path_len > 0 && path_len < sizeof(path)) {
+                    strncpy(path, quote_start + 1, path_len);
+                    path[path_len] = '\0';
+                    FILE *f = fopen(path, "rb");
+                    if (f) {
+                        fclose(f);
+                        cdrom_load(&cdrom[id], path, 0);
+                        strcpy(response, "OK\n");
+                    } else {
+                        snprintf(response, sizeof(response), "ERROR: File not found '%s'\n", path);
+                    }
+                } else {
+                    strcpy(response, "ERROR: Empty path\n");
+                }
+            } else {
+                strcpy(response, "ERROR: Path must be quoted\n");
+            }
+        } else {
+            snprintf(response, sizeof(response), "ERROR: Invalid CD-ROM drive number\n");
+        }
+    } else if (!strncasecmp(cmd, "eject cdrom", 11)) {
+        /* Eject CD-ROM drive: eject cdrom<N> */
+        int id = -1;
+        if (sscanf(cmd + 11, "%d", &id) == 1 && id >= 0 && id < CDROM_NUM) {
+            cdrom_eject(id);
+            strcpy(response, "OK\n");
+        } else {
+            snprintf(response, sizeof(response), "ERROR: Invalid CD-ROM drive number\n");
+        }
+    } else if (!strncasecmp(cmd, "info floppy", 11)) {
+        /* Query floppy status: info floppy<N> */
+        int drive = -1;
+        if (sscanf(cmd + 11, "%d", &drive) == 1 && drive >= 0 && drive < FDD_NUM) {
+            if (drive_empty[drive] || strlen(floppyfns[drive]) == 0) {
+                snprintf(response, sizeof(response), "floppy%d: [empty]\n", drive);
+            } else {
+                snprintf(response, sizeof(response), "floppy%d: %s\n", drive, floppyfns[drive]);
+            }
+        } else {
+            snprintf(response, sizeof(response), "ERROR: Invalid floppy drive number\n");
+        }
+    } else if (!strncasecmp(cmd, "info cdrom", 10)) {
+        /* Query CD-ROM status: info cdrom<N> */
+        int id = -1;
+        if (sscanf(cmd + 10, "%d", &id) == 1 && id >= 0 && id < CDROM_NUM) {
+            if (cdrom_is_empty(id) || strlen(cdrom[id].image_path) == 0) {
+                snprintf(response, sizeof(response), "cdrom%d: [empty]\n", id);
+            } else {
+                snprintf(response, sizeof(response), "cdrom%d: %s\n", id, cdrom[id].image_path);
+            }
+        } else {
+            snprintf(response, sizeof(response), "ERROR: Invalid CD-ROM drive number\n");
+        }
     } else {
         /* Unknown command */
         snprintf(response, sizeof(response), "ERROR: Unknown command '%s'\n", cmd);
