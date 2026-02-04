@@ -594,10 +594,10 @@ static int keysyms_ff[] = {
     0xe05c, /* 0xe8 (XK_Meta_R) */
     0x0038, /* 0xe9 (XK_Alt_L) */
     0xe038, /* 0xea (XK_Alt_R) */
-    0x0000, /* 0xeb (XK_Super_L) */
-    0x0000, /* 0xec (XK_Super_R) */
-    0x0000, /* 0xed (XK_Hyper_L) */
-    0x0000, /* 0xee (XK_Hyper_R) */
+    0xe05b, /* 0xeb (XK_Super_L) → Left Windows key */
+    0xe05c, /* 0xec (XK_Super_R) → Right Windows key */
+    0xe05b, /* 0xed (XK_Hyper_L) → Left Windows key */
+    0xe05c, /* 0xee (XK_Hyper_R) → Right Windows key */
     0x0000,
 
     0x0000, /* 0xf0 */
@@ -637,10 +637,28 @@ vnc_keymap_log(const char *fmt, ...)
 #    define vnc_keymap_log(fmt, ...)
 #endif
 
+/*
+ * Track real modifier key state from explicit VNC modifier key events.
+ * This prevents synthetic modifier injection (the 0x2a prefix in the
+ * keysym table) from conflicting with real modifier state — e.g.,
+ * when the VNC client sends both XK_Shift_L down AND XK_A (uppercase),
+ * we must not inject a synthetic Shift release when 'A' is released,
+ * because the real Shift is still physically held.
+ */
+static int vnc_real_shift = 0;
+
 void
 vnc_kbinput(int down, int k)
 {
     uint16_t scan;
+
+    /* Track real modifier key state from VNC keysym events. */
+    switch (k) {
+        case 0xffe1: /* XK_Shift_L */
+        case 0xffe2: /* XK_Shift_R */
+            vnc_real_shift = down;
+            break;
+    }
 
     switch (k >> 8) {
         case 0x00: /* page 00, Latin-1 */
@@ -669,13 +687,25 @@ vnc_kbinput(int down, int k)
                 keyboard_input(down, scan & 0xff);
             break;
         case 0x2a:
+            /*
+             * Shifted character (e.g., uppercase 'A' = 0x2a1e).
+             * If the real Shift key is already held via a separate VNC
+             * key event, skip the synthetic Shift press/release to avoid
+             * prematurely releasing the user's real Shift between keystrokes.
+             */
             if (scan & 0xff) {
-                if (down) {
-                    keyboard_input(down, 0x2a);
+                if (vnc_real_shift) {
+                    /* Real Shift held — just send the base key scancode. */
                     keyboard_input(down, scan & 0xff);
                 } else {
-                    keyboard_input(down, scan & 0xff);
-                    keyboard_input(down, 0x2a);
+                    /* No real Shift — inject synthetic Shift around the key. */
+                    if (down) {
+                        keyboard_input(1, 0x2a);
+                        keyboard_input(1, scan & 0xff);
+                    } else {
+                        keyboard_input(0, scan & 0xff);
+                        keyboard_input(0, 0x2a);
+                    }
                 }
             }
             break;
