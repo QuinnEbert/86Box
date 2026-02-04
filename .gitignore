@@ -3,6 +3,7 @@ CMakeUserPresets.json
 CMakeCache.txt
 CMakeFiles
 /build
+/build-*/
 /build-qt
 /build-qt5
 /build-macos-qt
