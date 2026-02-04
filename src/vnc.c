@@ -173,16 +173,9 @@ vnc_display(rfbClientPtr cl)
     }
 }
 
-static int vnc_blit_count = 0;
-
 static void
 vnc_blit(int x, int y, int w, int h, int monitor_index)
 {
-    vnc_blit_count++;
-    if (vnc_blit_count <= 10 || vnc_blit_count % 100 == 0) {
-        FILE *f = fopen("/tmp/86box-vnc-debug.log", "a");
-        if (f) { fprintf(f, "vnc_blit #%d: x=%d y=%d w=%d h=%d mon=%d buf32=%p\n", vnc_blit_count, x, y, w, h, monitor_index, (void*)buffer32); fclose(f); }
-    }
     if (monitor_index || (x < 0) || (y < 0) || (w < VNC_MIN_X) || (h < VNC_MIN_Y) || (w > VNC_MAX_X) || (h > VNC_MAX_Y) || (buffer32 == NULL)) {
         video_blit_complete_monitor(monitor_index);
         return;
@@ -204,9 +197,6 @@ vnc_blit(int x, int y, int w, int h, int monitor_index)
 int
 vnc_init(UNUSED(void *arg))
 {
-    FILE *f = fopen("/tmp/86box-vnc-debug.log", "a");
-    if (f) { fprintf(f, "vnc_init called: headless_mode=%d vnc_port=%d\n", headless_mode, vnc_port); fclose(f); }
-
     static char    title[128];
     rfbPixelFormat rpf = {
         /*
@@ -248,8 +238,12 @@ vnc_init(UNUSED(void *arg))
         rfb->width  = allowedX;
         rfb->height = allowedY;
 
-        /* Configure VNC port and password. */
+        /* Configure VNC port and password.
+         * Disable IPv6 listening — libvncserver defaults ipv6port to 5900
+         * regardless of rfb->port, causing "Address already in use" when
+         * multiple instances run concurrently. */
         rfb->port = vnc_port;
+        rfb->ipv6port = 0;
 
         if (vnc_password[0] != '\0') {
             static char *password_list[2] = { NULL, NULL };
@@ -265,9 +259,6 @@ vnc_init(UNUSED(void *arg))
 
     /* Set up our BLIT handlers. */
     video_setblit(vnc_blit);
-
-    f = fopen("/tmp/86box-vnc-debug.log", "a");
-    if (f) { fprintf(f, "vnc_init complete: video_setblit(vnc_blit) called, rfb=%p\n", (void*)rfb); fclose(f); }
 
     clients = 0;
 
@@ -295,9 +286,6 @@ vnc_resize(int x, int y)
 {
     rfbClientIteratorPtr iterator;
     rfbClientPtr         cl;
-
-    FILE *f = fopen("/tmp/86box-vnc-debug.log", "a");
-    if (f) { fprintf(f, "vnc_resize called: x=%d y=%d rfb=%p\n", x, y, (void*)rfb); fclose(f); }
 
     if (rfb == NULL)
         return;
