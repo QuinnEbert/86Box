@@ -679,12 +679,17 @@ vnc_kbinput(int down, int k)
         return;
     }
 
+    fprintf(stderr, "VNC_KEY: keysym=0x%04x → scan=0x%04x (page=%02x, code=%02x) down=%d\n",
+            k, scan, scan >> 8, scan & 0xff, down);
+
     /* Send this scancode sequence to the PC keyboard. */
     switch (scan >> 8) {
         default:
         case 0x00:
-            if (scan & 0xff)
+            if (scan & 0xff) {
+                fprintf(stderr, "VNC_KEY: → keyboard_input(%d, 0x%02x)\n", down, scan & 0xff);
                 keyboard_input(down, scan & 0xff);
+            }
             break;
         case 0x2a:
             /*

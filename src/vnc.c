@@ -67,6 +67,8 @@ vnc_kbdevent(rfbBool down, rfbKeySym k, rfbClientPtr cl)
 {
     (void) cl;
 
+    fprintf(stderr, "VNC_KEY: keysym=0x%04x down=%d\n", (unsigned)k, (int)down);
+
     /* Handle it through the lookup tables. */
     vnc_kbinput(down ? 1 : 0, (int) k);
 }
