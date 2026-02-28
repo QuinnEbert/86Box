@@ -27,6 +27,11 @@
  *          -DANSI_CFG for use on these systems.
  */
 
+#ifdef _WIN32
+#    include <ws2tcpip.h>
+#else
+#    include <arpa/inet.h>
+#endif
 #include <inttypes.h>
 #ifdef ENABLE_CONFIG_LOG
 #include <stdarg.h>
@@ -895,10 +900,29 @@ load_network(void)
         } else
             strcpy(nc->host_dev_name, "none");
 
-        sprintf(temp, "net_%02i_switch_group", c + 1);
-        nc->switch_group = ini_section_get_int(cat, temp, NET_SWITCH_GRP_MIN);
-        if (nc->switch_group < NET_SWITCH_GRP_MIN)
-            nc->switch_group = NET_SWITCH_GRP_MIN;
+        if (nc->net_type == NET_TYPE_SLIRP) {
+            sprintf(temp, "net_%02i_addr", c + 1);
+            p = ini_section_get_string(cat, temp, "");
+            if (p && *p) {
+                struct in_addr addr;
+                if (inet_pton(AF_INET, p, &addr)) {
+                    uint8_t *bytes = (uint8_t *)&addr.s_addr;
+                    bytes[3] = 0;
+                    sprintf(nc->slirp_net, "%d.%d.%d.0", bytes[0], bytes[1], bytes[2]);
+                } else {
+                    nc->slirp_net[0] = '\0';
+                }
+            } else {
+                nc->slirp_net[0] = '\0';
+            }
+        } else {
+            nc->slirp_net[0] = '\0';
+        }
+
+        sprintf(temp, "net_%02i_secret", c + 1);
+        p = ini_section_get_string(cat, temp, NULL);
+        strncpy(nc->secret, p ? p : "", sizeof(nc->secret) - 1);
+        nc->secret[sizeof(net_cards_conf[c].secret) - 1] = '\0';
 
         sprintf(temp, "net_%02i_promisc", c + 1);
         nc->promisc_mode = ini_section_get_int(cat, temp, 0);
@@ -986,12 +1010,12 @@ load_image_file(char *dest, char *p, uint8_t *ui_wp)
     int   ret    = 0;
 
     if (strstr(p, "wp://") == p) {
-       p += 5;
-       prefix = "wp://";
-       if (ui_wp != NULL)
-           *ui_wp = 1;
+        p += 5;
+        prefix = "wp://";
+        if (ui_wp != NULL)
+            *ui_wp = 1;
     } else if ((ui_wp != NULL) && *ui_wp)
-       prefix = "wp://";
+        prefix = "wp://";
 
     if (path_abs(p)) {
         if ((strlen(prefix) + strlen(p)) > (MAX_IMAGE_PATH_LEN - 11))
@@ -1476,7 +1500,7 @@ load_floppy_and_cdrom_drives(void)
     int           c;
     int           d;
     int           count = cdrom_get_type_count();
-    
+
 #ifndef DISABLE_FDD_AUDIO
     fdd_audio_load_profiles();
 #endif
@@ -1549,7 +1573,7 @@ load_floppy_and_cdrom_drives(void)
         fdd_set_audio_profile(c, d);
 #else
         fdd_set_audio_profile(c, 0);
-#endif        
+#endif
 
         for (int i = 0; i < MAX_PREV_IMAGES; i++) {
             fdd_image_history[c][i] = (char *) calloc((MAX_IMAGE_PATH_LEN + 1) << 1, sizeof(char));
@@ -3029,11 +3053,19 @@ save_network(void)
         else
             ini_section_set_int(cat, temp, nc->link_state);
 
-        sprintf(temp, "net_%02i_switch_group", c + 1);
-        if (nc->switch_group == NET_SWITCH_GRP_MIN)
+        if (nc->net_type == NET_TYPE_SLIRP && nc->slirp_net[0] != '\0') {
+            sprintf(temp, "net_%02i_addr", c + 1);
+            ini_section_set_string(cat, temp, nc->slirp_net);
+        } else {
+            sprintf(temp, "net_%02i_addr", c + 1);
+            ini_section_delete_var(cat, temp);
+        }
+
+        sprintf(temp, "net_%02i_secret", c + 1);
+        if (nc->secret[0] == '\0')
             ini_section_delete_var(cat, temp);
         else
-            ini_section_set_int(cat, temp, nc->switch_group);
+            ini_section_set_string(cat, temp, net_cards_conf[c].secret);
 
         sprintf(temp, "net_%02i_promisc", c + 1);
         if (nc->promisc_mode == 0)

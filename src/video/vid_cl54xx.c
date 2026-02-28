@@ -53,6 +53,7 @@
 #define BIOS_GD5428_DIAMOND_B1_VLB_PATH "roms/video/cirruslogic/Diamond SpeedStar PRO VLB v3.04.bin"
 #define BIOS_GD5428_ISA_PATH            "roms/video/cirruslogic/5428.bin"
 #define BIOS_GD5428_MCA_PATH            "roms/video/cirruslogic/SVGA141.ROM"
+#define BIOS_GD5428_ONBOARD_ACER_PATH   "roms/machines/acera1g/4alo001.bin"
 #define BIOS_GD5428_PATH                "roms/video/cirruslogic/vlbusjapan.BIN"
 #define BIOS_GD5428_BOCA_ISA_PATH_1     "roms/video/cirruslogic/boca_gd5428_1.30b_1.bin"
 #define BIOS_GD5428_BOCA_ISA_PATH_2     "roms/video/cirruslogic/boca_gd5428_1.30b_2.bin"
@@ -1327,7 +1328,10 @@ gd54xx_in(uint16_t addr, void *priv)
                         /* Scratch Pad 1 (Memory size for 5402/542x) */
                         ret = svga->seqregs[0x0a] & ~0x1a;
                         if (svga->crtc[0x27] == CIRRUS_ID_CLGD5402) {
-                            ret |= 0x01; /*512K of memory*/
+                            if ((gd54xx->vram_size >> 10) == 512)
+                                ret |= 0x01; /*512K of memory*/
+                            else
+                                ret &= 0xfe; /*256K of memory*/
                         } else if (svga->crtc[0x27] > CIRRUS_ID_CLGD5402) {
                             switch (gd54xx->vram_size >> 10) {
                                 case 512:
@@ -1870,8 +1874,9 @@ gd54xx_recalctimings(svga_t *svga)
 
     svga->interlace = (svga->crtc[0x1a] & 0x01);
 
-    if (!(svga->gdcreg[6] & 1) && !(svga->attrregs[0x10] & 1)) { /*Text mode*/
-        svga->interlace = 0;
+    if (!svga->scrblank && svga->attr_palette_enable) {
+        if (!(svga->gdcreg[6] & 1) && !(svga->attrregs[0x10] & 1)) /*Text mode*/
+            svga->interlace = 0;
     }
 
     clocksel = (svga->miscout >> 2) & 3;
@@ -2059,19 +2064,19 @@ gd54xx_recalctimings(svga_t *svga)
         }
     }
 
-    svga->vram_display_mask = (svga->crtc[0x1b] & 2) ? gd54xx->vram_mask : 0x3ffff;
+    svga->vram_display_mask = (svga->crtc[0x1b] & 0x02) ? gd54xx->vram_mask : 0x3ffff;
 
     if (svga->crtc[0x27] >= CIRRUS_ID_CLGD5430)
         svga->htotal += ((svga->crtc[0x1c] >> 3) & 0x07);
 
-    if (!(svga->gdcreg[6] & 1) && !(svga->attrregs[0x10] & 1)) { /*Text mode*/
+    if (!(svga->gdcreg[6] & 0x01) && !(svga->attrregs[0x10] & 0x01)) { /*Text mode*/
         if (svga->seqregs[1] & 8)
             svga->render = svga_render_text_40;
         else
             svga->render = svga_render_text_80;
     }
 
-    if (!(svga->seqregs[0x07] & CIRRUS_SR7_BPP_SVGA)) {
+    if (!(svga->seqregs[0x07] & CIRRUS_SR7_BPP_SVGA) && (((svga->gdcreg[6] >> 2) & 0x03) != 0x01)) {
         svga->extra_banks[0] = 0;
         svga->extra_banks[1] = 0x8000;
     }
@@ -2288,7 +2293,7 @@ gd54xx_write(uint32_t addr, uint8_t val, void *priv)
 
     xga_write_test(addr, val, svga);
 
-    if (!(svga->seqregs[0x07] & CIRRUS_SR7_BPP_SVGA)) {
+    if (!(svga->seqregs[0x07] & CIRRUS_SR7_BPP_SVGA) && (((svga->gdcreg[6] >> 2) & 0x03) != 0x01)) {
         svga_write(addr, val, svga);
         return;
     }
@@ -2318,7 +2323,7 @@ gd54xx_writew(uint32_t addr, uint16_t val, void *priv)
     xga_write_test(addr, val, svga);
     xga_write_test(addr + 1, val >> 8, svga);
 
-    if (!(svga->seqregs[0x07] & CIRRUS_SR7_BPP_SVGA)) {
+    if (!(svga->seqregs[0x07] & CIRRUS_SR7_BPP_SVGA) && (((svga->gdcreg[6] >> 2) & 0x03) != 0x01)) {
         svga_writew(addr, val, svga);
         return;
     }
@@ -2357,7 +2362,7 @@ gd54xx_writel(uint32_t addr, uint32_t val, void *priv)
     xga_write_test(addr + 2, val >> 16, svga);
     xga_write_test(addr + 3, val >> 24, svga);
 
-    if (!(svga->seqregs[0x07] & CIRRUS_SR7_BPP_SVGA)) {
+    if (!(svga->seqregs[0x07] & CIRRUS_SR7_BPP_SVGA) && (((svga->gdcreg[6] >> 2) & 0x03) != 0x01)) {
         svga_writel(addr, val, svga);
         return;
     }
@@ -2914,7 +2919,7 @@ gd54xx_read(uint32_t addr, void *priv)
     svga_t   *svga   = (svga_t *) priv;
     gd54xx_t *gd54xx = (gd54xx_t *) svga->local;
 
-    if (!(svga->seqregs[0x07] & CIRRUS_SR7_BPP_SVGA))
+    if (!(svga->seqregs[0x07] & CIRRUS_SR7_BPP_SVGA) && (((svga->gdcreg[6] >> 2) & 0x03) != 0x01))
         return svga_read(addr, svga);
 
     if (gd54xx->countminusone && gd54xx->blt.ms_is_dest &&
@@ -2935,7 +2940,7 @@ gd54xx_readw(uint32_t addr, void *priv)
     gd54xx_t *gd54xx = (gd54xx_t *) svga->local;
     uint16_t  ret;
 
-    if (!(svga->seqregs[0x07] & CIRRUS_SR7_BPP_SVGA))
+    if (!(svga->seqregs[0x07] & CIRRUS_SR7_BPP_SVGA) && (((svga->gdcreg[6] >> 2) & 0x03) != 0x01))
         return svga_readw(addr, svga);
 
     if (gd54xx->countminusone && gd54xx->blt.ms_is_dest &&
@@ -2960,7 +2965,7 @@ gd54xx_readl(uint32_t addr, void *priv)
     gd54xx_t *gd54xx = (gd54xx_t *) svga->local;
     uint32_t  ret;
 
-    if (!(svga->seqregs[0x07] & CIRRUS_SR7_BPP_SVGA))
+    if (!(svga->seqregs[0x07] & CIRRUS_SR7_BPP_SVGA) && (((svga->gdcreg[6] >> 2) & 0x03) != 0x01))
         return svga_readl(addr, svga);
 
     if (gd54xx->countminusone && gd54xx->blt.ms_is_dest &&
@@ -4282,6 +4287,8 @@ gd54xx_init(const device_t *info)
 
         case CIRRUS_ID_CLGD5402:
             if (info->local & 0x200)
+                romfn = NULL;
+            else if (info->local & 0x100)
                 romfn = BIOS_GD5402_ONBOARD_PATH;
             else
                 romfn = BIOS_GD5402_PATH;
@@ -4324,7 +4331,10 @@ gd54xx_init(const device_t *info)
 
         case CIRRUS_ID_CLGD5428:
             if (info->local & 0x200) {
-                romfn            = NULL;
+                if (machines[machine].init == machine_at_acera1g_init)
+                    romfn = BIOS_GD5428_ONBOARD_ACER_PATH;
+                else
+                    romfn            = NULL;
                 gd54xx->has_bios = 0;
             } else if (info->local & 0x100)
                 if (gd54xx->vlb)
@@ -4421,20 +4431,27 @@ gd54xx_init(const device_t *info)
             vram              = 1024;
         else
             vram = device_get_config_int("memory");
+
         gd54xx->vram_size = vram << 10;
     } else {
         if (id <= CIRRUS_ID_CLGD5428) {
-            if ((id == CIRRUS_ID_CLGD5426) && (info->local & 0x200))
+            if ((id == CIRRUS_ID_CLGD5428) && (info->local & 0x200) && (info->local & 0x1000))
                 vram = 1024;
+            else if ((id == CIRRUS_ID_CLGD5426) && (info->local & 0x200) && (info->local & 0x1000))
+                vram = 1024;
+            else if ((id == CIRRUS_ID_CLGD5420) && (info->local & 0x200))
+                vram = 512;
             else if (id == CIRRUS_ID_CLGD5401)
                 vram = 256;
-            else if (id == CIRRUS_ID_CLGD5402)
-                vram = 512;
             else
                 vram = device_get_config_int("memory");
+
             gd54xx->vram_size = vram << 10;
         } else {
-            vram              = device_get_config_int("memory");
+            if ((id == CIRRUS_ID_CLGD5436) && (info->local & 0x200) && (info->local & 0x1000))
+                vram = 1;
+            else
+                vram              = device_get_config_int("memory");
             gd54xx->vram_size = vram << 20;
         }
     }
@@ -4764,6 +4781,25 @@ gd54xx_force_redraw(void *priv)
 }
 
 // clang-format off
+static const device_config_t gd5402_config[] = {
+    {
+        .name           = "memory",
+        .description    = "Memory size",
+        .type           = CONFIG_SELECTION,
+        .default_string = NULL,
+        .default_int    = 512,
+        .file_filter    = NULL,
+        .spinner        = { 0 },
+        .selection      = {
+            { .description = "256 KB", .value =  256 },
+            { .description = "512 KB", .value =  512 },
+            { .description = ""                      }
+        },
+        .bios           = { { 0 } }
+    },
+    { .name = "", .description = "", .type = CONFIG_END }
+};
+
 static const device_config_t gd542x_config[] = {
     {
         .name           = "memory",
@@ -4794,6 +4830,25 @@ static const device_config_t gd5426_config[] = {
         .spinner        = { 0 },
         .selection      = {
             { .description = "512 KB", .value =  512 },
+            { .description = "1 MB",   .value = 1024 },
+            { .description = "2 MB",   .value = 2048 },
+            { .description = ""                      }
+        },
+        .bios           = { { 0 } }
+    },
+    { .name = "", .description = "", .type = CONFIG_END }
+};
+
+static const device_config_t gd5428_1mb_config[] = {
+    {
+        .name           = "memory",
+        .description    = "Memory size",
+        .type           = CONFIG_SELECTION,
+        .default_string = NULL,
+        .default_int    = 2048,
+        .file_filter    = NULL,
+        .spinner        = { 0 },
+        .selection      = {
             { .description = "1 MB",   .value = 1024 },
             { .description = "2 MB",   .value = 2048 },
             { .description = ""                      }
@@ -4938,13 +4993,12 @@ static const device_config_t gd5434_onboard_config[] = {
         .description    = "Memory size",
         .type           = CONFIG_SELECTION,
         .default_string = NULL,
-        .default_int    = 4,
+        .default_int    = 2,
         .file_filter    = NULL,
         .spinner        = { 0 },
         .selection      = {
             { .description = "1 MB", .value = 1 },
             { .description = "2 MB", .value = 2 },
-            { .description = "4 MB", .value = 4 },
             { .description = ""                 }
         },
         .bios           = { { 0 } }
@@ -5011,7 +5065,7 @@ const device_t gd5402_isa_device = {
     .available     = gd5402_available,
     .speed_changed = gd54xx_speed_changed,
     .force_redraw  = gd54xx_force_redraw,
-    .config        = NULL,
+    .config        = gd5402_config,
 };
 
 const device_t gd5402_onboard_device = {
@@ -5025,7 +5079,21 @@ const device_t gd5402_onboard_device = {
     .available     = NULL,
     .speed_changed = gd54xx_speed_changed,
     .force_redraw  = gd54xx_force_redraw,
-    .config        = NULL,
+    .config        = gd5402_config,
+};
+
+const device_t gd5402_onboard_commodore_device = {
+    .name          = "Cirrus Logic GD5402 (ISA) (ACUMOS AVGA2) (On-Board) (Commodore)",
+    .internal_name = "cl_gd5402_onboard_commodore",
+    .flags         = DEVICE_ISA16,
+    .local         = CIRRUS_ID_CLGD5402 | 0x100,
+    .init          = gd54xx_init,
+    .close         = gd54xx_close,
+    .reset         = gd54xx_reset,
+    .available     = NULL,
+    .speed_changed = gd54xx_speed_changed,
+    .force_redraw  = gd54xx_force_redraw,
+    .config        = gd5402_config,
 };
 
 const device_t gd5420_isa_device = {
@@ -5053,7 +5121,7 @@ const device_t gd5420_onboard_device = {
     .available     = NULL,
     .speed_changed = gd54xx_speed_changed,
     .force_redraw  = gd54xx_force_redraw,
-    .config        = gd542x_config,
+    .config        = NULL,
 };
 
 const device_t gd5422_isa_device = {
@@ -5141,11 +5209,25 @@ const device_t gd5426_vlb_device = {
     .config        = gd5426_config
 };
 
+const device_t gd5426_onboard_isa_device = {
+    .name          = "Cirrus Logic GD5426 (ISA) (On-Board)",
+    .internal_name = "cl_gd5426_onboard",
+    .flags         = DEVICE_ISA16,
+    .local         = CIRRUS_ID_CLGD5426 | 0x200,
+    .init          = gd54xx_init,
+    .close         = gd54xx_close,
+    .reset         = gd54xx_reset,
+    .available     = gd5428_isa_available,
+    .speed_changed = gd54xx_speed_changed,
+    .force_redraw  = gd54xx_force_redraw,
+    .config        = gd542x_config
+};
+
 const device_t gd5426_onboard_device = {
     .name          = "Cirrus Logic GD5426 (VLB) (On-Board)",
     .internal_name = "cl_gd5426_onboard",
     .flags         = DEVICE_VLB,
-    .local         = CIRRUS_ID_CLGD5426 | 0x200,
+    .local         = CIRRUS_ID_CLGD5426 | 0x200 | 0x1000,
     .init          = gd54xx_init,
     .close         = gd54xx_close,
     .reset         = gd54xx_reset,
@@ -5244,21 +5326,21 @@ const device_t gd5428_onboard_device = {
     .name          = "Cirrus Logic GD5428 (ISA) (On-Board)",
     .internal_name = "cl_gd5428_onboard",
     .flags         = DEVICE_ISA16,
-    .local         = CIRRUS_ID_CLGD5428,
+    .local         = CIRRUS_ID_CLGD5428 | 0x200,
     .init          = gd54xx_init,
     .close         = gd54xx_close,
     .reset         = gd54xx_reset,
     .available     = gd5428_isa_available,
     .speed_changed = gd54xx_speed_changed,
     .force_redraw  = gd54xx_force_redraw,
-    .config        = gd5426_config
+    .config        = gd542x_config
 };
 
 const device_t gd5428_vlb_onboard_device = {
     .name          = "Cirrus Logic GD5428 (VLB) (On-Board)",
     .internal_name = "cl_gd5428_vlb_onboard",
     .flags         = DEVICE_VLB,
-    .local         = CIRRUS_ID_CLGD5428,
+    .local         = CIRRUS_ID_CLGD5428 | 0x200,
     .init          = gd54xx_init,
     .close         = gd54xx_close,
     .reset         = gd54xx_reset,
@@ -5269,7 +5351,7 @@ const device_t gd5428_vlb_onboard_device = {
 };
 
 const device_t gd5428_onboard_vlb_device = {
-    .name          = "Cirrus Logic GD5428 (VLB) (On-Board) (Dell)",
+    .name          = "Cirrus Logic GD5428 (VLB) (On-Board) (1MB)",
     .internal_name = "cl_gd5428_onboard_vlb",
     .flags         = DEVICE_VLB,
     .local         = CIRRUS_ID_CLGD5428 | 0x200,
@@ -5280,6 +5362,34 @@ const device_t gd5428_onboard_vlb_device = {
     .speed_changed = gd54xx_speed_changed,
     .force_redraw  = gd54xx_force_redraw,
     .config        = gd542x_config
+};
+
+const device_t gd5428_vlb_onboard_pb450_device = {
+    .name          = "Cirrus Logic GD5428 (VLB) (On-Board) (PB450)",
+    .internal_name = "cl_gd5428_vlb_onboard_pb450",
+    .flags         = DEVICE_VLB,
+    .local         = CIRRUS_ID_CLGD5428 | 0x200,
+    .init          = gd54xx_init,
+    .close         = gd54xx_close,
+    .reset         = gd54xx_reset,
+    .available     = NULL,
+    .speed_changed = gd54xx_speed_changed,
+    .force_redraw  = gd54xx_force_redraw,
+    .config        = gd5428_1mb_config
+};
+
+const device_t gd5428_vlb_onboard_tandy_device = {
+    .name          = "Cirrus Logic GD5428 (VLB) (On-Board) (Tandy)",
+    .internal_name = "cl_gd5428_vlb_onboard_tandy",
+    .flags         = DEVICE_VLB,
+    .local         = CIRRUS_ID_CLGD5428 | 0x200 | 0x1000,
+    .init          = gd54xx_init,
+    .close         = gd54xx_close,
+    .reset         = gd54xx_reset,
+    .available     = NULL,
+    .speed_changed = gd54xx_speed_changed,
+    .force_redraw  = gd54xx_force_redraw,
+    .config        = NULL
 };
 
 const device_t gd5429_isa_device = {
@@ -5463,7 +5573,21 @@ const device_t gd5436_onboard_pci_device = {
     .available     = NULL,
     .speed_changed = gd54xx_speed_changed,
     .force_redraw  = gd54xx_force_redraw,
-    .config        = gd5434_config
+    .config        = gd5434_onboard_config
+};
+
+const device_t gd5436_onboard_pci_ics_device = {
+    .name          = "Cirrus Logic GD5436 (PCI) (On-Board) (ICS)",
+    .internal_name = "cl_gd5436_onboard_pci_ics",
+    .flags         = DEVICE_PCI,
+    .local         = CIRRUS_ID_CLGD5436 | 0x200 | 0x1000,
+    .init          = gd54xx_init,
+    .close         = gd54xx_close,
+    .reset         = gd54xx_reset,
+    .available     = NULL,
+    .speed_changed = gd54xx_speed_changed,
+    .force_redraw  = gd54xx_force_redraw,
+    .config        = NULL
 };
 
 const device_t gd5436_pci_device = {

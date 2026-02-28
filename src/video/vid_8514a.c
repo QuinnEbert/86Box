@@ -45,7 +45,7 @@
 #    undef CLAMP
 #endif
 
-#define BIOS_MACH8_ROM_PATH  "roms/video/mach8/11301113140_ROM.BIN"
+#define BIOS_MACH8_ROM_PATH  "roms/video/mach8/11301113140_4k.BIN"
 
 static void     ibm8514_accel_outb(uint16_t port, uint8_t val, void *priv);
 static void     ibm8514_accel_outw(uint16_t port, uint16_t val, void *priv);
@@ -1121,83 +1121,158 @@ ibm8514_accel_start(int count, int cpu_input, uint32_t mix_dat, uint32_t cpu_dat
 
     if (pixcntl == 1) {
         mix_dat = 0;
-        if (and3 == 3) {
-            if (dev->accel.multifunc[8] & 0x02)
-                mix_dat |= 0x08;
-            if (dev->accel.multifunc[8] & 0x04)
-                mix_dat |= 0x10;
-            if (dev->accel.multifunc[8] & 0x08)
-                mix_dat |= 0x20;
-            if (dev->accel.multifunc[8] & 0x10)
-                mix_dat |= 0x40;
-            if (dev->accel.multifunc[9] & 0x02)
-                mix_dat |= 0x80;
-            if (dev->accel.multifunc[9] & 0x04)
-                mix_dat |= 0x01;
-            if (dev->accel.multifunc[9] & 0x08)
-                mix_dat |= 0x02;
-            if (dev->accel.multifunc[9] & 0x10)
-                mix_dat |= 0x04;
-        }
-        if (and3 == 2) {
-            if (dev->accel.multifunc[8] & 0x02)
-                mix_dat |= 0x04;
-            if (dev->accel.multifunc[8] & 0x04)
-                mix_dat |= 0x08;
-            if (dev->accel.multifunc[8] & 0x08)
-                mix_dat |= 0x10;
-            if (dev->accel.multifunc[8] & 0x10)
-                mix_dat |= 0x20;
-            if (dev->accel.multifunc[9] & 0x02)
-                mix_dat |= 0x40;
-            if (dev->accel.multifunc[9] & 0x04)
-                mix_dat |= 0x80;
-            if (dev->accel.multifunc[9] & 0x08)
-                mix_dat |= 0x01;
-            if (dev->accel.multifunc[9] & 0x10)
-                mix_dat |= 0x02;
-        }
-        if (and3 == 1) {
-            if (dev->accel.multifunc[8] & 0x02)
-                mix_dat |= 0x02;
-            if (dev->accel.multifunc[8] & 0x04)
-                mix_dat |= 0x04;
-            if (dev->accel.multifunc[8] & 0x08)
-                mix_dat |= 0x08;
-            if (dev->accel.multifunc[8] & 0x10)
-                mix_dat |= 0x10;
-            if (dev->accel.multifunc[9] & 0x02)
-                mix_dat |= 0x20;
-            if (dev->accel.multifunc[9] & 0x04)
-                mix_dat |= 0x40;
-            if (dev->accel.multifunc[9] & 0x08)
-                mix_dat |= 0x80;
-            if (dev->accel.multifunc[9] & 0x10)
-                mix_dat |= 0x01;
-        }
-        if (and3 == 0) {
-            if (dev->accel.multifunc[8] & 0x02)
-                mix_dat |= 0x01;
-            if (dev->accel.multifunc[8] & 0x04)
-                mix_dat |= 0x02;
-            if (dev->accel.multifunc[8] & 0x08)
-                mix_dat |= 0x04;
-            if (dev->accel.multifunc[8] & 0x10)
-                mix_dat |= 0x08;
-            if (dev->accel.multifunc[9] & 0x02)
-                mix_dat |= 0x10;
-            if (dev->accel.multifunc[9] & 0x04)
-                mix_dat |= 0x20;
-            if (dev->accel.multifunc[9] & 0x08)
-                mix_dat |= 0x40;
-            if (dev->accel.multifunc[9] & 0x10)
-                mix_dat |= 0x80;
+        if (cmd == 6) {
+            if (and3_blt == 3) {
+                if (dev->accel.multifunc[8] & 0x02)
+                    mix_dat |= 0x08;
+                if (dev->accel.multifunc[8] & 0x04)
+                    mix_dat |= 0x10;
+                if (dev->accel.multifunc[8] & 0x08)
+                    mix_dat |= 0x20;
+                if (dev->accel.multifunc[8] & 0x10)
+                    mix_dat |= 0x40;
+                if (dev->accel.multifunc[9] & 0x02)
+                    mix_dat |= 0x80;
+                if (dev->accel.multifunc[9] & 0x04)
+                    mix_dat |= 0x01;
+                if (dev->accel.multifunc[9] & 0x08)
+                    mix_dat |= 0x02;
+                if (dev->accel.multifunc[9] & 0x10)
+                    mix_dat |= 0x04;
+            }
+            if (and3_blt == 2) {
+                if (dev->accel.multifunc[8] & 0x02)
+                    mix_dat |= 0x04;
+                if (dev->accel.multifunc[8] & 0x04)
+                    mix_dat |= 0x08;
+                if (dev->accel.multifunc[8] & 0x08)
+                    mix_dat |= 0x10;
+                if (dev->accel.multifunc[8] & 0x10)
+                    mix_dat |= 0x20;
+                if (dev->accel.multifunc[9] & 0x02)
+                    mix_dat |= 0x40;
+                if (dev->accel.multifunc[9] & 0x04)
+                    mix_dat |= 0x80;
+                if (dev->accel.multifunc[9] & 0x08)
+                    mix_dat |= 0x01;
+                if (dev->accel.multifunc[9] & 0x10)
+                    mix_dat |= 0x02;
+            }
+            if (and3_blt == 1) {
+                if (dev->accel.multifunc[8] & 0x02)
+                    mix_dat |= 0x02;
+                if (dev->accel.multifunc[8] & 0x04)
+                    mix_dat |= 0x04;
+                if (dev->accel.multifunc[8] & 0x08)
+                    mix_dat |= 0x08;
+                if (dev->accel.multifunc[8] & 0x10)
+                    mix_dat |= 0x10;
+                if (dev->accel.multifunc[9] & 0x02)
+                    mix_dat |= 0x20;
+                if (dev->accel.multifunc[9] & 0x04)
+                    mix_dat |= 0x40;
+                if (dev->accel.multifunc[9] & 0x08)
+                    mix_dat |= 0x80;
+                if (dev->accel.multifunc[9] & 0x10)
+                    mix_dat |= 0x01;
+            }
+            if (and3_blt == 0) {
+                if (dev->accel.multifunc[8] & 0x02)
+                    mix_dat |= 0x01;
+                if (dev->accel.multifunc[8] & 0x04)
+                    mix_dat |= 0x02;
+                if (dev->accel.multifunc[8] & 0x08)
+                    mix_dat |= 0x04;
+                if (dev->accel.multifunc[8] & 0x10)
+                    mix_dat |= 0x08;
+                if (dev->accel.multifunc[9] & 0x02)
+                    mix_dat |= 0x10;
+                if (dev->accel.multifunc[9] & 0x04)
+                    mix_dat |= 0x20;
+                if (dev->accel.multifunc[9] & 0x08)
+                    mix_dat |= 0x40;
+                if (dev->accel.multifunc[9] & 0x10)
+                    mix_dat |= 0x80;
+            }
+        } else {
+            if (and3 == 3) {
+                if (dev->accel.multifunc[8] & 0x02)
+                    mix_dat |= 0x08;
+                if (dev->accel.multifunc[8] & 0x04)
+                    mix_dat |= 0x10;
+                if (dev->accel.multifunc[8] & 0x08)
+                    mix_dat |= 0x20;
+                if (dev->accel.multifunc[8] & 0x10)
+                    mix_dat |= 0x40;
+                if (dev->accel.multifunc[9] & 0x02)
+                    mix_dat |= 0x80;
+                if (dev->accel.multifunc[9] & 0x04)
+                    mix_dat |= 0x01;
+                if (dev->accel.multifunc[9] & 0x08)
+                    mix_dat |= 0x02;
+                if (dev->accel.multifunc[9] & 0x10)
+                    mix_dat |= 0x04;
+            }
+            if (and3 == 2) {
+                if (dev->accel.multifunc[8] & 0x02)
+                    mix_dat |= 0x04;
+                if (dev->accel.multifunc[8] & 0x04)
+                    mix_dat |= 0x08;
+                if (dev->accel.multifunc[8] & 0x08)
+                    mix_dat |= 0x10;
+                if (dev->accel.multifunc[8] & 0x10)
+                    mix_dat |= 0x20;
+                if (dev->accel.multifunc[9] & 0x02)
+                    mix_dat |= 0x40;
+                if (dev->accel.multifunc[9] & 0x04)
+                    mix_dat |= 0x80;
+                if (dev->accel.multifunc[9] & 0x08)
+                    mix_dat |= 0x01;
+                if (dev->accel.multifunc[9] & 0x10)
+                    mix_dat |= 0x02;
+            }
+            if (and3 == 1) {
+                if (dev->accel.multifunc[8] & 0x02)
+                    mix_dat |= 0x02;
+                if (dev->accel.multifunc[8] & 0x04)
+                    mix_dat |= 0x04;
+                if (dev->accel.multifunc[8] & 0x08)
+                    mix_dat |= 0x08;
+                if (dev->accel.multifunc[8] & 0x10)
+                    mix_dat |= 0x10;
+                if (dev->accel.multifunc[9] & 0x02)
+                    mix_dat |= 0x20;
+                if (dev->accel.multifunc[9] & 0x04)
+                    mix_dat |= 0x40;
+                if (dev->accel.multifunc[9] & 0x08)
+                    mix_dat |= 0x80;
+                if (dev->accel.multifunc[9] & 0x10)
+                    mix_dat |= 0x01;
+            }
+            if (and3 == 0) {
+                if (dev->accel.multifunc[8] & 0x02)
+                    mix_dat |= 0x01;
+                if (dev->accel.multifunc[8] & 0x04)
+                    mix_dat |= 0x02;
+                if (dev->accel.multifunc[8] & 0x08)
+                    mix_dat |= 0x04;
+                if (dev->accel.multifunc[8] & 0x10)
+                    mix_dat |= 0x08;
+                if (dev->accel.multifunc[9] & 0x02)
+                    mix_dat |= 0x10;
+                if (dev->accel.multifunc[9] & 0x04)
+                    mix_dat |= 0x20;
+                if (dev->accel.multifunc[9] & 0x08)
+                    mix_dat |= 0x40;
+                if (dev->accel.multifunc[9] & 0x10)
+                    mix_dat |= 0x80;
+            }
         }
     }
 
     old_mix_dat = mix_dat;
 
-    if (cmd != 0)
+    if (!(dev->accel.cmd & 0x01))
         ibm8514_log("CMD=%d, full=%04x, pixcntl=%d, filling=%02x, ssvdraw=%02x.\n", cmd, dev->accel.cmd, pixcntl, dev->accel.multifunc[0x0a] & 0x06, dev->accel.ssv_draw);
 
     /*Bit 4 of the Command register is the draw yes bit, which enables writing to memory/reading from memory when enabled.
@@ -1215,41 +1290,43 @@ ibm8514_accel_start(int count, int cpu_input, uint32_t mix_dat, uint32_t cpu_dat
                         (dev->accel.cy >= clip_t) &&
                         (dev->accel.cy <= clip_b)) {
                         dev->subsys_stat |= INT_GE_BSY;
-                        switch ((mix_dat & mix_mask) ? frgd_mix : bkgd_mix) {
-                            case 0:
-                                src_dat = bkgd_color;
-                                break;
-                            case 1:
-                                src_dat = frgd_color;
-                                break;
-                            case 2:
-                                src_dat = cpu_dat;
-                                break;
-                            case 3:
-                                src_dat = 0;
-                                break;
+                        if (ibm8514_cpu_src(svga) || !cpu_input) {
+                            switch ((mix_dat & mix_mask) ? frgd_mix : bkgd_mix) {
+                                case 0:
+                                    src_dat = bkgd_color;
+                                    break;
+                                case 1:
+                                    src_dat = frgd_color;
+                                    break;
+                                case 2:
+                                    src_dat = cpu_dat;
+                                    break;
+                                case 3:
+                                    src_dat = 0;
+                                    break;
 
-                            default:
-                                break;
-                        }
+                                default:
+                                    break;
+                            }
 
-                        READ((dev->accel.cy * dev->pitch) + dev->accel.cx, dest_dat);
+                            READ((dev->accel.cy * dev->pitch) + dev->accel.cx, dest_dat);
 
-                        if ((compare_mode == 0) ||
-                            ((compare_mode == 0x10) && (dest_dat >= compare)) ||
-                            ((compare_mode == 0x18) && (dest_dat < compare)) ||
-                            ((compare_mode == 0x20) && (dest_dat != compare)) ||
-                            ((compare_mode == 0x28) && (dest_dat == compare)) ||
-                            ((compare_mode == 0x30) && (dest_dat <= compare)) ||
-                            ((compare_mode == 0x38) && (dest_dat > compare))) {
-                            old_dest_dat = dest_dat;
-                            MIX(mix_dat & mix_mask, dest_dat, src_dat);
-                            dest_dat = (dest_dat & wrt_mask) | (old_dest_dat & ~wrt_mask);
-                            if (dev->accel.ssv_draw) {
-                                if ((dev->accel.cmd & 0x04) && dev->accel.ssv_len) {
-                                    WRITE((dev->accel.cy * dev->pitch) + dev->accel.cx, dest_dat);
-                                } else if (!(dev->accel.cmd & 0x04)) {
-                                    WRITE((dev->accel.cy * dev->pitch) + dev->accel.cx, dest_dat);
+                            if ((compare_mode == 0) ||
+                                ((compare_mode == 0x10) && (dest_dat >= compare)) ||
+                                ((compare_mode == 0x18) && (dest_dat < compare)) ||
+                                ((compare_mode == 0x20) && (dest_dat != compare)) ||
+                                ((compare_mode == 0x28) && (dest_dat == compare)) ||
+                                ((compare_mode == 0x30) && (dest_dat <= compare)) ||
+                                ((compare_mode == 0x38) && (dest_dat > compare))) {
+                                old_dest_dat = dest_dat;
+                                MIX(mix_dat & mix_mask, dest_dat, src_dat);
+                                dest_dat = (dest_dat & wrt_mask) | (old_dest_dat & ~wrt_mask);
+                                if (dev->accel.ssv_draw) {
+                                    if ((dev->accel.cmd & 0x04) && dev->accel.ssv_len) {
+                                        WRITE((dev->accel.cy * dev->pitch) + dev->accel.cx, dest_dat);
+                                    } else if (!(dev->accel.cmd & 0x04)) {
+                                        WRITE((dev->accel.cy * dev->pitch) + dev->accel.cx, dest_dat);
+                                    }
                                 }
                             }
                         }
@@ -1837,20 +1914,7 @@ ibm8514_accel_start(int count, int cpu_input, uint32_t mix_dat, uint32_t cpu_dat
                             (dev->accel.cy >= clip_t) &&
                             (dev->accel.cy <= clip_b)) {
                             dev->subsys_stat |= INT_GE_BSY;
-                            if (ibm8514_cpu_dest(svga) && (pixcntl == 0)) {
-                                mix_dat = mix_mask; /* Mix data = forced to foreground register. */
-                            } else if (ibm8514_cpu_dest(svga) && (pixcntl == 3)) {
-                                /* Mix data = current video memory value. */
-                                READ((dev->accel.cy * dev->pitch) + dev->accel.cx, mix_dat);
-                                mix_dat = ((mix_dat & rd_mask) == rd_mask);
-                                mix_dat = mix_dat ? mix_mask : 0;
-                            }
-
-                            if (ibm8514_cpu_dest(svga)) {
-                                READ((dev->accel.cy * dev->pitch) + dev->accel.cx, src_dat);
-                                if (pixcntl == 3)
-                                    src_dat = ((src_dat & rd_mask) == rd_mask);
-                            } else
+                            if (ibm8514_cpu_src(svga) || !cpu_input) {
                                 switch ((mix_dat & mix_mask) ? frgd_mix : bkgd_mix) {
                                     case 0:
                                         src_dat = bkgd_color;
@@ -1869,21 +1933,18 @@ ibm8514_accel_start(int count, int cpu_input, uint32_t mix_dat, uint32_t cpu_dat
                                         break;
                                 }
 
-                            READ((dev->accel.cy * dev->pitch) + dev->accel.cx, dest_dat);
+                                READ((dev->accel.cy * dev->pitch) + dev->accel.cx, dest_dat);
 
-                            if ((compare_mode == 0) ||
-                                ((compare_mode == 0x10) && (dest_dat >= compare)) ||
-                                ((compare_mode == 0x18) && (dest_dat < compare)) ||
-                                ((compare_mode == 0x20) && (dest_dat != compare)) ||
-                                ((compare_mode == 0x28) && (dest_dat == compare)) ||
-                                ((compare_mode == 0x30) && (dest_dat <= compare)) ||
-                                ((compare_mode == 0x38) && (dest_dat > compare))) {
-                                old_dest_dat = dest_dat;
-                                MIX(mix_dat & mix_mask, dest_dat, src_dat);
-                                dest_dat = (dest_dat & wrt_mask) | (old_dest_dat & ~wrt_mask);
-                                if ((dev->accel.cmd & 0x04) && dev->accel.sy) {
-                                    WRITE((dev->accel.cy * dev->pitch) + dev->accel.cx, dest_dat);
-                                } else if (!(dev->accel.cmd & 0x04)) {
+                                if ((compare_mode == 0) ||
+                                    ((compare_mode == 0x10) && (dest_dat >= compare)) ||
+                                    ((compare_mode == 0x18) && (dest_dat < compare)) ||
+                                    ((compare_mode == 0x20) && (dest_dat != compare)) ||
+                                    ((compare_mode == 0x28) && (dest_dat == compare)) ||
+                                    ((compare_mode == 0x30) && (dest_dat <= compare)) ||
+                                    ((compare_mode == 0x38) && (dest_dat > compare))) {
+                                    old_dest_dat = dest_dat;
+                                    MIX(mix_dat & mix_mask, dest_dat, src_dat);
+                                    dest_dat = (dest_dat & wrt_mask) | (old_dest_dat & ~wrt_mask);
                                     WRITE((dev->accel.cy * dev->pitch) + dev->accel.cx, dest_dat);
                                 }
                             }
@@ -4038,10 +4099,8 @@ ibm8514_vblank_start(void *priv)
 static void *
 ibm8514_init(const device_t *info)
 {
-    FILE    *fp;
-    uint8_t *rom_load = NULL;
-    uint32_t bios_addr = 0;
     uint16_t bios_rom_eeprom = 0x0000;
+    uint32_t bios_addr;
 
     if (svga_get_pri() == NULL)
         return NULL;
@@ -4067,37 +4126,34 @@ ibm8514_init(const device_t *info)
     dev->bpp      = 0;
 
     dev->extensions = device_get_config_int("extensions");
-    bios_addr = device_get_config_hex20("bios_addr");
+    dev->bios_addr = device_get_config_hex20("bios_addr");
     if (dev->type & DEVICE_MCA)
-        bios_addr = 0xc6800;
+        dev->bios_addr = 0xc6800;
 
     switch (dev->extensions) {
         case ATI:
             if (rom_present(BIOS_MACH8_ROM_PATH)) {
                 mach_t * mach = (mach_t *) calloc(1, sizeof(mach_t));
                 svga->ext8514 = mach;
-                fp = rom_fopen(BIOS_MACH8_ROM_PATH, "rb");
-                if (bios_addr & 0x800)
-                    (void) fseek(fp, 0x000, SEEK_SET);
-                else
-                    (void) fseek(fp, 0x800, SEEK_SET);
+                bios_addr = dev->bios_addr;
 
-                rom_load = malloc(0x2000);
-                (void) !fread(rom_load, 0x2000, 1, fp);
-                (void) fclose(fp);
-                memset(&dev->bios_rom, 0x00, sizeof(rom_t));
+                dev->bios_rom.rom = malloc(0x2000);
+                memset(dev->bios_rom.rom, 0xff, 0x2000);
 
-                dev->bios_rom.rom = rom_load;
+                (void) rom_load_linear(BIOS_MACH8_ROM_PATH, bios_addr, 0x2000, 0x0000, dev->bios_rom.rom + (bios_addr & 0x0800));
+                dev->bios_rom.sz = 0x2000;
                 dev->bios_rom.mask = 0x1fff;
-                mem_mapping_add(&dev->bios_rom.mapping, bios_addr, 0x2000,
-                                ati8514_rom_readb, ati8514_rom_readw, NULL,
+
+                mem_mapping_add(&dev->bios_rom.mapping, bios_addr, dev->bios_rom.sz,
+                                ati8514_bios_rom_readb, ati8514_bios_rom_readw, ati8514_bios_rom_readl,
                                 NULL, NULL, NULL,
                                 dev->bios_rom.rom, MEM_MAPPING_EXTERNAL | MEM_MAPPING_ROM_WS, dev);
+
                 ati8514_init(svga, svga->ext8514, svga->dev8514);
                 if (dev->type & DEVICE_MCA) {
-                    dev->accel.scratch0 = (((bios_addr >> 7) - 0x1000) >> 4);
-                    dev->accel.scratch0 |= ((dev->accel.scratch0 + 0x01) << 8);
-                    bios_rom_eeprom = dev->accel.scratch0;
+                    mach->accel.scratch0 = (((dev->bios_addr >> 7) - 0x1000) >> 4);
+                    mach->accel.scratch0 |= ((mach->accel.scratch0 + 0x01) << 8);
+                    bios_rom_eeprom = mach->accel.scratch0;
                     dev->pos_regs[0] = 0x88;
                     dev->pos_regs[1] = 0x80;
                     mach->eeprom.data[1] = bios_rom_eeprom;
@@ -4105,8 +4161,9 @@ ibm8514_init(const device_t *info)
                     ati_eeprom_load_mach8(&mach->eeprom, "ati8514_mca.nvr", 1);
                     mem_mapping_disable(&dev->bios_rom.mapping);
                 } else {
-                    dev->accel.scratch0 = ((bios_addr >> 7) - 0x1000) >> 4;
-                    dev->accel.scratch0 |= ((dev->accel.scratch0 + 0x01) << 8);
+                    mach->accel.scratch0 = ((dev->bios_addr >> 7) - 0x1000) >> 4;
+                    mach->accel.scratch0 |= ((mach->accel.scratch0 + 0x01) << 8);
+                    ibm8514_log("Scratch0 init val=%04x, bios=%06x, base=%06x.\n", mach->accel.scratch0, dev->bios_addr, dev->bios_rom.mapping.base);
                     ati_eeprom_load_mach8(&mach->eeprom, "ati8514.nvr", 0);
                 }
                 break;

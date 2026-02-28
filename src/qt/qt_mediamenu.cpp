@@ -20,6 +20,7 @@
 #include "qt_machinestatus.hpp"
 
 #include <QMenu>
+#include <QFile>
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QStringBuilder>
@@ -177,7 +178,15 @@ MediaMenu::refresh(QMenu *parentMenu)
                 menu->addAction(QIcon(":/settings/qt/icons/cdrom_host.ico"), tr("&Host CD/DVD Drive (%1:)").arg(letter), [this, i, letter] { cdromMount(i, 2, QString(R"(\\.\%1:)").arg(letter)); })->setCheckable(false);
         }
         menu->addSeparator();
-#endif // Q_OS_WINDOWS
+#elif defined(Q_OS_LINUX)
+        /* Enumerate Linux CD/DVD drives (/dev/sr0 .. /dev/sr15). */
+        for (int sr = 0; sr < 16; sr++) {
+            QString devPath = QString("/dev/sr%1").arg(sr);
+            if (QFile::exists(devPath))
+                menu->addAction(QIcon(":/settings/qt/icons/cdrom_host.ico"), tr("&Host CD/DVD Drive (%1)").arg(devPath), [this, i, devPath] { cdromMount(i, 2, devPath); })->setCheckable(false);
+        }
+        menu->addSeparator();
+#endif
         cdromEjectPos = menu->children().count();
         menu->addAction(tr("E&ject"), [this, i]() { cdromEject(i); })->setCheckable(false);
         cdromMenus[i] = menu;
@@ -187,7 +196,8 @@ MediaMenu::refresh(QMenu *parentMenu)
     rdiskMenus.clear();
     MachineStatus::iterateRDisk([this, parentMenu](int i) {
         auto *menu     = parentMenu->addMenu("");
-        QIcon img_icon = QIcon(":/settings/qt/icons/rdisk_image.ico");
+        int   t        = rdisk_drives[i].type;
+        QIcon img_icon = ((t == RDISK_TYPE_ZIP_100) || (t == RDISK_TYPE_ZIP_250)) ? QIcon(":/settings/qt/icons/zip_image.ico") : QIcon(":/settings/qt/icons/rdisk_image.ico");
         menu->addAction(getIconWithIndicator(img_icon, pixmap_size, QIcon::Normal, New), tr("&New image…"), [this, i]() { rdiskNewImage(i); });
         menu->addSeparator();
         menu->addAction(getIconWithIndicator(img_icon, pixmap_size, QIcon::Normal, Browse), tr("&Existing image…"), [this, i]() { rdiskSelectImage(i, false); });
@@ -593,10 +603,10 @@ MediaMenu::cdromMount(int i, int dir, const QString &arg)
     if (dir > 1)
         filename = QString::asprintf(R"(ioctl://%s)", arg.toUtf8().data());
     else if (dir == 1)
-        filename = QFileDialog::getExistingDirectory(parentWidget);
+        filename = QFileDialog::getExistingDirectory(parentWidget, QString(), getMediaOpenDirectory());
     else {
         filename = QFileDialog::getOpenFileName(parentWidget, QString(),
-                                                QString(),
+                                                getMediaOpenDirectory(),
                                                 tr("CD-ROM images") % util::DlgFilter({ "iso", "cue", "mds", "mdx" }) % tr("All files") % util::DlgFilter({ "*" }, true));
     }
 
@@ -1200,10 +1210,13 @@ MediaMenu::nicUpdateMenu(int i)
 QString
 MediaMenu::getMediaOpenDirectory()
 {
-    QString openDirectory;
+    static bool firstCall = true;
+    QString     openDirectory;
 
-    if (open_dir_usr_path > 0)
+    if (open_dir_usr_path > 0 && firstCall) {
         openDirectory = QString::fromUtf8(usr_path);
+        firstCall     = false;
+    }
 
     return openDirectory;
 }

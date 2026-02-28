@@ -228,6 +228,9 @@ extern const device_t entertainer_device;
 /* Mindscape Music Board */
 extern const device_t mmb_device;
 
+/* MediaVision ThunderBoard */
+extern const device_t thunderboard_device;
+
 /* OPTi 82c93x */
 extern const device_t acermagic_s20_device;
 extern const device_t mirosound_pcm10_device;
@@ -245,9 +248,13 @@ extern const device_t soundman_device;
 /* Tandy PSSJ */
 extern const device_t pssj_device;
 extern const device_t pssj_isa_device;
+extern const device_t pssj_1e0_device;
 
 /* Tandy PSG */
 extern const device_t tndy_device;
+
+/* Tandy Sensation */
+extern const device_t sensationaud_device;
 
 /* Windows Sound System */
 extern const device_t wss_device;

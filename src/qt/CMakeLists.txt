@@ -424,8 +424,9 @@ endif()
 
 if(WIN32)
     target_sources(plat PRIVATE win_cdrom_ioctl.c)
+elseif(UNIX AND NOT APPLE)
+    target_sources(plat PRIVATE ../unix/linux_cdrom_ioctl.c)
 else()
-# Replace with proper *nix and mac handler files once they are done.
     target_sources(plat PRIVATE dummy_cdrom_ioctl.c)
 endif()
 

@@ -75,6 +75,7 @@ extern "C" {
 #include <iostream>
 #include <memory>
 
+#include "qt_defs.hpp"
 #include "qt_mainwindow.hpp"
 #include "qt_progsettings.hpp"
 #include "qt_settings.hpp"
@@ -400,7 +401,8 @@ emu_LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
         ret = CallNextHookEx(NULL, nCode, wParam, lParam);
 
     if (lpKdhs->scanCode == 0x00000045) {
-        if ((lpKdhs->flags & LLKHF_EXTENDED) && (lpKdhs->vkCode == 0x00000090)) {
+        if ((lpKdhs->flags & LLKHF_EXTENDED) && ((lpKdhs->vkCode == 0x00000090) ||
+                                                 (lpKdhs->vkCode == 0x00000013))) {
             /* NumLock. */
             lpKdhs->flags &= ~LLKHF_EXTENDED;
         } else if (!(lpKdhs->flags & LLKHF_EXTENDED) && (lpKdhs->vkCode == 0x00000013)) {
@@ -621,21 +623,12 @@ main(int argc, char *argv[])
     fprintf(stderr, "Qt: version %s, platform \"%s\"\n", qVersion(), QApplication::platformName().toUtf8().data());
     ProgSettings::loadTranslators(&app);
 #ifdef Q_OS_WINDOWS
-    QApplication::setFont(QFont(ProgSettings::getFontName(lang_id), 9));
+    QApplication::setFont(ProgSettings::getUIFont());
     SetCurrentProcessExplicitAppUserModelID(L"86Box.86Box");
 #endif
 
 #ifndef Q_OS_MACOS
-#    ifdef RELEASE_BUILD
-    app.setWindowIcon(QIcon(":/settings/qt/icons/86Box-green.ico"));
-#    elif defined ALPHA_BUILD
-    app.setWindowIcon(QIcon(":/settings/qt/icons/86Box-red.ico"));
-#    elif defined BETA_BUILD
-    app.setWindowIcon(QIcon(":/settings/qt/icons/86Box-yellow.ico"));
-#    else
-    app.setWindowIcon(QIcon(":/settings/qt/icons/86Box-gray.ico"));
-#    endif
-
+    app.setWindowIcon(QIcon(EMU_ICON_PATH));
 #    ifdef Q_OS_UNIX
     app.setDesktopFileName("net.86box.86Box");
 #    endif
