@@ -32,6 +32,12 @@
 #include <QPushButton>
 #include <QFile>
 #include <QTextStream>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QEventLoop>
+#include <QTemporaryFile>
+#include <QProcess>
 
 #ifdef QT_STATIC
 /* Static builds need plugin imports */
@@ -637,12 +643,69 @@ main(int argc, char *argv[])
 #endif
 
     if (!pc_init_roms()) {
-        QMessageBox fatalbox(QMessageBox::Icon::Critical, QObject::tr("No ROMs found"),
-                             QObject::tr("86Box could not find any usable ROM images.\n\nPlease <a href=\"https://github.com/86Box/roms/releases/latest\">download</a> a ROM set and extract it into the \"roms\" directory."),
-                             QMessageBox::Ok);
-        fatalbox.setTextFormat(Qt::TextFormat::RichText);
-        fatalbox.exec();
-        return 6;
+        /* Attempt silent ROM auto-download */
+        bool rom_download_ok = false;
+
+        char data_dir[1024];
+        plat_get_global_data_dir(data_dir, sizeof(data_dir));
+        QString targetDir = QDir(QString::fromUtf8(data_dir)).filePath("roms");
+
+        fprintf(stderr, "86Box: No ROMs found. Attempting auto-download to %s\n",
+                targetDir.toUtf8().constData());
+
+        QDir().mkpath(targetDir);
+
+        QNetworkAccessManager nam;
+        QNetworkRequest request(QUrl("https://github.com/86Box/roms/archive/refs/heads/master.tar.gz"));
+        request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                             QNetworkRequest::NoLessSafeRedirectPolicy);
+        QNetworkReply *reply = nam.get(request);
+
+        QEventLoop loop;
+        QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+        loop.exec();
+
+        if (reply->error() == QNetworkReply::NoError) {
+            QTemporaryFile tmpFile;
+            tmpFile.setAutoRemove(true);
+            if (tmpFile.open()) {
+                tmpFile.write(reply->readAll());
+                tmpFile.flush();
+                tmpFile.close();
+
+                QProcess tarProcess;
+                tarProcess.start("tar",
+                    QStringList() << "-xzf" << tmpFile.fileName()
+                                  << "--strip-components=1"
+                                  << "-C" << targetDir);
+                tarProcess.waitForFinished(120000);
+
+                if (tarProcess.exitCode() == 0) {
+                    fprintf(stderr, "86Box: ROM download and extraction successful.\n");
+                    if (pc_init_roms()) {
+                        rom_download_ok = true;
+                    }
+                } else {
+                    fprintf(stderr, "86Box: tar extraction failed (exit %d).\n",
+                            tarProcess.exitCode());
+                }
+            }
+        } else {
+            fprintf(stderr, "86Box: ROM download failed: %s\n",
+                    reply->errorString().toUtf8().constData());
+        }
+        reply->deleteLater();
+
+        if (!rom_download_ok) {
+            QMessageBox fatalbox(QMessageBox::Icon::Critical, QObject::tr("No ROMs found"),
+                                 QObject::tr("86Box could not find any usable ROM images.\n\n"
+                                             "Please <a href=\"https://github.com/86Box/roms/releases/latest\">"
+                                             "download</a> a ROM set and extract it into the \"roms\" directory."),
+                                 QMessageBox::Ok);
+            fatalbox.setTextFormat(Qt::TextFormat::RichText);
+            fatalbox.exec();
+            return 6;
+        }
     }
 
     if (start_vmm) {
