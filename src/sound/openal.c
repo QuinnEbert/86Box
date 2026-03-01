@@ -52,6 +52,7 @@
 #include <86box/86box.h>
 #include <86box/midi.h>
 #include <86box/sound.h>
+#include <86box/plat.h>
 #include <86box/plat_unused.h>
 
 #define FREQ   SOUND_FREQ
@@ -65,13 +66,13 @@
 #define I_HDD    5
 #define I_MIDI   6
 
-ALuint        buffers[4];       /* front and back buffers */
-ALuint        buffers_music[4]; /* front and back buffers */
-ALuint        buffers_wt[4];    /* front and back buffers */
-ALuint        buffers_cd[4];    /* front and back buffers */
-ALuint        buffers_fdd[4];   /* front and back buffers */
-ALuint        buffers_hdd[4];   /* front and back buffers */
-ALuint        buffers_midi[4];  /* front and back buffers */
+ALuint        buffers[8];       /* front and back buffers */
+ALuint        buffers_music[8]; /* front and back buffers */
+ALuint        buffers_wt[8];    /* front and back buffers */
+ALuint        buffers_cd[8];    /* front and back buffers */
+ALuint        buffers_fdd[8];   /* front and back buffers */
+ALuint        buffers_hdd[8];   /* front and back buffers */
+ALuint        buffers_midi[8];  /* front and back buffers */
 static ALuint source[7];        /* audio sources */
 
 static int         midi_freq     = 44100;
@@ -130,12 +131,12 @@ closeal(void)
     alDeleteSources(sources, source);
 
     if (sources >= 7)
-        alDeleteBuffers(4, buffers_midi);
-    alDeleteBuffers(4, buffers_fdd);
-    alDeleteBuffers(4, buffers_hdd);
-    alDeleteBuffers(4, buffers_cd);
-    alDeleteBuffers(4, buffers_music);
-    alDeleteBuffers(4, buffers);
+        alDeleteBuffers(8, buffers_midi);
+    alDeleteBuffers(8, buffers_fdd);
+    alDeleteBuffers(8, buffers_hdd);
+    alDeleteBuffers(8, buffers_cd);
+    alDeleteBuffers(8, buffers_music);
+    alDeleteBuffers(8, buffers);
 
     alutExit();
 
@@ -194,14 +195,14 @@ inital(void)
             midi_buf_int16 = (int16_t *) calloc(midi_buf_size, sizeof(int16_t));
     }
 
-    alGenBuffers(4, buffers);
-    alGenBuffers(4, buffers_cd);
-    alGenBuffers(4, buffers_fdd);
-    alGenBuffers(4, buffers_hdd);
-    alGenBuffers(4, buffers_music);
-    alGenBuffers(4, buffers_wt);
+    alGenBuffers(8, buffers);
+    alGenBuffers(8, buffers_cd);
+    alGenBuffers(8, buffers_fdd);
+    alGenBuffers(8, buffers_hdd);
+    alGenBuffers(8, buffers_music);
+    alGenBuffers(8, buffers_wt);
     if (init_midi)
-        alGenBuffers(4, buffers_midi);
+        alGenBuffers(8, buffers_midi);
 
     // Create sources: 0=main, 1=music, 2=wt, 3=cd, 4=fdd, 5=hdd, 6=midi(optional)
     if (init_midi)
@@ -273,7 +274,7 @@ inital(void)
             memset(midi_buf_int16, 0, midi_buf_size * sizeof(int16_t));
     }
 
-    for (uint8_t c = 0; c < 4; c++) {
+    for (uint8_t c = 0; c < 8; c++) {
         if (sound_is_float) {
             alBufferData(buffers[c], AL_FORMAT_STEREO_FLOAT32, buf, BUFLEN * 2 * sizeof(float), FREQ);
             alBufferData(buffers_music[c], AL_FORMAT_STEREO_FLOAT32, music_buf, MUSICBUFLEN * 2 * sizeof(float), MUSIC_FREQ);
@@ -295,14 +296,14 @@ inital(void)
         }
     }
 
-    alSourceQueueBuffers(source[I_NORMAL], 4, buffers);
-    alSourceQueueBuffers(source[I_MUSIC], 4, buffers_music);
-    alSourceQueueBuffers(source[I_WT], 4, buffers_wt);
-    alSourceQueueBuffers(source[I_CD], 4, buffers_cd);
-    alSourceQueueBuffers(source[I_FDD], 4, buffers_fdd);
-    alSourceQueueBuffers(source[I_HDD], 4, buffers_hdd);
+    alSourceQueueBuffers(source[I_NORMAL], 8, buffers);
+    alSourceQueueBuffers(source[I_MUSIC], 8, buffers_music);
+    alSourceQueueBuffers(source[I_WT], 8, buffers_wt);
+    alSourceQueueBuffers(source[I_CD], 8, buffers_cd);
+    alSourceQueueBuffers(source[I_FDD], 8, buffers_fdd);
+    alSourceQueueBuffers(source[I_HDD], 8, buffers_hdd);
     if (init_midi)
-        alSourceQueueBuffers(source[I_MIDI], 4, buffers_midi);
+        alSourceQueueBuffers(source[I_MIDI], 8, buffers_midi);
     alSourcePlay(source[I_NORMAL]);
     alSourcePlay(source[I_MUSIC]);
     alSourcePlay(source[I_WT]);
@@ -353,6 +354,15 @@ givealbuffer_common(const void *buf, const uint8_t src, const int size, const in
     }
 
     alGetSourcei(source[src], AL_BUFFERS_PROCESSED, &processed);
+    if (processed < 1) {
+        /* Brief spin-wait: retry up to ~5ms for a buffer to become available
+           rather than silently dropping audio data. The emulation thread is
+           ahead of real-time when this occurs, so the wait is acceptable. */
+        for (int retry = 0; retry < 50 && processed < 1; retry++) {
+            plat_delay_ms(0);
+            alGetSourcei(source[src], AL_BUFFERS_PROCESSED, &processed);
+        }
+    }
     if (processed >= 1) {
         const double gain = (sound_muted) ? 0.0 : pow(10.0, (double) sound_gain / 20.0);
         alListenerf(AL_GAIN, (float) gain);
