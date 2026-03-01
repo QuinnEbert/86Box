@@ -89,6 +89,8 @@ extern "C" {
 // Void Cast
 #define VC(x) const_cast<wchar_t *>(x)
 
+#include <csignal>
+
 extern QElapsedTimer elapsed_timer;
 extern MainWindow   *main_window;
 
@@ -105,7 +107,6 @@ bool fast_forward = false;
 }
 
 #include <locale.h>
-#include <csignal>
 
 void qt_set_sequence_auto_mnemonic(bool b);
 
