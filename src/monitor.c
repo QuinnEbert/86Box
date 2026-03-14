@@ -29,8 +29,9 @@
 #    include <ws2tcpip.h>
 #else
 #    include <unistd.h>
-#    include <arpa/inet.h>
 #    include <sys/socket.h>
+#    include <netinet/in.h>
+#    include <arpa/inet.h>
 #    include <errno.h>
 #endif
 #define HAVE_STDARG_H
