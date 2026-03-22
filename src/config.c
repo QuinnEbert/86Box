@@ -31,6 +31,7 @@
 #    include <ws2tcpip.h>
 #else
 #    include <arpa/inet.h>
+#    include <sys/socket.h>
 #endif
 #include <inttypes.h>
 #ifdef ENABLE_CONFIG_LOG

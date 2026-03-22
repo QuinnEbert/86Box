@@ -97,6 +97,8 @@ if(VNC)
             vnc.c
             vnc_keymap.c
         )
+        target_include_directories(vnc PRIVATE ${LibVNCServer_INCLUDE_DIRS})
+        target_link_libraries(vnc LibVNCServer::vncserver)
         target_link_libraries(86Box vnc LibVNCServer::vncserver)
         if(WIN32)
             target_link_libraries(86Box ws2_32)

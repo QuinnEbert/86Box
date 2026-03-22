@@ -48,7 +48,7 @@ add_library(ui OBJECT
     unix_osd.c
     unix_cdrom.c
 )
-if(APPLE)
+if(APPLE OR CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
     target_sources(ui PRIVATE dummy_cdrom_ioctl.c)
 else()
     target_sources(ui PRIVATE linux_cdrom_ioctl.c)
