@@ -32,7 +32,7 @@ Harddrives::populateBuses(QAbstractItemModel *model)
     model->removeRows(0, model->rowCount());
     model->insertRows(0, 6);
 
-    model->setData(model->index(0, 0), "MFM/RLL");
+    model->setData(model->index(0, 0), "ST-506/ST-412 (MFM/RLL)");
     model->setData(model->index(1, 0), "XTA");
     model->setData(model->index(2, 0), "ESDI");
     model->setData(model->index(3, 0), "IDE");
@@ -99,6 +99,8 @@ Harddrives::populateSpeeds(QAbstractItemModel *model, int bus)
     int num_preset;
 
     switch (bus) {
+        case HDD_BUS_MFM:
+        case HDD_BUS_XTA:
         case HDD_BUS_ESDI:
         case HDD_BUS_IDE:
         case HDD_BUS_ATAPI:

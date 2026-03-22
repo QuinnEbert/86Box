@@ -1275,7 +1275,7 @@ static const device_config_t pc500_config[] = {
 };
 
 const device_t pc500_device = {
-    .name          = "Multitech PC-500",
+    .name          = "Multitech PC-500 / Franklin PC 8000",
     .internal_name = "pc500_device",
     .flags         = 0,
     .local         = 0,
@@ -1394,7 +1394,7 @@ static const device_config_t pc500plus_config[] = {
 };
 
 const device_t pc500plus_device = {
-    .name          = "Multitech PC-500 plus",
+    .name          = "Multitech PC-500+",
     .internal_name = "pc500plus_device",
     .flags         = 0,
     .local         = 0,
@@ -1472,7 +1472,7 @@ static const device_config_t pc700_config[] = {
 };
 
 const device_t pc700_device = {
-    .name           = "Multitech PC-700",
+    .name           = "Multitech PC-700 / Siemens SICOMP PC 16 05",
     .internal_name  = "pc700_device",
     .flags          = 0,
     .local          = 0,
@@ -2016,7 +2016,7 @@ machine_xt_z184_init(const machine_t *model)
     /* So that serial_standalone_init() won't do anything. */
     serial_set_next_inst(SERIAL_MAX - 1);
 
-    device_add(&cga_device);
+    device_add(&v6355d_device);
 
     return ret;
 }
@@ -2082,8 +2082,6 @@ machine_xt_tuliptc8_init(const machine_t *model)
     nmi_init();
     standalone_gameport_type = &gameport_200_device;
 
-    device_add(&amstrad_megapc_nvr_device);
-
     return ret;
 }
 
@@ -2133,8 +2131,6 @@ machine_xt_pc5086_init(const machine_t *model)
     device_add(&f82c710_pc5086_device);
 
     device_add(&kbc_xt_device);
-
-    device_add(&amstrad_megapc_nvr_device); /* NVR that is initialized to all 0x00's. */
 
     return ret;
 }

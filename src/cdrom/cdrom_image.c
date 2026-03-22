@@ -339,17 +339,20 @@ audio_init(const uint8_t id, const char *filename, int *error)
 {
     track_file_t *tf    = (track_file_t *) calloc(sizeof(track_file_t), 1);
     audio_file_t *audio = (audio_file_t *) calloc(sizeof(audio_file_t), 1);
-#ifdef _WIN32
-    wchar_t filename_w[4096];
-#endif
 
     if (tf == NULL || audio == NULL) {
         goto cleanup_error;
     }
 
+    char n[1024]        = { 0 };
+
+    sprintf(n, "CD-ROM %i Audio", id + 1);
+    tf->log          = log_open(n);
+
     memset(tf->fn, 0x00, sizeof(tf->fn));
     strncpy(tf->fn, filename, sizeof(tf->fn) - 1);
-#ifdef _WIN32
+#if 0 /* was ifdef _WIN32, fails with UTF-8 paths */
+    wchar_t filename_w[4096];
     mbstowcs(filename_w, filename, 4096);
     audio->file = sf_wchar_open(filename_w, SFM_READ, &audio->info);
 #else
@@ -357,12 +360,12 @@ audio_init(const uint8_t id, const char *filename, int *error)
 #endif
 
     if (audio->file == NULL) {
-        image_log(tf->log, "Audio file open error!");
+        image_log(tf->log, "Audio file open error: %s\n", sf_strerror(audio->file));
         goto cleanup_error;
     }
 
     if (audio->info.channels != 2 || audio->info.samplerate != 44100 || !audio->info.seekable) {
-        image_log(tf->log, "Audio file not seekable or in non-CD format!");
+        image_log(tf->log, "Audio file not seekable or in non-CD format!\n");
         sf_close(audio->file);
         goto cleanup_error;
     }
@@ -374,11 +377,6 @@ audio_init(const uint8_t id, const char *filename, int *error)
     tf->close      = audio_close;
     tf->get_length = audio_get_length;
     tf->read       = audio_read;
-
-    char n[1024]        = { 0 };
-
-    sprintf(n, "CD-ROM %i Audio", id + 1);
-    tf->log          = log_open(n);
 
     return tf;
 cleanup_error:
@@ -1539,6 +1537,11 @@ image_load_cue(cd_image_t *img, const char *cuefile)
     if (fp == NULL)
         return 0;
 
+    /* Skip the UTF-8 BOM, if any. */
+    if ((fread(buf, 1, 3, fp) < 3) ||
+        (uint8_t) buf[0] != 0xEF || (uint8_t) buf[1] != 0xBB || (uint8_t) buf[2] != 0xBF)
+        rewind(fp);
+
     int            success = 0;
 
     /*
@@ -2030,9 +2033,6 @@ mds_decrypt_track_data(cd_image_t *img, const char *mdsfile, FILE **fp)
     PCRYPTO_INFO ci;
     decode1(data1, NULL, &ci);
     image_log(img->log, "data1: %02X %02X %02X %02X\n", data1[0], data1[1], data1[2], data1[3]);
-    FILE *d1f = fopen("data1.tmp", "wb");
-    fwrite(data1, 1, 0x200, d1f);
-    fclose(d1f);
     image_log(img->log, "mds_decrypt_track_data(): Decoded the first data buffer\n");
 
     /* Compressed size at 0x150? */
@@ -2153,7 +2153,6 @@ mds_decrypt_track_data(cd_image_t *img, const char *mdsfile, FILE **fp)
 
     *fp = plat_fopen64(nvr_path(temp_file), "wb");
     fwrite(mdxHeader, 1, decSize + 0x12, *fp);
-    fclose(*fp);
 
     fclose(*fp);
     *fp = NULL;
@@ -2965,7 +2964,7 @@ image_close(void *local)
         free(img);
 
         if (temp_file[0] != 0x00) {
-            remove(temp_file);
+            remove(nvr_path(temp_file));
             temp_file[0] = 0x00;
         }
     }

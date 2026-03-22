@@ -10,6 +10,7 @@ class Settings;
 class SettingsMachine;
 class SettingsDisplay;
 class SettingsInput;
+class SettingsKeyBindings;
 class SettingsSound;
 class SettingsNetwork;
 class SettingsPorts;
@@ -31,12 +32,14 @@ public:
     static Settings *settings;
 protected slots:
     void accept() override;
+    void reject() override;
 
 private:
     Ui::Settings               *ui;
     SettingsMachine            *machine;
     SettingsDisplay            *display;
     SettingsInput              *input;
+    SettingsKeyBindings        *key_bindings;
     SettingsSound              *sound;
     SettingsNetwork            *network;
     SettingsPorts              *ports;

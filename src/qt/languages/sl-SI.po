@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2025-11-29 00:34+0000\n"
+"PO-Revision-Date: 2026-03-10 14:03+0000\n"
 "Last-Translator: OBattler <oubattler@gmail.com>\n"
 "Language-Team: Slovenian <https://weblate.86box.net/projects/86box/86box/sl/>"
 "\n"
@@ -353,6 +353,15 @@ msgstr "Višina:"
 msgid "Lock to this size"
 msgstr "Zakleni na to velikost"
 
+msgid "General"
+msgstr "Splošno"
+
+msgid "Processor"
+msgstr "Procesor"
+
+msgid "Performance"
+msgstr "Učinkovitost"
+
 msgid "Machine type:"
 msgstr "Vrsta sistema:"
 
@@ -374,8 +383,14 @@ msgstr "Hitrost:"
 msgid "Frequency:"
 msgstr "Takt:"
 
+msgid "%1 MHz"
+msgstr "%1 MHz"
+
 msgid "FPU:"
 msgstr "Procesor plavajoče vejice:"
+
+msgid "Internal"
+msgstr "Vgrajen"
 
 msgid "Wait states:"
 msgstr "Čakalna stanja:"
@@ -398,6 +413,9 @@ msgstr "Omogočeno (lokalni čas)"
 msgid "Enabled (UTC)"
 msgstr "Omogočeno (UTC)"
 
+msgid "Use the 486 interpreter for 286 and 386 processors"
+msgstr "Uporabi interpreter za 486 tudi za procesorje 286 in 386"
+
 msgid "Dynamic Recompiler"
 msgstr "Dinamični prevajalnik"
 
@@ -415,6 +433,9 @@ msgstr "Video:"
 
 msgid "Video #2:"
 msgstr "Video 2:"
+
+msgid "Accelerators"
+msgstr "Pospeševalniki"
 
 msgid "Voodoo 1 or 2 Graphics"
 msgstr "Grafika Voodoo 1 ali 2"
@@ -485,8 +506,8 @@ msgstr "Samostojen MPU-401"
 msgid "Use FLOAT32 sound"
 msgstr "Uporabi FLOAT32 za zvok"
 
-msgid "FM synth driver"
-msgstr "Gonilnik sintetizacije FM"
+msgid "FM synth driver:"
+msgstr "Gonilnik sintetizacije FM:"
 
 msgid "Nuked (more accurate)"
 msgstr "Nuked (natančnejši)"
@@ -623,8 +644,8 @@ msgstr "Format slike:"
 msgid "Block Size:"
 msgstr "Velikost bloka:"
 
-msgid "Floppy drives:"
-msgstr "Disketni pogoni:"
+msgid "Floppy drives"
+msgstr "Disketni pogoni"
 
 msgid "Turbo timings"
 msgstr "Turbo časovniki"
@@ -632,23 +653,26 @@ msgstr "Turbo časovniki"
 msgid "Check BPB"
 msgstr "Preverjaj BPB"
 
-msgid "CD-ROM drives:"
-msgstr "Pogoni CD-ROM:"
+msgid "CD-ROM drives"
+msgstr "Pogoni CD-ROM"
 
-msgid "MO drives:"
-msgstr "Magnetno-optični pogoni:"
+msgid "MO drives"
+msgstr "Magnetno-optični pogoni"
 
 msgid "MO:"
 msgstr "Magneto-optični:"
 
+msgid "Removable disk drives"
+msgstr "Odstranljivi diskovni pogoni"
+
 msgid "Removable disks:"
 msgstr "Odstranljivi diski:"
 
-msgid "Removable disk drives:"
-msgstr "Odstranljivi diskovni pogoni:"
+msgid "Tape drives"
+msgstr "Tračne enote"
 
-msgid "ZIP 250"
-msgstr "ZIP 250"
+msgid "Tape drives:"
+msgstr "Tračne enote:"
 
 msgid "ISA RTC:"
 msgstr "Ura realnega časa ISA:"
@@ -706,6 +730,15 @@ msgstr "&Odstranljivi disk %1 (%2): %3"
 
 msgid "Removable disk images"
 msgstr "Slike odstranljivih diskov"
+
+msgid "Tape %1 (%2): %3"
+msgstr "Trak %1 (%2): %3"
+
+msgid "&Tape %1 (%2): %3"
+msgstr "&Trak %1 (%2): %3"
+
+msgid "Tape images"
+msgstr "Tračne slike"
 
 msgid "Image %1"
 msgstr "Slika %1"
@@ -770,8 +803,14 @@ msgstr "Vrata (COM & LPT)"
 msgid "Ports"
 msgstr "Vrata"
 
+msgid "Serial ports"
+msgstr "Serijska vrata"
+
 msgid "Serial ports:"
 msgstr "Serijska vrata:"
+
+msgid "Parallel ports"
+msgstr "Paralelna vrata"
 
 msgid "Parallel ports:"
 msgstr "Paralelna vrata:"
@@ -818,14 +857,8 @@ msgstr "Vodilo"
 msgid "File"
 msgstr "Datoteka"
 
-msgid "C"
-msgstr "C"
-
-msgid "H"
-msgstr "H"
-
-msgid "S"
-msgstr "S"
+msgid "Geometry"
+msgstr "Geometrija"
 
 msgid "KB"
 msgstr "KB"
@@ -1028,14 +1061,9 @@ msgstr "%1 je potreben za samodejno pretvorbo datotek PCL v PDF.\n\nVsi dokument
 msgid "Don't show this message again"
 msgstr "Ne pokaži več tega sporočila"
 
-msgid "Don't exit"
-msgstr "Prekliči izhod"
-
+#, fuzzy
 msgid "Reset"
 msgstr "Znova zaženi"
-
-msgid "Don't reset"
-msgstr "Ne zaženi znova"
 
 msgid "CD-ROM images"
 msgstr "Slike CD-ROM"
@@ -1541,9 +1569,6 @@ msgstr "DMF (gruča 2048)"
 msgid "2.88 MB"
 msgstr "2.88 MB"
 
-msgid "ZIP 100"
-msgstr "ZIP 100"
-
 msgid "3.5\" 128 MB (ISO 10090)"
 msgstr "3.5\" 128 MB (ISO 10090)"
 
@@ -1585,6 +1610,9 @@ msgstr "1.5% pod popolnimi obrati"
 
 msgid "2% below perfect RPM"
 msgstr "2% pod popolnimi obrati"
+
+msgid "Creating image…"
+msgstr "Slika se ustvarja…"
 
 msgid "(System Default)"
 msgstr "(Sistemsko privzeto)"
@@ -1667,8 +1695,8 @@ msgstr "&Kazalec/ključ"
 msgid "&Pen"
 msgstr "&Pisalo"
 
-msgid "&Host CD/DVD Drive (%1:)"
-msgstr "&Gostiteljski pogon CD/DVD (%1:)"
+msgid "&Host CD/DVD Drive (%1)"
+msgstr "&Gostiteljski pogon CD/DVD (%1)"
 
 msgid "&Connected"
 msgstr "&Povezan"
@@ -2675,6 +2703,12 @@ msgstr "Visok učinek na hitrost delovanja"
 msgid "[Generic] RAM Disk (max. speed)"
 msgstr "[Generični] Pomnilniški disk (največja hitrost)"
 
+msgid "[Generic] 1983 MFM (3600 RPM)"
+msgstr "[Generični] 1983 MFM (3600 vrtlj./min.)"
+
+msgid "[Generic] 1983 RLL (3600 RPM)"
+msgstr "[Generični] 1983 RLL (3600 vrtlj./min.)"
+
 msgid "[Generic] 1989 (3500 RPM)"
 msgstr "[Generični] 1989 (3500 vrtlj./min.)"
 
@@ -2777,8 +2811,8 @@ msgstr "Premakni dol"
 msgid "Could not load file %1"
 msgstr "Ni bilo mogoče naložiti datoteke %1"
 
-msgid "Key Bindings:"
-msgstr "Kombinacije tipk:"
+msgid "Key bindings"
+msgstr "Kombinacije tipk"
 
 msgid "Action"
 msgstr "Dejanje"
@@ -2840,8 +2874,8 @@ msgstr "Lokalno stikalo"
 msgid "Remote Switch"
 msgstr "Oddaljeno stikalo"
 
-msgid "Switch:"
-msgstr "Stikalo:"
+msgid "Shared secret:"
+msgstr "Skupna skrivnost:"
 
 msgid "Hub Mode"
 msgstr "Način koncentratorja"

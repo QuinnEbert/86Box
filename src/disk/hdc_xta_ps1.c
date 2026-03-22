@@ -97,7 +97,8 @@
 #include <86box/ui.h>
 #include <86box/machine.h>
 
-#define HDC_TIME      (250 * TIMER_USEC)
+#define HDC_TIME         (10 * TIMER_USEC)
+#define HDC_SECTOR_TIME  (250 * TIMER_USEC)
 #define HDC_TYPE_USER 47 /* user drive type */
 
 enum {
@@ -381,6 +382,7 @@ typedef struct hdc_t {
     pc_timer_t timer;
     int8_t     state; /* controller state */
     int8_t     reset; /* reset state counter */
+    int8_t     ready; /* ready state counter */
 
     /* Data transfer. */
     int16_t buf_idx; /* buffer index and pointer */
@@ -717,11 +719,19 @@ hdc_callback(void *priv)
     ccb_t   *ccb = &dev->ccb;
     drive_t *drive;
     off64_t  addr;
-    int      no_data = 0;
     int      val;
 #ifdef ENABLE_PS1_HDC_LOG
     uint8_t  cmd = ccb->cmd & 0x0f;
 #endif
+
+    /* If we are returning from a RESET, handle this first. */
+    if (dev->reset) {
+        ps1_hdc_log("XTA reset.\n");
+        dev->status &= ~ASR_BUSY;
+        dev->reset = 0;
+        do_finish(dev);
+        return;
+    }
 
     /* Clear the SSB error bits. */
     dev->ssb.track_0        = 0;
@@ -744,13 +754,19 @@ hdc_callback(void *priv)
 
     switch (ccb->cmd) {
         case CMD_READ_VERIFY:
-            no_data = 1;
+            ccb->no_data = 1;
             fallthrough;
 
         case CMD_READ_SECTORS:
             if (!drive->present) {
                 dev->ssb.not_ready = 1;
                 do_finish(dev);
+                return;
+            }
+
+            if (!(dev->ready | ccb->no_data)) {
+                /* Delay a bit, transfer not ready. */
+                timer_advance_u64(&dev->timer, HDC_TIME);
                 return;
             }
 
@@ -793,8 +809,9 @@ do_send:
 
                     /* Ready to transfer the data out. */
                     dev->state   = STATE_SDATA;
+                    dev->status |= ASR_TX_EN;
                     dev->buf_idx = 0;
-                    if (no_data) {
+                    if (ccb->no_data) {
                         /* Delay a bit, no actual transfer. */
                         timer_advance_u64(&dev->timer, HDC_TIME);
                     } else {
@@ -816,7 +833,7 @@ do_send:
                     break;
 
                 case STATE_SDATA:
-                    if (!no_data) {
+                    if (!ccb->no_data) {
                         /* Perform DMA. */
                         while (dev->buf_idx < dev->buf_len) {
                             val = dma_channel_write(dev->dma,
@@ -836,7 +853,7 @@ do_send:
                         }
                     }
                     dev->state = STATE_SDONE;
-                    timer_advance_u64(&dev->timer, HDC_TIME);
+                    timer_advance_u64(&dev->timer, HDC_SECTOR_TIME);
                     break;
 
                 case STATE_SDONE:
@@ -937,13 +954,16 @@ do_send:
             break;
 
         case CMD_WRITE_VERIFY:
-            no_data = 1;
-            fallthrough;
-
         case CMD_WRITE_SECTORS:
             if (!drive->present) {
                 dev->ssb.not_ready = 1;
                 do_finish(dev);
+                return;
+            }
+
+            if (!(dev->ready | ccb->no_data)) {
+                /* Delay a bit, transfer not ready. */
+                timer_advance_u64(&dev->timer, HDC_TIME);
                 return;
             }
 
@@ -973,8 +993,9 @@ do_send:
 do_recv:
                     /* Ready to transfer the data in. */
                     dev->state   = STATE_RDATA;
+                    dev->status |= ASR_TX_EN;
                     dev->buf_idx = 0;
-                    if (no_data) {
+                    if (ccb->no_data) {
                         /* Delay a bit, no actual transfer. */
                         timer_advance_u64(&dev->timer, HDC_TIME);
                     } else {
@@ -991,7 +1012,7 @@ do_recv:
                     break;
 
                 case STATE_RDATA:
-                    if (!no_data) {
+                    if (!ccb->no_data) {
                         /* Perform DMA. */
                         while (dev->buf_idx < dev->buf_len) {
                             val = dma_channel_read(dev->dma);
@@ -1011,7 +1032,7 @@ do_recv:
                         }
                     }
                     dev->state = STATE_RDONE;
-                    timer_advance_u64(&dev->timer, HDC_TIME);
+                    timer_advance_u64(&dev->timer, HDC_SECTOR_TIME);
                     break;
 
                 case STATE_RDONE:
@@ -1165,6 +1186,7 @@ hdc_read(uint16_t port, void *priv)
             break;
 
         case 4: /* ISR */
+            dev->status &= ~ASR_INT_REQ;
             ret          = dev->intstat;
             dev->intstat = 0x00;
             break;
@@ -1206,6 +1228,7 @@ hdc_write(uint16_t port, uint8_t val, void *priv)
                     /* We got all the data we need. */
                     dev->status &= ~ASR_DATA_REQ;
                     dev->state = STATE_IDLE;
+                    set_intr(dev, 1);
 
                     /* If we were receiving a CCB, execute it. */
                     if (dev->attn & ATT_CCB) {
@@ -1220,7 +1243,7 @@ hdc_write(uint16_t port, uint8_t val, void *priv)
                             dev->status |= ASR_BUSY;
 
                         /* Schedule command execution. */
-                        timer_set_delay_u64(&dev->timer, HDC_TIME);
+                        timer_set_delay_u64(&dev->timer, HDC_SECTOR_TIME);
                     }
                 }
             }
@@ -1231,24 +1254,20 @@ hdc_write(uint16_t port, uint8_t val, void *priv)
             if (val & ACR_INT_EN)
                 set_intr(dev, 0); /* clear IRQ */
 
-            if (dev->reset != 0) {
-                if (++dev->reset == 3) {
-                    dev->reset = 0;
-
-                    set_intr(dev, 1);
-                }
-                break;
-            }
-
-            if (val & ACR_RESET)
+            if (val & ACR_RESET) {
                 dev->reset = 1;
+                dev->status |= ASR_BUSY;
+                /* Schedule command execution. */
+                timer_set_delay_u64(&dev->timer, HDC_TIME);
+            }
             break;
 
         case 4: /* ATTN */
             dev->status &= ~ASR_INT_REQ;
-            if (val & ATT_DATA) {
-                /* Dunno. Start PIO/DMA now? */
-            }
+            if (val & ATT_DATA)
+                dev->ready = 1;
+            else
+                dev->ready = 0;
 
             if (val & ATT_SSB) {
                 if (dev->attn & ATT_CCB) {
@@ -1279,7 +1298,6 @@ hdc_write(uint16_t port, uint8_t val, void *priv)
 
                 dev->state = STATE_RDATA;
                 dev->status |= ASR_DATA_REQ;
-                set_intr(dev, 1);
             }
             break;
 

@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2026-01-28 08:57+0000\n"
+"PO-Revision-Date: 2026-03-10 14:03+0000\n"
 "Last-Translator: OBattler <oubattler@gmail.com>\n"
 "Language-Team: Swedish <https://weblate.86box.net/projects/86box/86box/sv/>\n"
 "Language: sv-SE\n"
@@ -351,6 +351,15 @@ msgstr "Höjd:"
 msgid "Lock to this size"
 msgstr "Lås till denna storlek"
 
+msgid "General"
+msgstr "Allmänt"
+
+msgid "Processor"
+msgstr "Processor"
+
+msgid "Performance"
+msgstr "Prestanda"
+
 msgid "Machine type:"
 msgstr "Maskintyp:"
 
@@ -372,8 +381,14 @@ msgstr "Hastighet:"
 msgid "Frequency:"
 msgstr "Frekvens:"
 
+msgid "%1 MHz"
+msgstr "%1 MHz"
+
 msgid "FPU:"
 msgstr "Flyttalsprocessor:"
+
+msgid "Internal"
+msgstr "Integrerad"
 
 msgid "Wait states:"
 msgstr "Väntcykler:"
@@ -396,6 +411,9 @@ msgstr "Aktiverad (lokal tid)"
 msgid "Enabled (UTC)"
 msgstr "Aktiverad (UTC)"
 
+msgid "Use the 486 interpreter for 286 and 386 processors"
+msgstr "Använd 486-tolken för 286- och 386-processorer"
+
 msgid "Dynamic Recompiler"
 msgstr "Dynamisk omkompilering"
 
@@ -413,6 +431,9 @@ msgstr "Bildskärmskort:"
 
 msgid "Video #2:"
 msgstr "Bildskärmskort #2:"
+
+msgid "Accelerators"
+msgstr "Acceleratorer"
 
 msgid "Voodoo 1 or 2 Graphics"
 msgstr "Voodoo 1 eller 2-grafik"
@@ -483,8 +504,8 @@ msgstr "Fristående MPU-401"
 msgid "Use FLOAT32 sound"
 msgstr "Använd FLOAT32-ljud"
 
-msgid "FM synth driver"
-msgstr "Drivrutin för FM-synt"
+msgid "FM synth driver:"
+msgstr "Drivrutin för FM-synt:"
 
 msgid "Nuked (more accurate)"
 msgstr "Nuked (mer exakt)"
@@ -621,8 +642,8 @@ msgstr "Avbildningsformat:"
 msgid "Block Size:"
 msgstr "Blockstorlek:"
 
-msgid "Floppy drives:"
-msgstr "Diskettenhet:"
+msgid "Floppy drives"
+msgstr "Diskettenhet"
 
 msgid "Turbo timings"
 msgstr "Turbo timings"
@@ -630,23 +651,26 @@ msgstr "Turbo timings"
 msgid "Check BPB"
 msgstr "Kontrollera BPB"
 
-msgid "CD-ROM drives:"
-msgstr "CD-ROM-enheter:"
+msgid "CD-ROM drives"
+msgstr "CD-ROM-enheter"
 
-msgid "MO drives:"
-msgstr "MO-enheter:"
+msgid "MO drives"
+msgstr "MO-enheter"
 
 msgid "MO:"
 msgstr "MO:"
 
+msgid "Removable disk drives"
+msgstr "Enheter för flyttbara diskar"
+
 msgid "Removable disks:"
 msgstr "Flyttbara diskar:"
 
-msgid "Removable disk drives:"
-msgstr "Enheter för flyttbara diskar:"
+msgid "Tape drives"
+msgstr "Bandenhet"
 
-msgid "ZIP 250"
-msgstr "ZIP 250"
+msgid "Tape drives:"
+msgstr "Bandenhet:"
 
 msgid "ISA RTC:"
 msgstr "ISA realtidsklocka:"
@@ -704,6 +728,15 @@ msgstr "&Flyttbar disk %1 (%2): %3"
 
 msgid "Removable disk images"
 msgstr "Flyttbara disk-avbildningar"
+
+msgid "Tape %1 (%2): %3"
+msgstr "Band %1 (%2): %3"
+
+msgid "&Tape %1 (%2): %3"
+msgstr "&Band %1 (%2): %3"
+
+msgid "Tape images"
+msgstr "Band-avbildningar"
 
 msgid "Image %1"
 msgstr "Avbildning %1"
@@ -768,8 +801,14 @@ msgstr "Portar (COM & LPT)"
 msgid "Ports"
 msgstr "Portar"
 
+msgid "Serial ports"
+msgstr "Serieportar"
+
 msgid "Serial ports:"
 msgstr "Serieportar:"
+
+msgid "Parallel ports"
+msgstr "Parallelportar"
 
 msgid "Parallel ports:"
 msgstr "Parallelportar:"
@@ -816,14 +855,8 @@ msgstr "Buss"
 msgid "File"
 msgstr "Fil"
 
-msgid "C"
-msgstr "C"
-
-msgid "H"
-msgstr "H"
-
-msgid "S"
-msgstr "S"
+msgid "Geometry"
+msgstr "Geometri"
 
 msgid "KB"
 msgstr "KB"
@@ -1026,14 +1059,9 @@ msgstr "%1 krävs för automatisk omvandling av PCL-filer till PDF.\n\nAlla doku
 msgid "Don't show this message again"
 msgstr "Visa inte detta meddelande igen"
 
-msgid "Don't exit"
-msgstr "Avsluta inte"
-
+#, fuzzy
 msgid "Reset"
 msgstr "Starta om"
-
-msgid "Don't reset"
-msgstr "Starta inte om"
 
 msgid "CD-ROM images"
 msgstr "CD-ROM-avbildningar"
@@ -1539,9 +1567,6 @@ msgstr "DMF (kluster 2048)"
 msgid "2.88 MB"
 msgstr "2.88 MB"
 
-msgid "ZIP 100"
-msgstr "ZIP 100"
-
 msgid "3.5\" 128 MB (ISO 10090)"
 msgstr "3.5\" 128 MB (ISO 10090)"
 
@@ -1583,6 +1608,9 @@ msgstr "1.5% under perfekt varv/min"
 
 msgid "2% below perfect RPM"
 msgstr "2& under perfekt varm/min"
+
+msgid "Creating image…"
+msgstr "Skapar avbildning…"
 
 msgid "(System Default)"
 msgstr "(Systemstandard)"
@@ -1665,8 +1693,8 @@ msgstr "&Pekare/puck"
 msgid "&Pen"
 msgstr "P&enna"
 
-msgid "&Host CD/DVD Drive (%1:)"
-msgstr "&Värdenhet för CD/DVD (%1:)"
+msgid "&Host CD/DVD Drive (%1)"
+msgstr "&Värdenhet för CD/DVD (%1)"
 
 msgid "&Connected"
 msgstr "&Ansluten"
@@ -2673,6 +2701,12 @@ msgstr "Hög påverkan på prestanda"
 msgid "[Generic] RAM Disk (max. speed)"
 msgstr "[Allmän] RAM-disk (max hastighet)"
 
+msgid "[Generic] 1983 MFM (3600 RPM)"
+msgstr "[Allmän] 1983 MFM (3600 varv/min)"
+
+msgid "[Generic] 1983 RLL (3600 RPM)"
+msgstr "[Allmän] 1983 RLL (3600 varv/min)"
+
 msgid "[Generic] 1989 (3500 RPM)"
 msgstr "[Allmän] 1989 (3500 varv/min)"
 
@@ -2775,8 +2809,8 @@ msgstr "Flytta ner"
 msgid "Could not load file %1"
 msgstr "Kunde inte ladda fil %1"
 
-msgid "Key Bindings:"
-msgstr "Tangentbindningar:"
+msgid "Key bindings"
+msgstr "Tangentbindningar"
 
 msgid "Action"
 msgstr "Handling"
@@ -2838,8 +2872,8 @@ msgstr "Lokal switch"
 msgid "Remote Switch"
 msgstr "Fjärr-switch"
 
-msgid "Switch:"
-msgstr "Switch:"
+msgid "Shared secret:"
+msgstr "Delad hemlighet:"
 
 msgid "Hub Mode"
 msgstr "Hubb-läge"

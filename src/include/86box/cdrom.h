@@ -191,6 +191,7 @@ static const struct cdrom_drive_types_s {
     { "TOSHIBA",  "DVD-ROM SD-M1802", "1051", "toshiba_m1802",  BUS_TYPE_IDE,  0, 48, 96, 0, 1, {  4,  2,  2,  2 } },
     { "CHINON",   "CD-ROM CDS-431",   "H42 ", "chinon_431",     BUS_TYPE_SCSI, 1,  1, 36, 1, 0, { -1, -1, -1, -1 } },
     { "CHINON",   "CD-ROM CDX-435",   "M62 ", "chinon_435",     BUS_TYPE_SCSI, 1,  2, 36, 1, 0, { -1, -1, -1, -1 } },
+    { "DEC",      "RRD42   (C) DEC",  "4.5d", "dec_42",         BUS_TYPE_SCSI, 1,  1, 36, 0, 0, { -1, -1, -1, -1 } },
     { "DEC",      "RRD45   (C) DEC",  "0436", "dec_45",         BUS_TYPE_SCSI, 1,  4, 36, 0, 0, { -1, -1, -1, -1 } },
     { "MATSHITA", "CD-ROM CR-501",    "1.0b", "matshita_501",   BUS_TYPE_SCSI, 1,  1, 36, 1, 0, { -1, -1, -1, -1 } },
     { "NEC",      "CD-ROM DRIVE:25",  "1.0a", "nec_25",         BUS_TYPE_SCSI, 1,  2, 36, 0, 0, { -1, -1, -1, -1 } },
@@ -239,7 +240,9 @@ static const struct cdrom_drive_types_s {
     { "MATSHITA", "CR-562",           "0.75", "cr562",          BUS_TYPE_MKE , 0,  2,  0, 0, 0, { -1, -1, -1, -1 } },
     { "MATSHITA", "CR-562",           "0.76", "cr562_076",      BUS_TYPE_MKE , 0,  2,  0, 0, 0, { -1, -1, -1, -1 } },
     { "MATSHITA", "CR-562",           "0.80", "cr562_080",      BUS_TYPE_MKE , 0,  2,  0, 0, 0, { -1, -1, -1, -1 } },
-    { "MATSHITA", "CR-563",           "0.75", "cr563",          BUS_TYPE_MKE , 0,  2,  0, 0, 0, { -1, -1, -1, -1 } },
+    { "MATSHITA", "CR-562",           "081k", "cr562_081k",     BUS_TYPE_MKE , 0,  2,  0, 0, 0, { -1, -1, -1, -1 } },
+    { "MATSHITA", "CR-563",           "0.74", "cr563",          BUS_TYPE_MKE , 0,  2,  0, 0, 0, { -1, -1, -1, -1 } },
+    { "MATSHITA", "CR-563",           "0.75", "cr563_075",      BUS_TYPE_MKE , 0,  2,  0, 0, 0, { -1, -1, -1, -1 } },
     { "MATSHITA", "CR-563",           "0.80", "cr563_080",      BUS_TYPE_MKE , 0,  2,  0, 0, 0, { -1, -1, -1, -1 } },
     { "",         "",                 "",     "",               BUS_TYPE_NONE, 0, -1,  0, 0, 0, { -1, -1, -1, -1 } }
 };

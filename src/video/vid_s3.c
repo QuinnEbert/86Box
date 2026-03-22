@@ -11606,6 +11606,14 @@ s3_init(const device_t *info)
 
     if (vram)
         vram_size = vram << 20;
+    else if (info->local == S3_86C805_ONBOARD) {
+        vram_size = 1024 << 10;
+        vram = 1;
+    }
+    else if (info->local == S3_PHOENIX_TRIO32_ONBOARD) {
+        vram_size = 1024 << 10;
+        vram = 1;
+    }
     else
         vram_size = 512 << 10;
 
@@ -12599,7 +12607,6 @@ static const device_config_t s3_phoenix_trio32_v_config[] = {
         .file_filter    = NULL,
         .spinner        = { 0 },
         .selection      = {
-            { .description = "512 KB", .value = 0 },
             { .description = "1 MB",   .value = 1 },
             { .description = "2 MB",   .value = 2 },
             { .description = ""                   }
@@ -12633,6 +12640,36 @@ static const device_config_t s3_trio64v_config[] = {
             { .description = "1 MB", .value = 1 },
             { .description = "2 MB", .value = 2 },
             { .description = "4 MB", .value = 4 },
+            { .description = ""                 }
+        },
+        .bios           = { { 0 } }
+    },
+    {
+        .name           = "colorkey",
+        .description    = "Video chroma-keying",
+        .type           = CONFIG_BINARY,
+        .default_string = NULL,
+        .default_int    = 1,
+        .file_filter    = NULL,
+        .spinner        = { 0 },
+        .selection      = { { 0 } },
+        .bios           = { { 0 } }
+    },
+    { .name = "", .description = "", .type = CONFIG_END }
+};
+
+static const device_config_t s3_trio64v_onboard_config[] = {
+    {
+        .name           = "memory",
+        .description    = "Memory size",
+        .type           = CONFIG_SELECTION,
+        .default_string = NULL,
+        .default_int    = 2,
+        .file_filter    = NULL,
+        .spinner        = { 0 },
+        .selection      = {
+            { .description = "1 MB", .value = 1 },
+            { .description = "2 MB", .value = 2 },
             { .description = ""                 }
         },
         .bios           = { { 0 } }
@@ -12741,7 +12778,7 @@ const device_t s3_diamond_stealth_vram_isa_device = {
 };
 
 const device_t s3_ami_86c924_isa_device = {
-    .name          = "S3 86c924 ISA (AMI)",
+    .name          = "S3 86c924 ISA (AMI Graphics Accelerator 215X)",
     .internal_name = "ami_s3_924",
     .flags         = DEVICE_ISA16,
     .local         = S3_AMI_86C924,
@@ -12755,7 +12792,7 @@ const device_t s3_ami_86c924_isa_device = {
 };
 
 const device_t s3_spea_mirage_86c801_isa_device = {
-    .name          = "S3 86c801 ISA (SPEA Mirage ISA)",
+    .name          = "S3 86c801 ISA (SPEA V7-Mirage ISA)",
     .internal_name = "px_s3_v7_801_isa",
     .flags         = DEVICE_ISA16,
     .local         = S3_SPEA_MIRAGE_86C801,
@@ -12793,11 +12830,11 @@ const device_t s3_86c805_onboard_vlb_device = {
     .available     = NULL,
     .speed_changed = s3_speed_changed,
     .force_redraw  = s3_force_redraw,
-    .config        = s3_9fx_config
+    .config        = NULL
 };
 
 const device_t s3_spea_mirage_86c805_vlb_device = {
-    .name          = "S3 86c805 VLB (SPEA Mirage VL)",
+    .name          = "S3 86c805 VLB (SPEA V7-Mirage VL)",
     .internal_name = "px_s3_v7_805_vlb",
     .flags         = DEVICE_VLB,
     .local         = S3_SPEA_MIRAGE_86C805,
@@ -12811,7 +12848,7 @@ const device_t s3_spea_mirage_86c805_vlb_device = {
 };
 
 const device_t s3_mirocrystal_8s_805_vlb_device = {
-    .name          = "S3 86c805 VLB (MiroCRYSTAL 8S)",
+    .name          = "S3 86c805 VLB (miroCRYSTAL 8S)",
     .internal_name = "mirocrystal8s_vlb",
     .flags         = DEVICE_VLB,
     .local         = S3_MIROCRYSTAL8S_805,
@@ -12825,7 +12862,7 @@ const device_t s3_mirocrystal_8s_805_vlb_device = {
 };
 
 const device_t s3_mirocrystal_10sd_805_vlb_device = {
-    .name          = "S3 86c805 VLB (MiroCRYSTAL 10SD)",
+    .name          = "S3 86c805 VLB (miroCRYSTAL 10SD)",
     .internal_name = "mirocrystal10sd_vlb",
     .flags         = DEVICE_VLB,
     .local         = S3_MIROCRYSTAL10SD_805,
@@ -12938,7 +12975,7 @@ const device_t s3_elsa_winner1000_86c928_pci_device = {
 
 
 const device_t s3_spea_mercury_lite_86c928_pci_device = {
-    .name          = "S3 86c928 PCI (SPEA Mercury Lite)",
+    .name          = "S3 86c928 PCI (SPEA V7-Mercury Lite)",
     .internal_name = "spea_mercurylite_pci",
     .flags         = DEVICE_PCI,
     .local         = S3_SPEA_MERCURY_LITE_PCI,
@@ -12952,7 +12989,7 @@ const device_t s3_spea_mercury_lite_86c928_pci_device = {
 };
 
 const device_t s3_mirocrystal_20sd_864_vlb_device = {
-    .name          = "S3 Vision864 VLB (MiroCRYSTAL 20SD)",
+    .name          = "S3 Vision864 VLB (miroCRYSTAL 20SD)",
     .internal_name = "mirocrystal20sd_vlb",
     .flags         = DEVICE_VLB,
     .local         = S3_MIROCRYSTAL20SD_864,
@@ -12994,7 +13031,7 @@ const device_t s3_bahamas64_pci_device = {
 };
 
 const device_t s3_mirocrystal_20sv_964_vlb_device = {
-    .name          = "S3 Vision964 VLB (MiroCRYSTAL 20SV)",
+    .name          = "S3 Vision964 VLB (miroCRYSTAL 20SV)",
     .internal_name = "mirocrystal20sv_vlb",
     .flags         = DEVICE_VLB,
     .local         = S3_MIROCRYSTAL20SV_964,
@@ -13008,7 +13045,7 @@ const device_t s3_mirocrystal_20sv_964_vlb_device = {
 };
 
 const device_t s3_mirocrystal_20sv_964_pci_device = {
-    .name          = "S3 Vision964 PCI (MiroCRYSTAL 20SV)",
+    .name          = "S3 Vision964 PCI (miroCRYSTAL 20SV)",
     .internal_name = "mirocrystal20sv_pci",
     .flags         = DEVICE_PCI,
     .local         = S3_MIROCRYSTAL20SV_964,
@@ -13050,7 +13087,7 @@ const device_t s3_diamond_stealth64_964_pci_device = {
 };
 
 const device_t s3_diamond_stealth64_968_vlb_device = {
-    .name          = "S3 Vision968 VLB (Diamond Stealth64 Video VRAM)",
+    .name          = "S3 Vision968 VLB (Diamond Stealth64 Video 3000)",
     .internal_name = "stealth64vv_vlb",
     .flags         = DEVICE_VLB,
     .local         = S3_DIAMOND_STEALTH64_968,
@@ -13064,7 +13101,7 @@ const device_t s3_diamond_stealth64_968_vlb_device = {
 };
 
 const device_t s3_diamond_stealth64_968_pci_device = {
-    .name          = "S3 Vision968 PCI (Diamond Stealth64 Video VRAM)",
+    .name          = "S3 Vision968 PCI (Diamond Stealth64 Video 3000 Ver. 2)",
     .internal_name = "stealth64vv_pci",
     .flags         = DEVICE_PCI,
     .local         = S3_DIAMOND_STEALTH64_968,
@@ -13078,7 +13115,7 @@ const device_t s3_diamond_stealth64_968_pci_device = {
 };
 
 const device_t s3_9fx_771_pci_device = {
-    .name          = "S3 Vision968 PCI (Number 9 9FX 771)",
+    .name          = "S3 Vision968 PCI (Number Nine 9FX Motion 771)",
     .internal_name = "n9_9fx_771_pci",
     .flags         = DEVICE_PCI,
     .local         = S3_NUMBER9_9FX_771,
@@ -13106,7 +13143,7 @@ const device_t s3_phoenix_vision968_pci_device = {
 };
 
 const device_t s3_mirovideo_40sv_ergo_968_pci_device = {
-    .name          = "S3 Vision968 PCI (MiroVIDEO 40SV Ergo)",
+    .name          = "S3 Vision968 PCI (miroVIDEO 40SV Ergo)",
     .internal_name = "mirovideo40sv_pci",
     .flags         = DEVICE_PCI,
     .local         = S3_MIROVIDEO40SV_ERGO_968,
@@ -13120,7 +13157,7 @@ const device_t s3_mirovideo_40sv_ergo_968_pci_device = {
 };
 
 const device_t s3_spea_mercury_p64v_pci_device = {
-    .name          = "S3 Vision968 PCI (SPEA Mercury P64V)",
+    .name          = "S3 Vision968 PCI (SPEA V7-Mercury P64V)",
     .internal_name = "spea_mercury64p_pci",
     .flags         = DEVICE_PCI,
     .local         = S3_SPEA_MERCURY_P64V,
@@ -13134,7 +13171,7 @@ const device_t s3_spea_mercury_p64v_pci_device = {
 };
 
 const device_t s3_9fx_vlb_device = {
-    .name          = "S3 Trio64 VLB (Number 9 9FX 330)",
+    .name          = "S3 Trio64 VLB (Number Nine 9FX Vision 330)",
     .internal_name = "n9_9fx_vlb",
     .flags         = DEVICE_VLB,
     .local         = S3_NUMBER9_9FX,
@@ -13148,7 +13185,7 @@ const device_t s3_9fx_vlb_device = {
 };
 
 const device_t s3_9fx_pci_device = {
-    .name          = "S3 Trio64 PCI (Number 9 9FX 330)",
+    .name          = "S3 Trio64 PCI (Number Nine 9FX Vision 330)",
     .internal_name = "n9_9fx_pci",
     .flags         = DEVICE_PCI,
     .local         = S3_NUMBER9_9FX,
@@ -13172,7 +13209,7 @@ const device_t s3_phoenix_trio32_onboard_vlb_device = {
     .available     = NULL,
     .speed_changed = s3_speed_changed,
     .force_redraw  = s3_force_redraw,
-    .config        = s3_phoenix_trio32_config
+    .config        = NULL
 };
 
 const device_t s3_phoenix_trio32_vlb_device = {
@@ -13200,7 +13237,7 @@ const device_t s3_phoenix_trio32_onboard_pci_device = {
     .available     = NULL,
     .speed_changed = s3_speed_changed,
     .force_redraw  = s3_force_redraw,
-    .config        = s3_phoenix_trio32_config
+    .config        = s3_9fx_config
 };
 
 const device_t s3_phoenix_trio32_pci_device = {
@@ -13270,7 +13307,7 @@ const device_t s3_phoenix_trio64_onboard_pci_device = {
     .available     = NULL,
     .speed_changed = s3_speed_changed,
     .force_redraw  = s3_force_redraw,
-    .config        = s3_standard_config
+    .config        = s3_9fx_config
 };
 
 const device_t s3_phoenix_trio64_pci_device = {
@@ -13288,7 +13325,7 @@ const device_t s3_phoenix_trio64_pci_device = {
 };
 
 const device_t s3_stb_powergraph_64_video_vlb_device = {
-    .name          = "S3 Trio64V+ (STB PowerGraph 64 Video) VLB",
+    .name          = "S3 Trio64V+ VLB (STB PowerGraph 64 Video)",
     .internal_name = "stb_trio64vplus_vlb",
     .flags         = DEVICE_VLB,
     .local         = S3_STB_POWERGRAPH_64_VIDEO,
@@ -13312,7 +13349,7 @@ const device_t s3_phoenix_trio64vplus_onboard_pci_device = {
     .available     = NULL,
     .speed_changed = s3_speed_changed,
     .force_redraw  = s3_force_redraw,
-    .config        = s3_trio64v_config
+    .config        = s3_trio64v_onboard_config
 };
 
 const device_t s3_phoenix_trio64vplus_pci_device = {
@@ -13372,7 +13409,7 @@ const device_t s3_phoenix_vision864_pci_device = {
 };
 
 const device_t s3_9fx_531_pci_device = {
-    .name          = "S3 Vision868 PCI (Number 9 9FX 531)",
+    .name          = "S3 Vision868 PCI (Number Nine 9FX Motion 531)",
     .internal_name = "n9_9fx_531_pci",
     .flags         = DEVICE_PCI,
     .local         = S3_NUMBER9_9FX_531,
@@ -13400,7 +13437,7 @@ const device_t s3_phoenix_vision868_pci_device = {
 };
 
 const device_t s3_diamond_stealth64_vlb_device = {
-    .name          = "S3 Trio64 VLB (Diamond Stealth64 DRAM)",
+    .name          = "S3 Trio64 VLB (Diamond Stealth64 Graphics 2000)",
     .internal_name = "stealth64d_vlb",
     .flags         = DEVICE_VLB,
     .local         = S3_DIAMOND_STEALTH64_764,
@@ -13414,7 +13451,7 @@ const device_t s3_diamond_stealth64_vlb_device = {
 };
 
 const device_t s3_diamond_stealth64_pci_device = {
-    .name          = "S3 Trio64 PCI (Diamond Stealth64 DRAM)",
+    .name          = "S3 Trio64 PCI (Diamond Stealth64 Graphics 2000)",
     .internal_name = "stealth64d_pci",
     .flags         = DEVICE_PCI,
     .local         = S3_DIAMOND_STEALTH64_764,
@@ -13428,7 +13465,7 @@ const device_t s3_diamond_stealth64_pci_device = {
 };
 
 const device_t s3_spea_mirage_p64_vlb_device = {
-    .name          = "S3 Trio64 VLB (SPEA Mirage P64)",
+    .name          = "S3 Trio64 VLB (SPEA V7-Mirage P64)",
     .internal_name = "spea_miragep64_vlb",
     .flags         = DEVICE_VLB,
     .local         = S3_SPEA_MIRAGE_P64,
@@ -13494,5 +13531,5 @@ const device_t s3_trio64v2_dx_onboard_pci_device = {
     .available     = NULL,
     .speed_changed = s3_speed_changed,
     .force_redraw  = s3_force_redraw,
-    .config        = s3_trio64v_config
+    .config        = s3_trio64v_onboard_config
 };

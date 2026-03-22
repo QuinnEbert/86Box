@@ -14,12 +14,27 @@
  *          Copyright 2021 Joakim L. Gilje
  *          Copyright 2021-2022 Cacodemon345
  */
+#include <cstdint>
+#include <cstdio>
+
+extern "C" {
+#include <86box/86box.h>
+#include <86box/timer.h>
+#include <86box/fdd.h>
+#include <86box/hdd.h>
+}
+
 #include "qt_settings.hpp"
 #include "ui_qt_settings.h"
+
+#include <QStandardItemModel>
+
+#include "qt_harddiskdialog.hpp"
 
 #include "qt_settingsmachine.hpp"
 #include "qt_settingsdisplay.hpp"
 #include "qt_settingsinput.hpp"
+#include "qt_settingskeybindings.hpp"
 #include "qt_settingssound.hpp"
 #include "qt_settingsnetwork.hpp"
 #include "qt_settingsports.hpp"
@@ -35,15 +50,14 @@
 #include "qt_settings_bus_tracking.hpp"
 #include "qt_defs.hpp"
 
-extern "C" {
-#include <86box/86box.h>
-}
-
 #include <QDebug>
 #include <QMessageBox>
 #include <QCheckBox>
 #include <QApplication>
 #include <QStyle>
+
+#include <dirent.h>
+#include <unistd.h>
 
 class SettingsModel : public QAbstractListModel {
 public:
@@ -65,6 +79,7 @@ private:
         "Machine",
         "Display",
         "Input devices",
+        "Key bindings",
         "Sound",
         "Network",
         "Ports (COM & LPT)",
@@ -79,6 +94,7 @@ private:
         "machine",
         "display",
         "input_devices",
+        "key_bindings",
         "sound",
         "network",
         "ports",
@@ -130,6 +146,7 @@ Settings::Settings(QWidget *parent)
     machine                   = new SettingsMachine(this);
     display                   = new SettingsDisplay(this);
     input                     = new SettingsInput(this);
+    key_bindings              = new SettingsKeyBindings(this);
     sound                     = new SettingsSound(this);
     network                   = new SettingsNetwork(this);
     ports                     = new SettingsPorts(this);
@@ -143,6 +160,7 @@ Settings::Settings(QWidget *parent)
     ui->stackedWidget->addWidget(machine);
     ui->stackedWidget->addWidget(display);
     ui->stackedWidget->addWidget(input);
+    ui->stackedWidget->addWidget(key_bindings);
     ui->stackedWidget->addWidget(sound);
     ui->stackedWidget->addWidget(network);
     ui->stackedWidget->addWidget(ports);
@@ -157,6 +175,8 @@ Settings::Settings(QWidget *parent)
             &SettingsDisplay::onCurrentMachineChanged);
     connect(machine, &SettingsMachine::currentMachineChanged, input,
             &SettingsInput::onCurrentMachineChanged);
+    connect(machine, &SettingsMachine::currentMachineChanged, key_bindings,
+            &SettingsKeyBindings::onCurrentMachineChanged);
     connect(machine, &SettingsMachine::currentMachineChanged, sound,
             &SettingsSound::onCurrentMachineChanged);
     connect(machine, &SettingsMachine::currentMachineChanged, network,
@@ -191,9 +211,27 @@ Settings::Settings(QWidget *parent)
             &SettingsFloppyCDROM::reloadBusChannels);
     connect(otherRemovable, &SettingsOtherRemovable::rdiskChannelChanged, otherRemovable,
             &SettingsOtherRemovable::reloadBusChannels_MO);
+    connect(harddisks, &SettingsHarddisks::driveChannelChanged, otherRemovable,
+            &SettingsOtherRemovable::reloadBusChannels_Tape);
+    connect(otherRemovable, &SettingsOtherRemovable::tapeChannelChanged, harddisks,
+            &SettingsHarddisks::reloadBusChannels);
+    connect(otherRemovable, &SettingsOtherRemovable::tapeChannelChanged, floppyCdrom,
+            &SettingsFloppyCDROM::reloadBusChannels);
+    connect(otherRemovable, &SettingsOtherRemovable::tapeChannelChanged, otherRemovable,
+            &SettingsOtherRemovable::reloadBusChannels_MO);
+    connect(otherRemovable, &SettingsOtherRemovable::tapeChannelChanged, otherRemovable,
+            &SettingsOtherRemovable::reloadBusChannels_RDisk);
+    connect(otherRemovable, &SettingsOtherRemovable::moChannelChanged, otherRemovable,
+            &SettingsOtherRemovable::reloadBusChannels_Tape);
+    connect(otherRemovable, &SettingsOtherRemovable::rdiskChannelChanged, otherRemovable,
+            &SettingsOtherRemovable::reloadBusChannels_Tape);
 
     connect(ui->listView->selectionModel(), &QItemSelectionModel::currentChanged, this,
-            [this](const QModelIndex &current, const QModelIndex &previous) { ui->stackedWidget->setCurrentIndex(current.row()); });
+            [this](const QModelIndex &current, const QModelIndex &previous) {
+                ui->stackedWidget->setCurrentIndex(current.row());
+                ui->headerIcon->setPixmap(qvariant_cast<QIcon>(ui->listView->model()->data(current, Qt::DecorationRole)).pixmap(QSize(16, 16)));
+                ui->headerLabel->setText(ui->listView->model()->data(current, Qt::DisplayRole).toString());
+            });
 
     ui->listView->setCurrentIndex(model->index(0, 0));
 
@@ -214,6 +252,7 @@ Settings::save()
     machine->save();
     display->save();
     input->save();
+    key_bindings->save();
     sound->save();
     network->save();
     ports->save();
@@ -242,5 +281,36 @@ Settings::accept()
             return;
         }
     }
+
     QDialog::accept();
+}
+
+static int
+plat_path_is_empty(char *path)
+{
+    int n            = 0;
+    DIR *dir         = opendir(path);
+    struct dirent *d;
+
+    if (dir == NULL)
+        /* Not a directory or doesn't exist. */
+        return 1;
+
+    while ((d = readdir(dir)) != NULL) {
+        if (++n > 2)
+            break;
+    }
+
+    closedir(dir);
+
+    return (n <= 2);
+}
+
+void
+Settings::reject()
+{
+    if (plat_path_is_empty(usr_path))
+        rmdir(usr_path);
+
+    QDialog::reject();
 }

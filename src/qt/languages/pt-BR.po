@@ -1,8 +1,15 @@
 msgid ""
 msgstr ""
+"PO-Revision-Date: 2026-03-10 09:50+0000\n"
+"Last-Translator: Nelson Kerber Hennemann Filho <nelsonhf@outlook.com>\n"
+"Language-Team: Portuguese (Brazil) <https://weblate.86box.net/projects/86box/"
+"86box/pt_BR/>\n"
+"Language: pt-BR\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n > 1;\n"
+"X-Generator: Weblate 5.12.2\n"
 "X-Language: pt_BR\n"
 "X-Source-Language: en_US\n"
 
@@ -345,6 +352,15 @@ msgstr "Altura:"
 msgid "Lock to this size"
 msgstr "Travar nesse tamanho"
 
+msgid "General"
+msgstr "Geral"
+
+msgid "Processor"
+msgstr "Processador"
+
+msgid "Performance"
+msgstr "Performance"
+
 msgid "Machine type:"
 msgstr "Tipo de máquina:"
 
@@ -366,8 +382,14 @@ msgstr "Velocidade:"
 msgid "Frequency:"
 msgstr "Frequência:"
 
+msgid "%1 MHz"
+msgstr "%1 MHz"
+
 msgid "FPU:"
 msgstr "FPU:"
+
+msgid "Internal"
+msgstr "Interno"
 
 msgid "Wait states:"
 msgstr "Estados de espera:"
@@ -390,6 +412,9 @@ msgstr "Ativar (hora local)"
 msgid "Enabled (UTC)"
 msgstr "Ativar (UTC)"
 
+msgid "Use the 486 interpreter for 286 and 386 processors"
+msgstr "Usar o interpretador 486 para processadores 286 e 386"
+
 msgid "Dynamic Recompiler"
 msgstr "Recompilador dinâmico"
 
@@ -407,6 +432,9 @@ msgstr "Vídeo:"
 
 msgid "Video #2:"
 msgstr "Vídeo nº 2:"
+
+msgid "Accelerators"
+msgstr "Aceleradores"
 
 msgid "Voodoo 1 or 2 Graphics"
 msgstr "Gráficos Voodoo 1 ou 2"
@@ -477,8 +505,8 @@ msgstr "MPU-401 autônomo"
 msgid "Use FLOAT32 sound"
 msgstr "Usar som FLOAT32"
 
-msgid "FM synth driver"
-msgstr "Driver de sintetizador FM"
+msgid "FM synth driver:"
+msgstr "Driver de sintetizador FM:"
 
 msgid "Nuked (more accurate)"
 msgstr "Nuked (mais preciso)"
@@ -615,8 +643,8 @@ msgstr "Formato:"
 msgid "Block Size:"
 msgstr "Blocos:"
 
-msgid "Floppy drives:"
-msgstr "Unidades de disquete:"
+msgid "Floppy drives"
+msgstr "Unidades de disquete"
 
 msgid "Turbo timings"
 msgstr "Turbo"
@@ -624,23 +652,26 @@ msgstr "Turbo"
 msgid "Check BPB"
 msgstr "Verificar BPB"
 
-msgid "CD-ROM drives:"
-msgstr "Unidades de CD-ROM:"
+msgid "CD-ROM drives"
+msgstr "Unidades de CD-ROM"
 
-msgid "MO drives:"
-msgstr "Unidades magneto-ópticas:"
+msgid "MO drives"
+msgstr "Unidades magneto-ópticas"
 
 msgid "MO:"
 msgstr "Magneto-ópticas:"
 
+msgid "Removable disk drives"
+msgstr "Unidades de disco removível"
+
 msgid "Removable disks:"
 msgstr "Discos removíveis:"
 
-msgid "Removable disk drives:"
-msgstr "Unidades de disco removível:"
+msgid "Tape drives"
+msgstr "Drives de Fita"
 
-msgid "ZIP 250"
-msgstr "ZIP 250"
+msgid "Tape drives:"
+msgstr "Drives de fita:"
 
 msgid "ISA RTC:"
 msgstr "RTC ISA:"
@@ -698,6 +729,15 @@ msgstr "Disco &removível %1 (%2): %3"
 
 msgid "Removable disk images"
 msgstr "Imagens de disco removível"
+
+msgid "Tape %1 (%2): %3"
+msgstr "Fita %1 (%2): %3"
+
+msgid "&Tape %1 (%2): %3"
+msgstr "&Fita %1 (%2): %3"
+
+msgid "Tape images"
+msgstr "Imagens de fita"
 
 msgid "Image %1"
 msgstr "Imagem %1"
@@ -762,8 +802,14 @@ msgstr "Portas (COM & LPT)"
 msgid "Ports"
 msgstr "Portas"
 
+msgid "Serial ports"
+msgstr "Portas seriais"
+
 msgid "Serial ports:"
 msgstr "Portas seriais:"
+
+msgid "Parallel ports"
+msgstr "Portas Paralelas"
 
 msgid "Parallel ports:"
 msgstr "Portas Paralelas:"
@@ -810,14 +856,8 @@ msgstr "Barramento"
 msgid "File"
 msgstr "Arquivo"
 
-msgid "C"
-msgstr "CI"
-
-msgid "H"
-msgstr "CA"
-
-msgid "S"
-msgstr "SE"
+msgid "Geometry"
+msgstr "Geometria"
 
 msgid "KB"
 msgstr "KB"
@@ -1020,14 +1060,9 @@ msgstr "%1 é necessário para a conversão automática de arquivos PCL para PDF
 msgid "Don't show this message again"
 msgstr "Não exibir esta mensagem novamente"
 
-msgid "Don't exit"
-msgstr "Não sair"
-
+#, fuzzy
 msgid "Reset"
 msgstr "Reiniciar"
-
-msgid "Don't reset"
-msgstr "Não reiniciar"
 
 msgid "CD-ROM images"
 msgstr "Imagens de CD-ROM"
@@ -1533,9 +1568,6 @@ msgstr "DMF (cluster 2048)"
 msgid "2.88 MB"
 msgstr "2.88 MB"
 
-msgid "ZIP 100"
-msgstr "ZIP 100"
-
 msgid "3.5\" 128 MB (ISO 10090)"
 msgstr "3.5\" 128 MB (ISO 10090)"
 
@@ -1577,6 +1609,9 @@ msgstr "1.5% abaixo da rotação ideal"
 
 msgid "2% below perfect RPM"
 msgstr "2% abaixo da rotação ideal"
+
+msgid "Creating image…"
+msgstr "Criando imagem…"
 
 msgid "(System Default)"
 msgstr "(Padrão do sistema)"
@@ -1659,8 +1694,8 @@ msgstr "&Cursor/Puck"
 msgid "&Pen"
 msgstr "C&aneta"
 
-msgid "&Host CD/DVD Drive (%1:)"
-msgstr "&Unidade de CD/DVD do anfitrião (%1:)"
+msgid "&Host CD/DVD Drive (%1)"
+msgstr "&Unidade de CD/DVD do anfitrião (%1)"
 
 msgid "&Connected"
 msgstr "&Conectado"
@@ -2667,6 +2702,12 @@ msgstr "Alto impacto no desempenho"
 msgid "[Generic] RAM Disk (max. speed)"
 msgstr "[Genérico] Disco RAM (velocidade máx.)"
 
+msgid "[Generic] 1983 MFM (3600 RPM)"
+msgstr "[Genérico] 1983 MFM (3600 RPM)"
+
+msgid "[Generic] 1983 RLL (3600 RPM)"
+msgstr "[Genérico] 1983 RLL (3600 RPM)"
+
 msgid "[Generic] 1989 (3500 RPM)"
 msgstr "[Genérico] 1989 (3500 RPM)"
 
@@ -2769,8 +2810,8 @@ msgstr "Mover para baixo"
 msgid "Could not load file %1"
 msgstr "Não foi possível carregar o arquivo %1"
 
-msgid "Key Bindings:"
-msgstr "Atalhos:"
+msgid "Key bindings"
+msgstr "Atalhos"
 
 msgid "Action"
 msgstr "Ação"
@@ -2832,8 +2873,8 @@ msgstr "Switch Local"
 msgid "Remote Switch"
 msgstr "Switch Remoto"
 
-msgid "Switch:"
-msgstr "Switch:"
+msgid "Shared secret:"
+msgstr "Segredo compartilhado:"
 
 msgid "Hub Mode"
 msgstr "Modo Hub"

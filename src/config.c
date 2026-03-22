@@ -27,6 +27,11 @@
  *          -DANSI_CFG for use on these systems.
  */
 
+#ifdef _WIN32
+#    include <ws2tcpip.h>
+#else
+#    include <arpa/inet.h>
+#endif
 #include <inttypes.h>
 #ifdef ENABLE_CONFIG_LOG
 #include <stdarg.h>
@@ -71,6 +76,7 @@
 #include <86box/cdrom_interface.h>
 #include <86box/rdisk.h>
 #include <86box/mo.h>
+#include <86box/scsi_tape.h>
 #include <86box/sound.h>
 #include <86box/midi.h>
 #include <86box/snd_mpu401.h>
@@ -358,7 +364,7 @@ load_machine(void)
         /* Migrate renamed machines. */
         for (i = 0; machine_migrations[i].old; i++) {
             if (!strcmp(p, machine_migrations[i].old)) {
-                machine      = machine_get_machine_from_internal_name(machine_migrations[i].new);
+                machine = machine_get_machine_from_internal_name(machine_migrations[i].new);
                 if (machine != -1) {
                     migrate_from = p;
                     if (machine_migrations[i].new_bios) {
@@ -536,6 +542,10 @@ load_video(void)
         } else if (!strcmp(p, "c&t_69000")) {
             p = (char *) malloc((strlen("chips_69000") + 1) * sizeof(char));
             strcpy(p, "chips_69000");
+            free_p = 1;
+        } else if (!strcmp(p, "cl_gd5428_boca_isa")) {
+            p = (char *) malloc((strlen("cl_gd5422_boca_isa") + 1) * sizeof(char));
+            strcpy(p, "cl_gd5422_boca_isa");
             free_p = 1;
         }
         gfxcard[0] = video_get_video_from_internal_name(p);
@@ -895,10 +905,29 @@ load_network(void)
         } else
             strcpy(nc->host_dev_name, "none");
 
-        sprintf(temp, "net_%02i_switch_group", c + 1);
-        nc->switch_group = ini_section_get_int(cat, temp, NET_SWITCH_GRP_MIN);
-        if (nc->switch_group < NET_SWITCH_GRP_MIN)
-            nc->switch_group = NET_SWITCH_GRP_MIN;
+        if (nc->net_type == NET_TYPE_SLIRP) {
+            sprintf(temp, "net_%02i_addr", c + 1);
+            p = ini_section_get_string(cat, temp, "");
+            if (p && *p) {
+                struct in_addr addr;
+                if (inet_pton(AF_INET, p, &addr)) {
+                    uint8_t *bytes = (uint8_t *)&addr.s_addr;
+                    bytes[3] = 0;
+                    sprintf(nc->slirp_net, "%d.%d.%d.0", bytes[0], bytes[1], bytes[2]);
+                } else {
+                    nc->slirp_net[0] = '\0';
+                }
+            } else {
+                nc->slirp_net[0] = '\0';
+            }
+        } else {
+            nc->slirp_net[0] = '\0';
+        }
+
+        sprintf(temp, "net_%02i_secret", c + 1);
+        p = ini_section_get_string(cat, temp, NULL);
+        strncpy(nc->secret, p ? p : "", sizeof(nc->secret) - 1);
+        nc->secret[sizeof(net_cards_conf[c].secret) - 1] = '\0';
 
         sprintf(temp, "net_%02i_promisc", c + 1);
         nc->promisc_mode = ini_section_get_int(cat, temp, 0);
@@ -986,12 +1015,12 @@ load_image_file(char *dest, char *p, uint8_t *ui_wp)
     int   ret    = 0;
 
     if (strstr(p, "wp://") == p) {
-       p += 5;
-       prefix = "wp://";
-       if (ui_wp != NULL)
-           *ui_wp = 1;
+        p += 5;
+        prefix = "wp://";
+        if (ui_wp != NULL)
+            *ui_wp = 1;
     } else if ((ui_wp != NULL) && *ui_wp)
-       prefix = "wp://";
+        prefix = "wp://";
 
     if (path_abs(p)) {
         if ((strlen(prefix) + strlen(p)) > (MAX_IMAGE_PATH_LEN - 11))
@@ -1476,7 +1505,7 @@ load_floppy_and_cdrom_drives(void)
     int           c;
     int           d;
     int           count = cdrom_get_type_count();
-    
+
 #ifndef DISABLE_FDD_AUDIO
     fdd_audio_load_profiles();
 #endif
@@ -1549,7 +1578,7 @@ load_floppy_and_cdrom_drives(void)
         fdd_set_audio_profile(c, d);
 #else
         fdd_set_audio_profile(c, 0);
-#endif        
+#endif
 
         for (int i = 0; i < MAX_PREV_IMAGES; i++) {
             fdd_image_history[c][i] = (char *) calloc((MAX_IMAGE_PATH_LEN + 1) << 1, sizeof(char));
@@ -2066,6 +2095,107 @@ go_to_mo:
 
             for (int i = 0; i < MAX_PREV_IMAGES; i++) {
                 sprintf(temp, "mo_%02i_image_history_%02i", c + 1, i + 1);
+                ini_section_delete_var(cat, temp);
+            }
+        }
+    }
+
+    /* Tape drives. */
+    memset(temp, 0x00, sizeof(temp));
+    for (c = 0; c < TAPE_NUM; c++) {
+        sprintf(temp, "tape_%02i_parameters", c + 1);
+        p = ini_section_get_string(cat, temp, NULL);
+        if (p != NULL)
+            sscanf(p, "%u, %s", &tape_drives[c].type, s);
+        else
+            sscanf("00, none", "%u, %s", &tape_drives[c].type, s);
+        tape_drives[c].bus_type = hdd_string_to_bus(s, 1);
+
+        /* Default values, needed for proper operation of the Settings dialog. */
+        tape_drives[c].scsi_device_id = c + 4;
+
+        if (tape_drives[c].bus_type == TAPE_BUS_ATAPI) {
+            sprintf(temp, "tape_%02i_ide_channel", c + 1);
+            sprintf(tmp2, "%01u:%01u", (c + 2) >> 1, (c + 2) & 1);
+            p = ini_section_get_string(cat, temp, tmp2);
+            sscanf(p, "%01u:%01u", &board, &dev);
+            board &= 3;
+            dev &= 1;
+            tape_drives[c].ide_channel = (board << 1) + dev;
+
+            if (tape_drives[c].ide_channel > 7)
+                tape_drives[c].ide_channel = 7;
+        } else if (tape_drives[c].bus_type == TAPE_BUS_SCSI) {
+            sprintf(temp, "tape_%02i_scsi_location", c + 1);
+            sprintf(tmp2, "%01u:%02u", SCSI_BUS_MAX, c + 4);
+            p = ini_section_get_string(cat, temp, tmp2);
+            sscanf(p, "%01u:%02u", &board, &dev);
+            if (board >= SCSI_BUS_MAX) {
+                /* Invalid bus - check legacy ID */
+                sprintf(temp, "tape_%02i_scsi_id", c + 1);
+                tape_drives[c].scsi_device_id = ini_section_get_int(cat, temp, c + 4);
+
+                if (tape_drives[c].scsi_device_id > 15)
+                    tape_drives[c].scsi_device_id = 15;
+            } else {
+                board %= SCSI_BUS_MAX;
+                dev &= 15;
+                tape_drives[c].scsi_device_id = (board << 4) + dev;
+            }
+        }
+
+        if (tape_drives[c].bus_type != TAPE_BUS_ATAPI) {
+            sprintf(temp, "tape_%02i_ide_channel", c + 1);
+            ini_section_delete_var(cat, temp);
+        }
+
+        if (tape_drives[c].bus_type != TAPE_BUS_SCSI) {
+            sprintf(temp, "tape_%02i_scsi_location", c + 1);
+            ini_section_delete_var(cat, temp);
+        }
+
+        sprintf(temp, "tape_%02i_scsi_id", c + 1);
+        ini_section_delete_var(cat, temp);
+
+        sprintf(temp, "tape_%02i_image_path", c + 1);
+        p = ini_section_get_string(cat, temp, "");
+
+        sprintf(temp, "tape_%02i_writeprot", c + 1);
+        tape_drives[c].read_only = ini_section_get_int(cat, temp, 0);
+        ini_section_delete_var(cat, temp);
+
+        if (!strcmp(p, usr_path))
+            p[0] = 0x00;
+
+        if (p[0] != 0x00) {
+            if (load_image_file(tape_drives[c].image_path, p, &(tape_drives[c].read_only)))
+                fatal("Configuration: Length of tape_%02i_image_path is more than 511\n", c + 1);
+        }
+
+        for (int i = 0; i < MAX_PREV_IMAGES; i++) {
+            tape_drives[c].image_history[i] = (char *) calloc((MAX_IMAGE_PATH_LEN + 1) << 1, sizeof(char));
+            sprintf(temp, "tape_%02i_image_history_%02i", c + 1, i + 1);
+            p = ini_section_get_string(cat, temp, NULL);
+            if (p) {
+                if (load_image_file(tape_drives[c].image_history[i], p, NULL))
+                    fatal("Configuration: Length of tape_%02i_image_history_%02i is more than %i\n",
+                          c + 1, i + 1, MAX_IMAGE_PATH_LEN - 1);
+            }
+        }
+
+        /* If the tape drive is disabled, delete all its variables. */
+        if (tape_drives[c].bus_type == TAPE_BUS_DISABLED) {
+            sprintf(temp, "tape_%02i_parameters", c + 1);
+            ini_section_delete_var(cat, temp);
+
+            sprintf(temp, "tape_%02i_scsi_location", c + 1);
+            ini_section_delete_var(cat, temp);
+
+            sprintf(temp, "tape_%02i_image_path", c + 1);
+            ini_section_delete_var(cat, temp);
+
+            for (int i = 0; i < MAX_PREV_IMAGES; i++) {
+                sprintf(temp, "tape_%02i_image_history_%02i", c + 1, i + 1);
                 ini_section_delete_var(cat, temp);
             }
         }
@@ -3029,11 +3159,19 @@ save_network(void)
         else
             ini_section_set_int(cat, temp, nc->link_state);
 
-        sprintf(temp, "net_%02i_switch_group", c + 1);
-        if (nc->switch_group == NET_SWITCH_GRP_MIN)
+        if (nc->net_type == NET_TYPE_SLIRP && nc->slirp_net[0] != '\0') {
+            sprintf(temp, "net_%02i_addr", c + 1);
+            ini_section_set_string(cat, temp, nc->slirp_net);
+        } else {
+            sprintf(temp, "net_%02i_addr", c + 1);
+            ini_section_delete_var(cat, temp);
+        }
+
+        sprintf(temp, "net_%02i_secret", c + 1);
+        if (nc->secret[0] == '\0')
             ini_section_delete_var(cat, temp);
         else
-            ini_section_set_int(cat, temp, nc->switch_group);
+            ini_section_set_string(cat, temp, net_cards_conf[c].secret);
 
         sprintf(temp, "net_%02i_promisc", c + 1);
         if (nc->promisc_mode == 0)
@@ -3165,7 +3303,8 @@ save_image_file(char *cat, char *var, char *src)
     if (!strnicmp(src, usr_path, strlen(usr_path)))
         sprintf(temp, "%s%s", prefix, &src[strlen(usr_path)]);
     else
-        sprintf(temp, "%s%s", prefix, src);
+        snprintf(temp, 2048, "%s%s", prefix, src);
+    temp[2047] = 0x00;
 
     ini_section_set_string(cat, var, temp);
 }
@@ -3546,8 +3685,9 @@ save_hard_disks(void)
 
         sprintf(temp, "hdd_%02i_speed", c + 1);
         if (!hdd_is_valid(c) ||
-            ((hdd[c].bus_type != HDD_BUS_ESDI) && (hdd[c].bus_type != HDD_BUS_IDE) &&
-            (hdd[c].bus_type != HDD_BUS_SCSI) && (hdd[c].bus_type != HDD_BUS_ATAPI)))
+            ((hdd[c].bus_type != HDD_BUS_MFM) && (hdd[c].bus_type != HDD_BUS_ESDI) &&
+            (hdd[c].bus_type != HDD_BUS_IDE) && (hdd[c].bus_type != HDD_BUS_SCSI) &&
+            (hdd[c].bus_type != HDD_BUS_ATAPI)))
             ini_section_delete_var(cat, temp);
         else
             ini_section_set_string(cat, temp, hdd_preset_get_internal_name(hdd[c].speed_preset));
@@ -3832,6 +3972,55 @@ save_other_removable_devices(void)
                 ini_section_delete_var(cat, temp);
             else
                 save_image_file(cat, temp, mo_drives[c].image_history[i]);
+        }
+    }
+
+    for (c = 0; c < TAPE_NUM; c++) {
+        sprintf(temp, "tape_%02i_parameters", c + 1);
+        if (tape_drives[c].bus_type == 0) {
+            ini_section_delete_var(cat, temp);
+        } else {
+            sprintf(tmp2, "%u, %s", tape_drives[c].type,
+                    hdd_bus_to_string(tape_drives[c].bus_type, 1));
+            ini_section_set_string(cat, temp, tmp2);
+        }
+
+        sprintf(temp, "tape_%02i_ide_channel", c + 1);
+        if (tape_drives[c].bus_type != TAPE_BUS_ATAPI)
+            ini_section_delete_var(cat, temp);
+        else {
+            sprintf(tmp2, "%01u:%01u", tape_drives[c].ide_channel >> 1,
+                    tape_drives[c].ide_channel & 1);
+            ini_section_set_string(cat, temp, tmp2);
+        }
+
+        sprintf(temp, "tape_%02i_scsi_id", c + 1);
+        ini_section_delete_var(cat, temp);
+
+        sprintf(temp, "tape_%02i_writeprot", c + 1);
+        ini_section_delete_var(cat, temp);
+
+        sprintf(temp, "tape_%02i_scsi_location", c + 1);
+        if (tape_drives[c].bus_type != TAPE_BUS_SCSI)
+            ini_section_delete_var(cat, temp);
+        else {
+            sprintf(tmp2, "%01u:%02u", tape_drives[c].scsi_device_id >> 4,
+                    tape_drives[c].scsi_device_id & 15);
+            ini_section_set_string(cat, temp, tmp2);
+        }
+
+        sprintf(temp, "tape_%02i_image_path", c + 1);
+        if ((tape_drives[c].bus_type == 0) || (strlen(tape_drives[c].image_path) == 0))
+            ini_section_delete_var(cat, temp);
+        else
+            save_image_file(cat, temp, tape_drives[c].image_path);
+
+        for (int i = 0; i < MAX_PREV_IMAGES; i++) {
+            sprintf(temp, "tape_%02i_image_history_%02i", c + 1, i + 1);
+            if ((tape_drives[c].image_history[i] == 0) || strlen(tape_drives[c].image_history[i]) == 0)
+                ini_section_delete_var(cat, temp);
+            else
+                save_image_file(cat, temp, tape_drives[c].image_history[i]);
         }
     }
 

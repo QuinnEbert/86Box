@@ -203,6 +203,9 @@ add_library(ui STATIC
     qt_settingsinput.cpp
     qt_settingsinput.hpp
     qt_settingsinput.ui
+    qt_settingskeybindings.cpp
+    qt_settingskeybindings.hpp
+    qt_settingskeybindings.ui
     qt_settingssound.cpp
     qt_settingssound.hpp
     qt_settingssound.ui
@@ -424,8 +427,9 @@ endif()
 
 if(WIN32)
     target_sources(plat PRIVATE win_cdrom_ioctl.c)
+elseif(UNIX AND NOT APPLE)
+    target_sources(plat PRIVATE ../unix/linux_cdrom_ioctl.c)
 else()
-# Replace with proper *nix and mac handler files once they are done.
     target_sources(plat PRIVATE dummy_cdrom_ioctl.c)
 endif()
 

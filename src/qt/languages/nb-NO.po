@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2026-01-28 08:57+0000\n"
+"PO-Revision-Date: 2026-03-10 14:03+0000\n"
 "Last-Translator: OBattler <oubattler@gmail.com>\n"
 "Language-Team: Norwegian Bokmål <https://weblate.86box.net/projects/86box/"
 "86box/nb_NO/>\n"
@@ -352,6 +352,15 @@ msgstr "Høyde:"
 msgid "Lock to this size"
 msgstr "Lås til denne størrelsen"
 
+msgid "General"
+msgstr "Generelt"
+
+msgid "Processor"
+msgstr "Prosessor"
+
+msgid "Performance"
+msgstr "Ytelse"
+
 msgid "Machine type:"
 msgstr "Maskintype:"
 
@@ -373,8 +382,14 @@ msgstr "Hastighet:"
 msgid "Frequency:"
 msgstr "Frekvens:"
 
+msgid "%1 MHz"
+msgstr "%1 MHz"
+
 msgid "FPU:"
 msgstr "FPU:"
+
+msgid "Internal"
+msgstr "Integrert"
 
 msgid "Wait states:"
 msgstr "Ventetilstander:"
@@ -397,6 +412,9 @@ msgstr "Aktivert (lokal tid)"
 msgid "Enabled (UTC)"
 msgstr "Aktivert (UTC)"
 
+msgid "Use the 486 interpreter for 286 and 386 processors"
+msgstr "Bruk 486-tolken for 286- og 386-prosessorer"
+
 msgid "Dynamic Recompiler"
 msgstr "Dynamisk recompilator"
 
@@ -414,6 +432,9 @@ msgstr "Video:"
 
 msgid "Video #2:"
 msgstr "Video #2:"
+
+msgid "Accelerators"
+msgstr "Akseleratorer"
 
 msgid "Voodoo 1 or 2 Graphics"
 msgstr "Voodoo 1- eller 2-grafikk"
@@ -484,8 +505,8 @@ msgstr "Selvstendig MPU-401"
 msgid "Use FLOAT32 sound"
 msgstr "Bruk FLOAT32-lyd"
 
-msgid "FM synth driver"
-msgstr "FM-synth-driver"
+msgid "FM synth driver:"
+msgstr "FM-synth-driver:"
 
 msgid "Nuked (more accurate)"
 msgstr "Nuked (mer nøyaktig)"
@@ -622,8 +643,8 @@ msgstr "Image-format:"
 msgid "Block Size:"
 msgstr "Blokkstørrelse:"
 
-msgid "Floppy drives:"
-msgstr "Diskettstasjoner:"
+msgid "Floppy drives"
+msgstr "Diskettstasjoner"
 
 msgid "Turbo timings"
 msgstr "Turbo-timing"
@@ -631,23 +652,26 @@ msgstr "Turbo-timing"
 msgid "Check BPB"
 msgstr "Sjekk BPB"
 
-msgid "CD-ROM drives:"
-msgstr "CD-ROM-stasjoner:"
+msgid "CD-ROM drives"
+msgstr "CD-ROM-stasjoner"
 
-msgid "MO drives:"
-msgstr "MO-stasjoner:"
+msgid "MO drives"
+msgstr "MO-stasjoner"
 
 msgid "MO:"
 msgstr "MO:"
 
+msgid "Removable disk drives"
+msgstr "Flyttbare stasjoner"
+
 msgid "Removable disks:"
 msgstr "Flyttbare disker:"
 
-msgid "Removable disk drives:"
-msgstr "Flyttbare stasjoner:"
+msgid "Tape drives"
+msgstr "Båndstasjoner"
 
-msgid "ZIP 250"
-msgstr "ZIP 250"
+msgid "Tape drives:"
+msgstr "Båndstasjoner:"
 
 msgid "ISA RTC:"
 msgstr "ISA RTC:"
@@ -705,6 +729,15 @@ msgstr "&Flyttbar disk %1 (%2): %3"
 
 msgid "Removable disk images"
 msgstr "Flyttbare diskfiler"
+
+msgid "Tape %1 (%2): %3"
+msgstr "Bånd %1 (%2): %3"
+
+msgid "&Tape %1 (%2): %3"
+msgstr "&Bånd %1 (%2): %3"
+
+msgid "Tape images"
+msgstr "Båndfiler"
 
 msgid "Image %1"
 msgstr "Diskfil %1"
@@ -769,8 +802,14 @@ msgstr "Porter (COM & LPT)"
 msgid "Ports"
 msgstr "Porter"
 
+msgid "Serial ports"
+msgstr "Seriellporter"
+
 msgid "Serial ports:"
 msgstr "Seriellporter:"
+
+msgid "Parallel ports"
+msgstr "Parallellporter"
 
 msgid "Parallel ports:"
 msgstr "Parallellporter:"
@@ -817,14 +856,8 @@ msgstr "Buss"
 msgid "File"
 msgstr "Fil"
 
-msgid "C"
-msgstr "C"
-
-msgid "H"
-msgstr "H"
-
-msgid "S"
-msgstr "S"
+msgid "Geometry"
+msgstr "Geometri"
 
 msgid "KB"
 msgstr "KB"
@@ -1027,14 +1060,9 @@ msgstr "%1 kreves for automatisk konvertering av PCL-filer til PDF.\n\nDokumente
 msgid "Don't show this message again"
 msgstr "Ikke vis denne meldingen igjen"
 
-msgid "Don't exit"
-msgstr "Ikke avslutt"
-
+#, fuzzy
 msgid "Reset"
 msgstr "Nullstill"
-
-msgid "Don't reset"
-msgstr "Ikke nullstill"
 
 msgid "CD-ROM images"
 msgstr "CD-ROM-filer"
@@ -1540,9 +1568,6 @@ msgstr "DMF (klynge 2048)"
 msgid "2.88 MB"
 msgstr "2,88 MB"
 
-msgid "ZIP 100"
-msgstr "ZIP 100"
-
 msgid "3.5\" 128 MB (ISO 10090)"
 msgstr "3,5\" 128 MB (ISO 10090)"
 
@@ -1584,6 +1609,9 @@ msgstr "1,5 % under perfekt RPM"
 
 msgid "2% below perfect RPM"
 msgstr "2 % under perfekt RPM"
+
+msgid "Creating image…"
+msgstr "Fil opprettes…"
 
 msgid "(System Default)"
 msgstr "(Systemstandard)"
@@ -1666,8 +1694,8 @@ msgstr "&Markør/pekeplate"
 msgid "&Pen"
 msgstr "&Penn"
 
-msgid "&Host CD/DVD Drive (%1:)"
-msgstr "&Vert CD/DVD-stasjon (%1:)"
+msgid "&Host CD/DVD Drive (%1)"
+msgstr "&Vert CD/DVD-stasjon (%1)"
 
 msgid "&Connected"
 msgstr "&Koblet til"
@@ -2674,6 +2702,12 @@ msgstr "Høy ytelsespåvirkning"
 msgid "[Generic] RAM Disk (max. speed)"
 msgstr "[Generisk] RAM-disk (maks hastighet)"
 
+msgid "[Generic] 1983 MFM (3600 RPM)"
+msgstr "[Generisk] 1983 MFM (3600 RPM)"
+
+msgid "[Generic] 1983 RLL (3600 RPM)"
+msgstr "[Generisk] 1983 RLL (3600 RPM)"
+
 msgid "[Generic] 1989 (3500 RPM)"
 msgstr "[Generisk] 1989 (3500 RPM)"
 
@@ -2776,8 +2810,8 @@ msgstr "Flytt ned"
 msgid "Could not load file %1"
 msgstr "Kunne ikke laste fil %1"
 
-msgid "Key Bindings:"
-msgstr "Tastebindinger:"
+msgid "Key bindings"
+msgstr "Tastebindinger"
 
 msgid "Action"
 msgstr "Handling"
@@ -2839,8 +2873,8 @@ msgstr "Lokal svitsj"
 msgid "Remote Switch"
 msgstr "Ekstern svitsj"
 
-msgid "Switch:"
-msgstr "Svitsj:"
+msgid "Shared secret:"
+msgstr "Delt hemmelighet:"
 
 msgid "Hub Mode"
 msgstr "Hub-modus"

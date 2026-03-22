@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2025-11-29 00:34+0000\n"
+"PO-Revision-Date: 2026-03-10 14:03+0000\n"
 "Last-Translator: OBattler <oubattler@gmail.com>\n"
 "Language-Team: Spanish <https://weblate.86box.net/projects/86box/86box/es/>\n"
 "Language: es-ES\n"
@@ -351,6 +351,15 @@ msgstr "Alto:"
 msgid "Lock to this size"
 msgstr "Bloquear a este tamaño"
 
+msgid "General"
+msgstr "General"
+
+msgid "Processor"
+msgstr "Procesador"
+
+msgid "Performance"
+msgstr "Rendimiento"
+
 msgid "Machine type:"
 msgstr "Tipo de máquina:"
 
@@ -372,8 +381,14 @@ msgstr "Velocidad:"
 msgid "Frequency:"
 msgstr "Frecuencia:"
 
+msgid "%1 MHz"
+msgstr "%1 MHz"
+
 msgid "FPU:"
 msgstr "FPU:"
+
+msgid "Internal"
+msgstr "Integrado"
 
 msgid "Wait states:"
 msgstr "Estados en espera:"
@@ -396,6 +411,9 @@ msgstr "Habilitado (hora local)"
 msgid "Enabled (UTC)"
 msgstr "Habilitado (UTC)"
 
+msgid "Use the 486 interpreter for 286 and 386 processors"
+msgstr "Utilizar el interpretador 486 para los procesadores 286 y 386"
+
 msgid "Dynamic Recompiler"
 msgstr "Recompilador dinámico"
 
@@ -413,6 +431,9 @@ msgstr "Vídeo:"
 
 msgid "Video #2:"
 msgstr "Vídeo 2:"
+
+msgid "Accelerators"
+msgstr "Aceleradores"
 
 msgid "Voodoo 1 or 2 Graphics"
 msgstr "Gráficos Voodoo 1 o 2"
@@ -483,8 +504,8 @@ msgstr "MPU-401 independiente"
 msgid "Use FLOAT32 sound"
 msgstr "Usar sonido FLOAT32"
 
-msgid "FM synth driver"
-msgstr "Controlador de sintet. FM"
+msgid "FM synth driver:"
+msgstr "Controlador de sintet. FM:"
 
 msgid "Nuked (more accurate)"
 msgstr "Nuked (más preciso)"
@@ -621,8 +642,8 @@ msgstr "Formato de imagen:"
 msgid "Block Size:"
 msgstr "Tamaño de bloque:"
 
-msgid "Floppy drives:"
-msgstr "Unidades de disquete:"
+msgid "Floppy drives"
+msgstr "Unidades de disquete"
 
 msgid "Turbo timings"
 msgstr "Temporizaciones turbo"
@@ -630,23 +651,26 @@ msgstr "Temporizaciones turbo"
 msgid "Check BPB"
 msgstr "Chequear BPB"
 
-msgid "CD-ROM drives:"
-msgstr "Unidades de CD-ROM:"
+msgid "CD-ROM drives"
+msgstr "Unidades de CD-ROM"
 
-msgid "MO drives:"
-msgstr "Unidades MO:"
+msgid "MO drives"
+msgstr "Unidades MO"
 
 msgid "MO:"
 msgstr "MO:"
 
+msgid "Removable disk drives"
+msgstr "Unidades de disco removible"
+
 msgid "Removable disks:"
 msgstr "Discos removibles:"
 
-msgid "Removable disk drives:"
-msgstr "Unidades de disco removible:"
+msgid "Tape drives"
+msgstr "Unidades de cinta"
 
-msgid "ZIP 250"
-msgstr "ZIP 250"
+msgid "Tape drives:"
+msgstr "Unidades de cinta:"
 
 msgid "ISA RTC:"
 msgstr "ISA RTC:"
@@ -704,6 +728,15 @@ msgstr "&Disco removible %1 (%2): %3"
 
 msgid "Removable disk images"
 msgstr "Imágenes de disco removible"
+
+msgid "Tape %1 (%2): %3"
+msgstr "Cinta %1 (%2): %3"
+
+msgid "&Tape %1 (%2): %3"
+msgstr "&Cinta %1 (%2): %3"
+
+msgid "Tape images"
+msgstr "Imágenes de cinta"
 
 msgid "Image %1"
 msgstr "Imagen %1"
@@ -768,8 +801,14 @@ msgstr "Puertos (COM y LPT)"
 msgid "Ports"
 msgstr "Puertos"
 
+msgid "Serial ports"
+msgstr "Puertos serie"
+
 msgid "Serial ports:"
 msgstr "Puertos serie:"
+
+msgid "Parallel ports"
+msgstr "Puertos paralelos"
 
 msgid "Parallel ports:"
 msgstr "Puertos paralelos:"
@@ -816,14 +855,8 @@ msgstr "Bus"
 msgid "File"
 msgstr "Archivo"
 
-msgid "C"
-msgstr "C"
-
-msgid "H"
-msgstr "H"
-
-msgid "S"
-msgstr "S"
+msgid "Geometry"
+msgstr "Geometría"
 
 msgid "KB"
 msgstr "KB"
@@ -1026,14 +1059,9 @@ msgstr "%1 es necesaria para la conversión automática de archivos PCL a PDF.\n
 msgid "Don't show this message again"
 msgstr "No mostrar más este mensaje"
 
-msgid "Don't exit"
-msgstr "No salir"
-
+#, fuzzy
 msgid "Reset"
 msgstr "Reinicializar"
-
-msgid "Don't reset"
-msgstr "No reinicializar"
 
 msgid "CD-ROM images"
 msgstr "Imágenes de CD-ROM"
@@ -1108,7 +1136,7 @@ msgid "Not running"
 msgstr "No en ejecución"
 
 msgid "Running"
-msgstr "En ejeución"
+msgstr "En ejecución"
 
 msgid "Paused"
 msgstr "En pausa"
@@ -1539,9 +1567,6 @@ msgstr "DMF (cluster 2048)"
 msgid "2.88 MB"
 msgstr "2.88 MB"
 
-msgid "ZIP 100"
-msgstr "ZIP 100"
-
 msgid "3.5\" 128 MB (ISO 10090)"
 msgstr "3.5\" 128 MB (ISO 10090)"
 
@@ -1583,6 +1608,9 @@ msgstr "1.5% por debajo de RPM perfectas"
 
 msgid "2% below perfect RPM"
 msgstr "2% por debajo de RPM perfectas"
+
+msgid "Creating image…"
+msgstr "Criando imagen…"
 
 msgid "(System Default)"
 msgstr "(Por defecto del sistema)"
@@ -1665,8 +1693,8 @@ msgstr "&Cursor/Puck"
 msgid "&Pen"
 msgstr "&Bolígrafo"
 
-msgid "&Host CD/DVD Drive (%1:)"
-msgstr "&Unidad de CD/DVD anfitriona (%1:)"
+msgid "&Host CD/DVD Drive (%1)"
+msgstr "&Unidad de CD/DVD anfitriona (%1)"
 
 msgid "&Connected"
 msgstr "&Conectrado"
@@ -2673,6 +2701,12 @@ msgstr "Alto impact en el rendimiento"
 msgid "[Generic] RAM Disk (max. speed)"
 msgstr "[Genérico] Disco RAM (velocidad máxima)"
 
+msgid "[Generic] 1983 MFM (3600 RPM)"
+msgstr "[Genérico] 1983 MFM (3600 RPM)"
+
+msgid "[Generic] 1983 RLL (3600 RPM)"
+msgstr "[Genérico] 1983 RLL (3600 RPM)"
+
 msgid "[Generic] 1989 (3500 RPM)"
 msgstr "[Genérico] 1989 (3500 RPM)"
 
@@ -2775,8 +2809,8 @@ msgstr "Mover para abajo"
 msgid "Could not load file %1"
 msgstr "Error al cargar el archivo %1"
 
-msgid "Key Bindings:"
-msgstr "Atajos de teclado:"
+msgid "Key bindings"
+msgstr "Atajos de teclado"
 
 msgid "Action"
 msgstr "Acción"
@@ -2838,8 +2872,8 @@ msgstr "Conmutador local"
 msgid "Remote Switch"
 msgstr "Conmutador remoto"
 
-msgid "Switch:"
-msgstr "Conmutador:"
+msgid "Shared secret:"
+msgstr "Secreto compartido:"
 
 msgid "Hub Mode"
 msgstr "Modo de concentrador"

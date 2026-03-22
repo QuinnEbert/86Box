@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2026-01-28 08:57+0000\n"
+"PO-Revision-Date: 2026-03-10 14:03+0000\n"
 "Last-Translator: OBattler <oubattler@gmail.com>\n"
 "Language-Team: Dutch <https://weblate.86box.net/projects/86box/86box/nl/>\n"
 "Language: nl-NL\n"
@@ -55,10 +55,10 @@ msgid "&Resizeable window"
 msgstr "&Venster met aanpasbare grootte"
 
 msgid "R&emember size && position"
-msgstr "&Onthoud grootte && positie"
+msgstr "&Onthoud grootte en positie"
 
 msgid "Remember size && position"
-msgstr "Onthoud grootte && positie"
+msgstr "Onthoud grootte en positie"
 
 msgid "Re&nderer"
 msgstr "Re&nderer"
@@ -73,7 +73,7 @@ msgid "&VNC"
 msgstr "&VNC"
 
 msgid "Specify &dimensions…"
-msgstr "Afmetingen opgeven…"
+msgstr "&Afmetingen opgeven…"
 
 msgid "Force &4:3 display ratio"
 msgstr "Forceer &4:3 beeldverhouding"
@@ -154,7 +154,7 @@ msgid "VGA screen &type"
 msgstr "VGA-scherm &type"
 
 msgid "RGB &Color"
-msgstr "RGB &Kleur"
+msgstr "RGB &kleur"
 
 msgid "RGB (no brown)"
 msgstr "RGN (geen bruin)"
@@ -351,6 +351,15 @@ msgstr "Hoogte:"
 msgid "Lock to this size"
 msgstr "Vergrendel deze grootte"
 
+msgid "General"
+msgstr "Algemeen"
+
+msgid "Processor"
+msgstr "Processor"
+
+msgid "Performance"
+msgstr "Prestaties"
+
 msgid "Machine type:"
 msgstr "Machinetype:"
 
@@ -372,8 +381,14 @@ msgstr "Snelheid:"
 msgid "Frequency:"
 msgstr "Frequentie:"
 
+msgid "%1 MHz"
+msgstr "%1 MHz"
+
 msgid "FPU:"
 msgstr "FPU:"
+
+msgid "Internal"
+msgstr "Geïntegreerd"
 
 msgid "Wait states:"
 msgstr "Wachttoestanden:"
@@ -396,6 +411,9 @@ msgstr "Ingeschakeld (lokale tijd)"
 msgid "Enabled (UTC)"
 msgstr "Ingeschakeld (UTC)"
 
+msgid "Use the 486 interpreter for 286 and 386 processors"
+msgstr "Gebruik de 486-interpreter voor 286- en 386-processors"
+
 msgid "Dynamic Recompiler"
 msgstr "Dynamische Recompiler"
 
@@ -414,6 +432,9 @@ msgstr "Video:"
 msgid "Video #2:"
 msgstr "Video #2:"
 
+msgid "Accelerators"
+msgstr "Versnellers"
+
 msgid "Voodoo 1 or 2 Graphics"
 msgstr "Voodoo 1 of 2 graphics"
 
@@ -421,7 +442,7 @@ msgid "IBM 8514/A Graphics"
 msgstr "IBM 8514/A-graphics"
 
 msgid "XGA Graphics"
-msgstr "XGA Graphics"
+msgstr "XGA-graphics"
 
 msgid "IBM PS/55 Display Adapter Graphics"
 msgstr "IBM PS/55 Display Adapter Graphics"
@@ -469,13 +490,13 @@ msgid "Sound card #4:"
 msgstr "Geluidskaart #4:"
 
 msgid "MIDI Out Device:"
-msgstr "MIDI Uitvoerapparaat:"
+msgstr "MIDI uitvoerapparaat:"
 
 msgid "MIDI In Device:"
-msgstr "MIDI Invoerapparaat:"
+msgstr "MIDI invoerapparaat:"
 
 msgid "MIDI Out:"
-msgstr "Midi Uit:"
+msgstr "Midi uit:"
 
 msgid "Standalone MPU-401"
 msgstr "Standalone MPU-401"
@@ -483,8 +504,8 @@ msgstr "Standalone MPU-401"
 msgid "Use FLOAT32 sound"
 msgstr "Gebruik FLOAT32-geluid"
 
-msgid "FM synth driver"
-msgstr "FM-synthesizer"
+msgid "FM synth driver:"
+msgstr "FM-synthesizer:"
 
 msgid "Nuked (more accurate)"
 msgstr "Nuked (nauwkeuriger)"
@@ -580,7 +601,7 @@ msgid "Hard disks:"
 msgstr "Harde schijven:"
 
 msgid "Firmware Version"
-msgstr "Firmware Versie"
+msgstr "Firmware versie"
 
 msgid "&New…"
 msgstr "&Nieuw…"
@@ -621,8 +642,8 @@ msgstr "Imageformaat:"
 msgid "Block Size:"
 msgstr "Blokgrootte:"
 
-msgid "Floppy drives:"
-msgstr "Floppy-schijfstations:"
+msgid "Floppy drives"
+msgstr "Floppy-schijfstations"
 
 msgid "Turbo timings"
 msgstr "Turbo timings"
@@ -630,23 +651,26 @@ msgstr "Turbo timings"
 msgid "Check BPB"
 msgstr "Controleer BPB"
 
-msgid "CD-ROM drives:"
-msgstr "CD-ROM-stations:"
+msgid "CD-ROM drives"
+msgstr "CD-ROM-stations"
 
-msgid "MO drives:"
-msgstr "MO-schijven:"
+msgid "MO drives"
+msgstr "MO-schijven"
 
 msgid "MO:"
 msgstr "MO:"
 
+msgid "Removable disk drives"
+msgstr "Verwisselbare schijfstations"
+
 msgid "Removable disks:"
 msgstr "Verwisselbare schijven:"
 
-msgid "Removable disk drives:"
-msgstr "Verwisselbare schijfstations:"
+msgid "Tape drives"
+msgstr "Band-schijfstations"
 
-msgid "ZIP 250"
-msgstr "ZIP 250"
+msgid "Tape drives:"
+msgstr "Band-schijfstations:"
 
 msgid "ISA RTC:"
 msgstr "ISA RTC:"
@@ -673,10 +697,10 @@ msgid "Generic ISA ROM Board"
 msgstr "Generieke ISA ROM-kaart"
 
 msgid "Generic Dual ISA ROM Board"
-msgstr "Generieke Dubbele ISA ROM-kaart"
+msgstr "Generieke dubbele ISA ROM-kaart"
 
 msgid "Generic Quad ISA ROM Board"
-msgstr "Generieke Viervoudige ISA ROM-kaart"
+msgstr "Generieke viervoudige ISA ROM-kaart"
 
 msgid "ISABugger device"
 msgstr "ISABugger-apparaat"
@@ -704,6 +728,15 @@ msgstr "&Verwijderbare schijf %1 (%2): %3"
 
 msgid "Removable disk images"
 msgstr "Verwijderbaar schijfimagebestand"
+
+msgid "Tape %1 (%2): %3"
+msgstr "Band %1 (%2): %3"
+
+msgid "&Tape %1 (%2): %3"
+msgstr "&Band %1 (%2): %3"
+
+msgid "Tape images"
+msgstr "Bandimagebestand"
 
 msgid "Image %1"
 msgstr "Image %1"
@@ -768,8 +801,14 @@ msgstr "Poorten (COM & LPT)"
 msgid "Ports"
 msgstr "Poorten"
 
+msgid "Serial ports"
+msgstr "Seriële poorten"
+
 msgid "Serial ports:"
 msgstr "Seriële poorten:"
+
+msgid "Parallel ports"
+msgstr "Parallelle poorten"
 
 msgid "Parallel ports:"
 msgstr "Parallelle poorten:"
@@ -816,14 +855,8 @@ msgstr "Bus"
 msgid "File"
 msgstr "Bestand"
 
-msgid "C"
-msgstr "C"
-
-msgid "H"
-msgstr "H"
-
-msgid "S"
-msgstr "S"
+msgid "Geometry"
+msgstr "Meetkunde"
 
 msgid "KB"
 msgstr "KB"
@@ -1006,7 +1039,7 @@ msgid "About %1"
 msgstr "Over %1"
 
 msgid "An emulator of old computers\n\nAuthors: Miran Grča (OBattler), RichardG867, Jasmine Iwanek, TC1995, coldbrewed, Teemu Korhonen (Manaatti), Joakim L. Gilje, Adrien Moulin (elyosh), Daniel Balsom (gloriouscow), Cacodemon345, Fred N. van Kempen (waltje), Tiseno100, reenigne, and others.\n\nWith previous core contributions from Sarah Walker, leilei, JohnElliott, greatpsycho, and others.\n\nReleased under the GNU General Public License version 2 or later. See LICENSE for more information."
-msgstr "Een emulator van oude computers\n\nAuteurs: Miran Grča (OBattler), RichardG867, Jasmine Iwanek, TC1995, coldbrewed, Teemu Korhonen (Manaatti), Joakim L. Gilje, Adrien Moulin (elyosh), Daniel Balsom (gloriouscow), Cacodemon345, Fred N. van Kempen (waltje), Tiseno100, reenigne, and others.\n\nMet eerdere bijdragen van Sarah Walker, leilei, JohnElliott, greatpsycho en anderen.\n\nUitgebracht onder de GNU General Public License versie 2 of later. Zie LICENSE voor meer informatie."
+msgstr "Een emulator van oude computers\n\nAuteurs: Miran Grča (OBattler), RichardG867, Jasmine Iwanek, TC1995, coldbrewed, Teemu Korhonen (Manaatti), Joakim L. Gilje, Adrien Moulin (elyosh), Daniel Balsom (gloriouscow), Cacodemon345, Fred N. van Kempen (waltje), Tiseno100, reenigne, en anderen.\n\nMet eerdere bijdragen van Sarah Walker, leilei, JohnElliott, greatpsycho en anderen.\n\nUitgebracht onder de GNU General Public License versie 2 of later. Zie LICENSE voor meer informatie."
 
 msgid "Hardware not available"
 msgstr "Hardware niet beschikbaar"
@@ -1026,14 +1059,8 @@ msgstr "%1 is vereist voor automatische conversie van PCL-bestanden naar PDF.\n\
 msgid "Don't show this message again"
 msgstr "Dit bericht niet meer tonen"
 
-msgid "Don't exit"
-msgstr "Niet afsluiten"
-
 msgid "Reset"
 msgstr "Reset"
-
-msgid "Don't reset"
-msgstr "Niet resetten"
 
 msgid "CD-ROM images"
 msgstr "CD-ROM-images"
@@ -1312,7 +1339,7 @@ msgid "An error has occurred while checking for updates: %1"
 msgstr "Er is een fout opgetreden tijdens het controleren op updates: %1"
 
 msgid "<b>An update to 86Box is available!</b>"
-msgstr "<b> Een update van 86Box is beschikbaar!</b>"
+msgstr "<b>Een update van 86Box is beschikbaar!</b>"
 
 msgid "Warning"
 msgstr "Waarschuwing"
@@ -1539,9 +1566,6 @@ msgstr "DMF (cluster 2048)"
 msgid "2.88 MB"
 msgstr "2,88 MB"
 
-msgid "ZIP 100"
-msgstr "ZIP 100"
-
 msgid "3.5\" 128 MB (ISO 10090)"
 msgstr "3,5\" 128 MB (ISO 10090)"
 
@@ -1583,6 +1607,9 @@ msgstr "1,5% onder perfecte RPM"
 
 msgid "2% below perfect RPM"
 msgstr "2% onder perfecte RPM"
+
+msgid "Creating image…"
+msgstr "Image wordt gemaakt…"
 
 msgid "(System Default)"
 msgstr "(Systeemstandaard)"
@@ -1665,8 +1692,8 @@ msgstr "&Cursor/Puck"
 msgid "&Pen"
 msgstr "&Pen"
 
-msgid "&Host CD/DVD Drive (%1:)"
-msgstr "&Host CD/DVD-station (%1:)"
+msgid "&Host CD/DVD Drive (%1)"
+msgstr "&Host CD/DVD-station (%1)"
 
 msgid "&Connected"
 msgstr "&Verbonden"
@@ -2065,7 +2092,7 @@ msgid "Dynamic Sample Loading"
 msgstr "Dynamische sample-lading"
 
 msgid "Reverb Output Gain"
-msgstr "Reverbuitgang Versterking"
+msgstr "Reverbuitgang versterking"
 
 msgid "Reversed stereo"
 msgstr "Omgekeerde stereo"
@@ -2362,7 +2389,7 @@ msgid "Always at selected speed"
 msgstr "Altijd op geselecteerde snelheid"
 
 msgid "BIOS setting + Hotkeys (off during POST)"
-msgstr "BIOS-instelling + Sneltoetsen (niet actief tijdens POST)"
+msgstr "BIOS-instelling + sneltoetsen (niet actief tijdens POST)"
 
 msgid "64 KB starting from F0000"
 msgstr "64 KB vanaf F0000"
@@ -2401,16 +2428,16 @@ msgid "Wheel"
 msgstr "Wiel"
 
 msgid "Five + Wheel"
-msgstr "Vijf + Wiel"
+msgstr "Vijf + wiel"
 
 msgid "Five + 2 Wheels"
-msgstr "Vijf + 2 Wielen"
+msgstr "Vijf + 2 wielen"
 
 msgid "A3 - SMT2 Serial / SMT3(R)V"
-msgstr "A3 - SMT2 Serieel / SMT3(R)V"
+msgstr "A3 - SMT2 serieel / SMT3(R)V"
 
 msgid "Q1 - SMT3(R) Serial"
-msgstr "Q1 - SMT3(R) Serieel"
+msgstr "Q1 - SMT3(R) serieel"
 
 msgid "8 KB"
 msgstr "8 KB"
@@ -2482,7 +2509,7 @@ msgid "Green Monochrome"
 msgstr "Groen monochroom"
 
 msgid "Amber Monochrome"
-msgstr "Amber Monochroom"
+msgstr "Amber monochroom"
 
 msgid "Gray Monochrome"
 msgstr "Grijs monochroom"
@@ -2551,7 +2578,7 @@ msgid "Color"
 msgstr "Kleur"
 
 msgid "U.S. English"
-msgstr "Amerikaans Engels"
+msgstr "Amerikaans engels"
 
 msgid "Scandinavian"
 msgstr "Scandinavisch"
@@ -2566,16 +2593,16 @@ msgid "Apply overscan deltas"
 msgstr "Overscan-delta’s toepassen"
 
 msgid "Mono Interlaced"
-msgstr "Mono Interlaced"
+msgstr "Mono interlaced"
 
 msgid "Mono Non-Interlaced"
-msgstr "Mono Niet-Interlaced"
+msgstr "Mono niet-interlaced"
 
 msgid "Color Interlaced"
-msgstr "Kleur Interlaced"
+msgstr "Kleur interlaced"
 
 msgid "Color Non-Interlaced"
-msgstr "Kleur Niet-Interlaced"
+msgstr "Kleur niet-interlaced"
 
 msgid "3Dfx Voodoo Graphics"
 msgstr "3Dfx Voodoo Graphics"
@@ -2635,7 +2662,7 @@ msgid "Passthrough Mode"
 msgstr "Doorgeefmodus"
 
 msgid "Host Serial Device"
-msgstr "Host Serieel Apparaat"
+msgstr "Host serieel apparaat"
 
 msgid "Name of pipe"
 msgstr "Naam van de pipe"
@@ -2650,10 +2677,10 @@ msgid "Baud Rate of Passthrough"
 msgstr "Baud-snelheid van doorvoer"
 
 msgid "Named Pipe (Server)"
-msgstr "Named Pipe (Server)"
+msgstr "Genoemd pipe (server)"
 
 msgid "Named Pipe (Client)"
-msgstr "Named Pipe (Client)"
+msgstr "Genoemd pipe (client)"
 
 msgid "Host Serial Passthrough"
 msgstr "Host seriële doorgave"
@@ -2672,6 +2699,12 @@ msgstr "Hoge prestatie-impact"
 
 msgid "[Generic] RAM Disk (max. speed)"
 msgstr "[Generiek] RAM-schijf (max. snelheid)"
+
+msgid "[Generic] 1983 MFM (3600 RPM)"
+msgstr "[Generiek] 1983 MFM (3600 RPM)"
+
+msgid "[Generic] 1983 RLL (3600 RPM)"
+msgstr "[Generiek] 1983 RLL (3600 RPM)"
 
 msgid "[Generic] 1989 (3500 RPM)"
 msgstr "[Generiek] 1989 (3500 RPM)"
@@ -2775,8 +2808,8 @@ msgstr "Omlaag verplaatsen"
 msgid "Could not load file %1"
 msgstr "Kon bestand %1 niet laden"
 
-msgid "Key Bindings:"
-msgstr "Toetskoppelingen:"
+msgid "Key bindings"
+msgstr "Toetskoppelingen"
 
 msgid "Action"
 msgstr "Actie"
@@ -2833,13 +2866,13 @@ msgid "SoundFont files"
 msgstr "SoundFont-bestanden"
 
 msgid "Local Switch"
-msgstr "Lokale Switch"
+msgstr "Lokale-switch"
 
 msgid "Remote Switch"
-msgstr "Externe Switch"
+msgstr "Externe-switch"
 
-msgid "Switch:"
-msgstr "Switch:"
+msgid "Shared secret:"
+msgstr "Gedeeld geheim:"
 
 msgid "Hub Mode"
 msgstr "Hub-modus"
@@ -2869,16 +2902,16 @@ msgid "An error occurred trying to wipe the NVRAM contents of the virtual machin
 msgstr "Fout bij Wissen van NVRAM-inhoud van de virtuele machine \"%1\""
 
 msgid "%1 VM Manager"
-msgstr "%1 VM Beheerder"
+msgstr "%1 VM-beheerder"
 
 msgid "%n disk(s)"
 msgstr "%n schijf/schijven"
 
 msgid "Unknown Status"
-msgstr "Onbekende Status"
+msgstr "Onbekende status"
 
 msgid "No Machines Found!"
-msgstr "Geen Machines Gevonden!"
+msgstr "Geen machines gevonden!"
 
 msgid "Check for updates on startup"
 msgstr "Controleer op updates bij starten"
@@ -2932,7 +2965,7 @@ msgid "Checking for updates…"
 msgstr "Controleren op updates…"
 
 msgid "86Box Update"
-msgstr "86Box Update"
+msgstr "86Box-update"
 
 msgid "Release notes:"
 msgstr "Release-opmerkingen:"

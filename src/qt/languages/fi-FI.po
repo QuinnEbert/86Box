@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2026-01-28 08:57+0000\n"
-"Last-Translator: OBattler <oubattler@gmail.com>\n"
+"PO-Revision-Date: 2026-03-12 16:30+0000\n"
+"Last-Translator: Daniel Gurney <daniel@gurney.dev>\n"
 "Language-Team: Finnish <https://weblate.86box.net/projects/86box/86box/fi/>\n"
 "Language: fi-FI\n"
 "MIME-Version: 1.0\n"
@@ -351,6 +351,15 @@ msgstr "Korkeus:"
 msgid "Lock to this size"
 msgstr "Lukitse tähän kokoon"
 
+msgid "General"
+msgstr "Yleinen"
+
+msgid "Processor"
+msgstr "Prosessori"
+
+msgid "Performance"
+msgstr "Suorituskyky"
+
 msgid "Machine type:"
 msgstr "Tietokoneen tyyppi:"
 
@@ -372,8 +381,14 @@ msgstr "Nopeus:"
 msgid "Frequency:"
 msgstr "Taajuus:"
 
+msgid "%1 MHz"
+msgstr "%1 MHz"
+
 msgid "FPU:"
 msgstr "Apusuoritin:"
+
+msgid "Internal"
+msgstr "Sisäinen"
 
 msgid "Wait states:"
 msgstr "Odotustilat:"
@@ -396,6 +411,9 @@ msgstr "Käytössä (paikallinen)"
 msgid "Enabled (UTC)"
 msgstr "Käytössä (UTC)"
 
+msgid "Use the 486 interpreter for 286 and 386 processors"
+msgstr "Käytä 486-tulkintaa 286- ja 386-prosessoreille"
+
 msgid "Dynamic Recompiler"
 msgstr "Dynaaminen uudelleenkääntäjä"
 
@@ -413,6 +431,9 @@ msgstr "Näytönohjain:"
 
 msgid "Video #2:"
 msgstr "Toinen näytönohjain:"
+
+msgid "Accelerators"
+msgstr "Kiihdyttimet"
 
 msgid "Voodoo 1 or 2 Graphics"
 msgstr "Voodoo 1 tai 2-grafiikkasuoritin"
@@ -483,8 +504,8 @@ msgstr "Erillinen MPU-401"
 msgid "Use FLOAT32 sound"
 msgstr "Käytä FLOAT32-ääntä"
 
-msgid "FM synth driver"
-msgstr "FM-syntetisaattoriohjain"
+msgid "FM synth driver:"
+msgstr "FM-syntetisaattoriohjain:"
 
 msgid "Nuked (more accurate)"
 msgstr "Nuked (tarkempi)"
@@ -621,8 +642,8 @@ msgstr "Tiedostomuoto:"
 msgid "Block Size:"
 msgstr "Lohkon koko:"
 
-msgid "Floppy drives:"
-msgstr "Levykeasemat:"
+msgid "Floppy drives"
+msgstr "Levykeasemat"
 
 msgid "Turbo timings"
 msgstr "Turbo-ajoitukset"
@@ -630,23 +651,26 @@ msgstr "Turbo-ajoitukset"
 msgid "Check BPB"
 msgstr "Tarkista BPB"
 
-msgid "CD-ROM drives:"
-msgstr "CD-ROM-asemat:"
+msgid "CD-ROM drives"
+msgstr "CD-ROM-asemat"
 
-msgid "MO drives:"
-msgstr "Magneettisoptiset asemat (MO):"
+msgid "MO drives"
+msgstr "Magneettisoptiset asemat (MO)"
 
 msgid "MO:"
 msgstr "MO:"
 
+msgid "Removable disk drives"
+msgstr "Irrotettavat levyasemat"
+
 msgid "Removable disks:"
 msgstr "Irrotettavat levyt:"
 
-msgid "Removable disk drives:"
-msgstr "Irrotettavat levyasemat:"
+msgid "Tape drives"
+msgstr "Nauha-asemat"
 
-msgid "ZIP 250"
-msgstr "ZIP 250"
+msgid "Tape drives:"
+msgstr "Nauha-asemat:"
 
 msgid "ISA RTC:"
 msgstr "ISA-RTC (kello):"
@@ -704,6 +728,15 @@ msgstr "&Irrotettava levy %1 (%2): %3"
 
 msgid "Removable disk images"
 msgstr "Irrotettavat levykuvat"
+
+msgid "Tape %1 (%2): %3"
+msgstr "Nauha %1 (%2): %3"
+
+msgid "&Tape %1 (%2): %3"
+msgstr "&Nauha %1 (%2): %3"
+
+msgid "Tape images"
+msgstr "Nauhamediat"
 
 msgid "Image %1"
 msgstr "Levykuva %1"
@@ -768,8 +801,14 @@ msgstr "Portit (COM & LPT)"
 msgid "Ports"
 msgstr "Portit"
 
+msgid "Serial ports"
+msgstr "Sarjaportit"
+
 msgid "Serial ports:"
 msgstr "Sarjaportit:"
+
+msgid "Parallel ports"
+msgstr "Rinnakkaisportit"
 
 msgid "Parallel ports:"
 msgstr "Rinnakkaisportit:"
@@ -816,14 +855,8 @@ msgstr "Väylä"
 msgid "File"
 msgstr "Tiedosto"
 
-msgid "C"
-msgstr "C"
-
-msgid "H"
-msgstr "H"
-
-msgid "S"
-msgstr "S"
+msgid "Geometry"
+msgstr "Geometria"
 
 msgid "KB"
 msgstr "Kt"
@@ -1026,14 +1059,9 @@ msgstr "%1 vaaditaan PCL-tiedostojen automaattiseen muuntamiseen PDF-tiedostoiks
 msgid "Don't show this message again"
 msgstr "Älä näytä tätä viestiä uudelleen"
 
-msgid "Don't exit"
-msgstr "Älä poistu"
-
+#, fuzzy
 msgid "Reset"
 msgstr "Käynnistä uudelleen"
-
-msgid "Don't reset"
-msgstr "Älä käynnistä uudelleen"
 
 msgid "CD-ROM images"
 msgstr "CD-ROM-levykuvat"
@@ -1081,7 +1109,7 @@ msgid "Pause execution"
 msgstr "Pysäytä suoritus"
 
 msgid "Ctrl+Alt+Del"
-msgstr ""
+msgstr "Ctrl+Alt+Del"
 
 msgid "Press Ctrl+Alt+Del"
 msgstr "Paina Ctrl+Alt+Del"
@@ -1539,9 +1567,6 @@ msgstr "DMF (lohko 2048)"
 msgid "2.88 MB"
 msgstr "2.88 Mt"
 
-msgid "ZIP 100"
-msgstr "ZIP 100"
-
 msgid "3.5\" 128 MB (ISO 10090)"
 msgstr "3.5\" 128 Mt (ISO 10090)"
 
@@ -1583,6 +1608,9 @@ msgstr "1.5% alle täydellisen RPM:n"
 
 msgid "2% below perfect RPM"
 msgstr "2% alle täydellisen RPM:n"
+
+msgid "Creating image…"
+msgstr "Luodaan levykuvaa…"
 
 msgid "(System Default)"
 msgstr "(Järjestelmän oletus)"
@@ -1665,8 +1693,8 @@ msgstr "&Kursori/Kiekko"
 msgid "&Pen"
 msgstr "K&ynä"
 
-msgid "&Host CD/DVD Drive (%1:)"
-msgstr "&Isäntä CD/DVD-asema (%1:)"
+msgid "&Host CD/DVD Drive (%1)"
+msgstr "&Isäntä CD/DVD-asema (%1)"
 
 msgid "&Connected"
 msgstr "&Yhdistetty"
@@ -1960,7 +1988,7 @@ msgid "IBM 5161 Expansion Unit"
 msgstr "IBM 5161-laajennusyksikkö"
 
 msgid "IBM Cassette Basic"
-msgstr ""
+msgstr "IBM Cassette Basic"
 
 msgid "Translate 26 -> 17"
 msgstr "Muunna 26 -> 17"
@@ -2581,7 +2609,7 @@ msgid "3Dfx Voodoo Graphics"
 msgstr "3dfx Voodoo-grafiikkasuoritin"
 
 msgid "3Dfx Voodoo 2"
-msgstr ""
+msgstr "3Dfx Voodoo 2"
 
 msgid "Obsidian SB50 + Amethyst (2 TMUs)"
 msgstr "Obsidian SB50 + Amethyst (2 TMU:ta)"
@@ -2673,6 +2701,12 @@ msgstr "Merkittävä vaikutus suorituskykyyn"
 msgid "[Generic] RAM Disk (max. speed)"
 msgstr "[Yleinen] RAM-levy (maksiminopeus)"
 
+msgid "[Generic] 1983 MFM (3600 RPM)"
+msgstr "[Yleinen] 1983 MFM (3600 RPM)"
+
+msgid "[Generic] 1983 RLL (3600 RPM)"
+msgstr "[Yleinen] 1983 RLL (3600 RPM)"
+
 msgid "[Generic] 1989 (3500 RPM)"
 msgstr "[Yleinen] 1989 (3500 RPM)"
 
@@ -2701,10 +2735,10 @@ msgid "Vendor"
 msgstr "Valmistaja"
 
 msgid "30 Hz (JMP2 = 1)"
-msgstr ""
+msgstr "30 Hz (JMP2 = 1)"
 
 msgid "60 Hz (JMP2 = 2)"
-msgstr ""
+msgstr "60 Hz (JMP2 = 2)"
 
 msgid "Generic PC/XT Memory Expansion"
 msgstr "Yleinen PC/XT-muistilaajennus"
@@ -2775,8 +2809,8 @@ msgstr "Siirrä alas"
 msgid "Could not load file %1"
 msgstr "Tiedostoa %1 ei voitu ladata"
 
-msgid "Key Bindings:"
-msgstr "Pikanäppäimet:"
+msgid "Key bindings"
+msgstr "Pikanäppäimet"
 
 msgid "Action"
 msgstr "Toiminto"
@@ -2838,8 +2872,8 @@ msgstr "Paikallinen kytkin"
 msgid "Remote Switch"
 msgstr "Etäkytkin"
 
-msgid "Switch:"
-msgstr "Kytkin:"
+msgid "Shared secret:"
+msgstr "Jaettu salaisuus:"
 
 msgid "Hub Mode"
 msgstr "Hubitila"
@@ -2896,7 +2930,7 @@ msgid "stable"
 msgstr "vakaa"
 
 msgid "beta"
-msgstr ""
+msgstr "beta"
 
 msgid "You are running the latest %1 version of 86Box: %2"
 msgstr "Sinulla on käytössä uusin %1-versio 86Boxista: %2"
@@ -3016,10 +3050,10 @@ msgid "&Allow recompilation"
 msgstr "&Salli uudelleenkääntäminen"
 
 msgid "&Fast forward"
-msgstr "&Nopea eteneminen"
+msgstr "&Pikakelaus"
 
 msgid "Fast forward"
-msgstr "Nopea eteneminen"
+msgstr "Pikakelaus"
 
 msgid "To change the system directory, stop all running machines."
 msgstr "Järjestelmähakemiston muuttamiseksi pysäytä kaikki käynnissä olevat koneet."
