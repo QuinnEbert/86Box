@@ -137,6 +137,10 @@ SettingsHarddisks::SettingsHarddisks(QWidget *parent)
 {
     ui->setupUi(this);
 
+    scSpeed = new SettingsCompleter(ui->comboBoxSpeed, nullptr);
+
+    hard_disk_icon = QIcon(":/settings/qt/icons/hard_disk.ico");
+
     // (Host shared-folder configuration moved to its own Settings page.)
 
     QAbstractItemModel *model = new QStandardItemModel(0, 4, this);

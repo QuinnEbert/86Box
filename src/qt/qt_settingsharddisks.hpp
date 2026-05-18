@@ -45,7 +45,7 @@ private:
 
     int                    org_rows = 0;
 
-    SettingsCompleter     *scSpeed;
+    SettingsCompleter     *scSpeed = nullptr;
 };
 
 #endif // QT_SETTINGSHARDDISKS_HPP
