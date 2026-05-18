@@ -319,7 +319,7 @@ main(int argc, char **argv)
         return -1;
     }
 
-    monitor_init();
+    sdl_monitor_init();
 
     mousemutex = SDL_CreateMutex();
 
@@ -590,7 +590,7 @@ check_flags:
     SDL_DestroyMutex(blitmtx);
     SDL_DestroyMutex(mousemutex);
     SDL_Quit();
-    monitor_close();
+    sdl_monitor_close();
     return 0;
 }
 

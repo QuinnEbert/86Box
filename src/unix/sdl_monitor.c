@@ -35,7 +35,7 @@ extern int exit_event, fullscreen_pending;
 extern bool fast_forward;
 
 void
-monitor_init(void)
+sdl_monitor_init(void)
 {
 #if ENABLE_READLINE
     libedit_handle = dynld_module(LIBEDIT_LIBRARY, libedit_imports);
@@ -51,7 +51,7 @@ monitor_init(void)
 }
 
 void
-monitor_close(void)
+sdl_monitor_close(void)
 {
 #if ENABLE_READLINE
     if (f_rl_callback_handler_remove)

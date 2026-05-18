@@ -70,11 +70,6 @@ add_library(ui OBJECT
     sdl_monitor.c
     sdl_ui.c
 )
-if(APPLE OR CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
-    target_sources(ui PRIVATE dummy_cdrom_ioctl.c)
-else()
-    target_sources(ui PRIVATE linux_cdrom_ioctl.c)
-endif()
 
 if(USE_IMGUI)
     target_compile_definitions(ui PRIVATE USE_IMGUI)

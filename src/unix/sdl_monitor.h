@@ -7,8 +7,8 @@
 #    define LIBEDIT_LIBRARY "libedit.so"
 #endif
 
-extern void monitor_init(void);
-extern void monitor_close(void);
+extern void sdl_monitor_init(void);
+extern void sdl_monitor_close(void);
 extern void monitor_thread(void *param);
 extern void monitor_execute_line(char *line);
 
