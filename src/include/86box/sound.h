@@ -21,7 +21,8 @@
 
 #define SOUND_CARD_MAX 4 /* currently we support up to 4 sound cards and a standalone MPU401 */
 
-extern int sound_gain;
+extern int  sound_gain;
+extern char sound_output_device[512]; /* selected audio output device name, empty = system default */
 
 #define FREQ_44100  44100
 #define FREQ_48000  48000
@@ -59,15 +60,15 @@ extern int wavetable_pos_global;
 extern int sound_card_current[SOUND_CARD_MAX];
 
 extern void sound_add_handler(void (*get_buffer)(int32_t *buffer,
-                                                 int len, void *priv),
+                                                 uint16_t len, void *priv),
                               void *priv);
 
 extern void music_add_handler(void (*get_buffer)(int32_t *buffer,
-                                                 int len, void *priv),
+                                                 uint16_t len, void *priv),
                               void *priv);
 
 extern void wavetable_add_handler(void (*get_buffer)(int32_t *buffer,
-                                                     int len, void *priv),
+                                                     uint16_t len, void *priv),
                                   void *priv);
 
 extern void sound_set_cd_audio_filter(void (*filter)(int     channel,
@@ -106,8 +107,9 @@ extern void sound_fdd_thread_end(void);
 extern void sound_hdd_thread_init(void);
 extern void sound_hdd_thread_end(void);
 
-extern void closeal(void);
-extern void inital(void);
+extern const char *sound_get_output_devices(void); /* returns double-null-terminated list, or NULL */
+extern void        closeal(void);
+extern void        inital(void);
 extern void givealbuffer(const void *buf);
 extern void givealbuffer_music(const void *buf);
 extern void givealbuffer_wt(const void *buf);
@@ -145,6 +147,7 @@ extern const device_t cmi8738_6ch_onboard_device;
 
 /* Covox ISA */
 extern const device_t voicemasterkey_device;
+extern const device_t soundmaster_device;
 extern const device_t soundmasterplus_device;
 extern const device_t isadacr0_device;
 extern const device_t isadacr1_device;
@@ -221,6 +224,9 @@ extern const device_t gus_v37_device;
 extern const device_t gus_max_device;
 extern const device_t gus_ace_device;
 
+/* IBM Music Feature Card */
+extern const device_t imfc_device;
+
 /* IBM PS/1 Audio Card */
 extern const device_t ps1snd_device;
 
@@ -240,7 +246,8 @@ extern const device_t mirosound_pcm10_device;
 extern const device_t opti_82c930_device;
 extern const device_t opti_82c931_device;
 
-/* Pro Audio Spectrum Plus, 16, and 16D */
+/* Pro Audio Spectrum, Plus, 16, and 16D */
+extern const device_t pas_device;
 extern const device_t pasplus_device;
 extern const device_t pas16_device;
 extern const device_t pas16d_device;
@@ -258,6 +265,9 @@ extern const device_t tndy_device;
 
 /* Tandy Sensation */
 extern const device_t sensationaud_device;
+
+/* TexElec SAAYM */
+extern const device_t saaym_device;
 
 /* Windows Sound System */
 extern const device_t wss_device;

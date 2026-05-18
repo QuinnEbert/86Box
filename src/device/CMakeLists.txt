@@ -13,7 +13,7 @@
 #
 #          Copyright 2020-2021 David Hrdlička.
 #          Copyright 2021      Andreas J. Reichel.
-#          Copyright 2021-2025 Jasmine Iwanek.
+#          Copyright 2021-2026 Jasmine Iwanek.
 #
 
 add_library(dev OBJECT
@@ -58,7 +58,6 @@ add_library(dev OBJECT
     postcard.c
     radisys_config.c
     serial.c
-    serial_passthrough.c
     smbus_ali7101.c
     smbus_piix4.c
     smbus_sis5595.c

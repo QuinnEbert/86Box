@@ -60,7 +60,7 @@ extern volatile int fdcinited;
 #include "qt_mediamenu.hpp"
 #include "qt_mainwindow.hpp"
 #include "qt_soundgain.hpp"
-#include "qt_progsettings.hpp"
+#include "qt_preferences.hpp"
 #include "qt_iconindicators.hpp"
 #include "qt_deviceconfig.hpp"
 
@@ -118,6 +118,7 @@ struct Pixmaps {
     PixmapSetEmptyActive floppy_525;
     PixmapSetEmptyActive floppy_35;
     PixmapSetEmptyActive cdrom;
+    PixmapSetEmptyActive dvdrom;
     PixmapSetEmptyActive rdisk_disabled;
     PixmapSetEmptyActive rdisk;
     PixmapSetEmptyActive zip;
@@ -342,6 +343,7 @@ struct MachineStatus::States {
         pixmaps.floppy_525.load(QIcon(":/settings/qt/icons/floppy_525.ico"));
         pixmaps.floppy_35.load(QIcon(":/settings/qt/icons/floppy_35.ico"));
         pixmaps.cdrom.load(QIcon(":/settings/qt/icons/cdrom.ico"));
+        pixmaps.dvdrom.load(QIcon(":/settings/qt/icons/dvdrom.ico"));
         pixmaps.rdisk_disabled.normal                  = QIcon(":/settings/qt/icons/rdisk_disabled.ico").pixmap(pixmap_size);
         pixmaps.rdisk_disabled.active                  = pixmaps.rdisk_disabled.normal;
         pixmaps.rdisk_disabled.read_write_active       = pixmaps.rdisk_disabled.normal;
@@ -463,9 +465,10 @@ MachineStatus::iterateCDROM(const std::function<void(int)> &cb)
     for (size_t i = 0; i < CDROM_NUM; i++) {
         /* Could be Internal or External IDE.. */
         if ((cdrom[i].bus_type == CDROM_BUS_ATAPI) && !hasIDE() &&
-            (hdc_name.left(3) != QStringLiteral("ide")) &&
-            (hdc_name.left(5) != QStringLiteral("xtide")) &&
-            (hdc_name.left(5) != QStringLiteral("mcide")))
+            !hdc_name.startsWith(QStringLiteral("ide")) &&
+            !hdc_name.startsWith(QStringLiteral("xtide")) &&
+//            !hdc_name.startsWith(QStringLiteral("jride")) &&
+            !hdc_name.startsWith(QStringLiteral("mcide")))
             continue;
         if ((cdrom[i].bus_type == CDROM_BUS_SCSI) && !hasSCSI() &&
             (scsi_card_current[0] == 0) && (scsi_card_current[1] == 0) &&
@@ -486,9 +489,10 @@ MachineStatus::iterateRDisk(const std::function<void(int)> &cb)
     for (size_t i = 0; i < RDISK_NUM; i++) {
         /* Could be Internal or External IDE.. */
         if ((rdisk_drives[i].bus_type == RDISK_BUS_ATAPI) && !hasIDE() &&
-            (hdc_name.left(3) != QStringLiteral("ide")) &&
-            (hdc_name.left(5) != QStringLiteral("xtide")) &&
-            (hdc_name.left(5) != QStringLiteral("mcide")))
+            !hdc_name.startsWith(QStringLiteral("ide")) &&
+            !hdc_name.startsWith(QStringLiteral("xtide")) &&
+//            !hdc_name.startsWith(QStringLiteral("jride")) &&
+            !hdc_name.startsWith(QStringLiteral("mcide")))
             continue;
         if ((rdisk_drives[i].bus_type == RDISK_BUS_SCSI) && !hasSCSI() &&
             (scsi_card_current[0] == 0) && (scsi_card_current[1] == 0) &&
@@ -507,9 +511,10 @@ MachineStatus::iterateMO(const std::function<void(int)> &cb)
     for (size_t i = 0; i < MO_NUM; i++) {
         /* Could be Internal or External IDE.. */
         if ((mo_drives[i].bus_type == MO_BUS_ATAPI) && !hasIDE() &&
-            (hdc_name.left(3) != QStringLiteral("ide")) &&
-            (hdc_name.left(5) != QStringLiteral("xtide")) &&
-            (hdc_name.left(5) != QStringLiteral("mcide")))
+            !hdc_name.startsWith(QStringLiteral("ide")) &&
+            !hdc_name.startsWith(QStringLiteral("xtide")) &&
+//            !hdc_name.startsWith(QStringLiteral("jride")) &&
+            !hdc_name.startsWith(QStringLiteral("mcide")))
             continue;
         if ((mo_drives[i].bus_type == MO_BUS_SCSI) && !hasSCSI() &&
             (scsi_card_current[0] == 0) && (scsi_card_current[1] == 0) &&
@@ -528,9 +533,10 @@ MachineStatus::iterateTape(const std::function<void(int)> &cb)
     for (size_t i = 0; i < TAPE_NUM; i++) {
         /* Could be Internal or External IDE.. */
         if ((tape_drives[i].bus_type == TAPE_BUS_ATAPI) && !hasIDE() &&
-            (hdc_name.left(3) != QStringLiteral("ide")) &&
-            (hdc_name.left(5) != QStringLiteral("xtide")) &&
-            (hdc_name.left(5) != QStringLiteral("mcide")))
+            !hdc_name.startsWith(QStringLiteral("ide")) &&
+            !hdc_name.startsWith(QStringLiteral("xtide")) &&
+//            !hdc_name.startsWith(QStringLiteral("jride")) &&
+            !hdc_name.startsWith(QStringLiteral("mcide")))
             continue;
         if ((tape_drives[i].bus_type == TAPE_BUS_SCSI) && !hasSCSI() &&
             (scsi_card_current[0] == 0) && (scsi_card_current[1] == 0) &&
@@ -793,13 +799,12 @@ MachineStatus::refresh(QStatusBar *sbar)
 
     iterateFDD([this, sbar](int i) {
         int t = fdd_get_type(i);
-        if (t == 0) {
+        if (t == 0)
             d->fdd[i].pixmaps = &d->pixmaps.floppy_disabled;
-        } else if (t >= 1 && t <= 6) {
+        else if ((t >= 1) && (t <= 6))
             d->fdd[i].pixmaps = &d->pixmaps.floppy_525;
-        } else {
+        else
             d->fdd[i].pixmaps = &d->pixmaps.floppy_35;
-        }
         d->fdd[i].label = std::make_unique<ClickableLabel>();
         d->fdd[i].setEmpty(QString(floppyfns[i]).isEmpty());
         if (QString(floppyfns[i]).isEmpty())
@@ -823,6 +828,11 @@ MachineStatus::refresh(QStatusBar *sbar)
     });
 
     iterateCDROM([this, sbar](int i) {
+        int t = cdrom[i].type;
+        if (cdrom_is_dvd(t))
+            d->cdrom[i].pixmaps = &d->pixmaps.dvdrom;
+        else
+            d->cdrom[i].pixmaps = &d->pixmaps.cdrom;
         d->cdrom[i].label = std::make_unique<ClickableLabel>();
         d->cdrom[i].setEmpty(QString(cdrom[i].image_path).isEmpty());
         d->cdrom[i].setActive(false);
@@ -841,13 +851,12 @@ MachineStatus::refresh(QStatusBar *sbar)
 
     iterateRDisk([this, sbar](int i) {
         int t = rdisk_drives[i].type;
-        if (rdisk_drives[i].bus_type == RDISK_BUS_DISABLED) {
+        if (rdisk_drives[i].bus_type == RDISK_BUS_DISABLED)
             d->rdisk[i].pixmaps = &d->pixmaps.rdisk_disabled;
-        } else if ((t == RDISK_TYPE_ZIP_100) || (t == RDISK_TYPE_ZIP_250)) {
+        else if ((t == RDISK_TYPE_ZIP_100) || (t == RDISK_TYPE_ZIP_250))
             d->rdisk[i].pixmaps = &d->pixmaps.zip;
-        } else {
+        else
             d->rdisk[i].pixmaps = &d->pixmaps.rdisk;
-        }
         d->rdisk[i].label = std::make_unique<ClickableLabel>();
         d->rdisk[i].setEmpty(QString(rdisk_drives[i].image_path).isEmpty());
         if (QString(rdisk_drives[i].image_path).isEmpty())
@@ -978,9 +987,10 @@ MachineStatus::refresh(QStatusBar *sbar)
         d->hdds[HDD_BUS_XTA].label->setToolTip(tooltip);
         sbar->addWidget(d->hdds[HDD_BUS_XTA].label.get());
     }
-    if (hasIDE() || (hdc_name.left(5) == QStringLiteral("xtide")) ||
-        (hdc_name.left(5) == QStringLiteral("mcide")) ||
-        (hdc_name.left(3) == QStringLiteral("ide"))) {
+    if (hasIDE() || hdc_name.startsWith(QStringLiteral("xtide")) ||
+        hdc_name.startsWith(QStringLiteral("jride")) ||
+        hdc_name.startsWith(QStringLiteral("mcide")) ||
+        hdc_name.startsWith(QStringLiteral("ide"))) {
         if (c_ide > 0) {
             d->hdds[HDD_BUS_IDE].label = std::make_unique<QLabel>();
             d->hdds[HDD_BUS_IDE].setActive(false);

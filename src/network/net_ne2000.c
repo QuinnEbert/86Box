@@ -1005,7 +1005,7 @@ nic_rom_init(nic_t *dev, char *s)
 }
 
 static uint8_t
-nic_mca_read(int port, void *priv)
+nic_mca_read(const uint16_t port, void *priv)
 {
     const nic_t *dev = (nic_t *) priv;
 
@@ -1024,7 +1024,7 @@ nic_mca_read(int port, void *priv)
     }
 
 static void
-nic_mca_write(int port, uint8_t val, void *priv)
+nic_mca_write(const uint16_t port, uint8_t val, void *priv)
 {
     nic_t   *dev    = (nic_t *) priv;
     uint16_t base[] = MCA_611F_IO_PORTS;
@@ -1946,7 +1946,7 @@ const device_t ne1000_compat_device = {
 const device_t ne2000_device = {
     .name          = "Novell NE2000",
     .internal_name = "novell_ne2k",
-    .flags         = DEVICE_ISA16,
+    .flags         = DEVICE_ISA,
     .local         = NE2K_NE2000,
     .init          = nic_init,
     .close         = nic_close,
@@ -2002,7 +2002,7 @@ const device_t ethernext_mc_device = {
 const device_t rtl8019as_pnp_device = {
     .name          = "Realtek RTL8019AS",
     .internal_name = "ne2kpnp",
-    .flags         = DEVICE_ISA16,
+    .flags         = DEVICE_ISA,
     .local         = NE2K_RTL8019AS_PNP,
     .init          = nic_init,
     .close         = nic_close,

@@ -78,6 +78,11 @@ typedef struct {
     const device_t *device;
 } NETWORK_CARD;
 
+typedef struct net_card_migrate_t {
+    const device_t *device;
+    const char     *old_internal_name;
+} net_card_migrate_t;
+
 static const NETWORK_CARD net_cards[] = {
     // clang-format off
     { &device_none                },
@@ -88,6 +93,8 @@ static const NETWORK_CARD net_cards[] = {
     { &ne1000_compat_device       },
     { &ne2000_compat_8bit_device  },
     { &ne1000_device              },
+    { &ne2000_device              },
+    { &rtl8019as_pnp_device       },
     { &wd8003e_device             },
     { &wd8003eb_device            },
     { &wd8013ebt_device           },
@@ -100,28 +107,36 @@ static const NETWORK_CARD net_cards[] = {
     { &pcnet_am79c961_device      },
     { &de220p_device              },
     { &ne2000_compat_device       },
-    { &ne2000_device              },
     { &pcnet_am79c960_eb_device   },
-    { &rtl8019as_pnp_device       },
     /* MCA */
     { &ethernext_mc_device        },
-    { &wd8003eta_device           },
     { &wd8003ea_device            },
+    { &wd8003eta_device           },
     { &wd8013epa_device           },
     /* VLB */
     { &pcnet_am79c960_vlb_device  },
     /* PCI */
     { &pcnet_am79c973_device      },
     { &pcnet_am79c970a_device     },
-    { &dec_tulip_21140_device     },
     { &dec_tulip_21040_device     },
+    { &dec_tulip_21140_device     },
     { &dec_tulip_device           },
-    { &dec_tulip_21140_vpc_device },
-    { &smc_epic100_device         },
     { &rtl8029as_device           },
     { &rtl8139c_plus_device       },
+    { &smc_epic100_device         },
     { NULL                        }
     // clang-format on
+};
+
+static const net_card_migrate_t
+net_cards_migrate[] = {
+  // clang-format off
+    /* DECchip 21140 "Tulip FasterNet" */
+    { .device = &dec_tulip_21140_device,                        .old_internal_name = "dec_21140_tulip"                },
+    { .device = &dec_tulip_21140_device,                        .old_internal_name = "dec_21140_tulip_vpc"            },
+    /* End of table */
+    { .device = NULL,                                           .old_internal_name = ""                               }
+  // clang-format on
 };
 
 netcard_conf_t net_cards_conf[NET_CARD_MAX];
@@ -467,14 +482,14 @@ network_attach(void *card_drv, uint8_t *mac, NETRXCB rx, NETSETLINKSTATE set_lin
     card->byte_period     = NET_PERIOD_10M;
 
     char net_drv_error[NET_DRV_ERRBUF_SIZE];
-    wchar_t tempmsg[NET_DRV_ERRBUF_SIZE * 2];
+    char tempmsg[NET_DRV_ERRBUF_SIZE * 2];
 
     for (int i = 0; i < NET_QUEUE_COUNT; i++) {
         network_queue_init(&card->queues[i]);
     }
 
-    if ((!strcmp(network_card_get_internal_name(net_cards_conf[net_card_current].device_num), "modem") ||
-         !strcmp(network_card_get_internal_name(net_cards_conf[net_card_current].device_num), "plip")) && (net_type >= NET_TYPE_PCAP)) {
+    const char *nic_name = network_card_get_internal_name(net_cards_conf[net_card_current].device_num);
+    if ((!strcmp(nic_name, "modem") || !strcmp(nic_name, "plip")) && (net_type >= NET_TYPE_PCAP)) {
         /* Force SLiRP here. Modem and PLIP only operate on non-Ethernet frames. */
         net_type = NET_TYPE_SLIRP;
     }
@@ -518,7 +533,7 @@ network_attach(void *card_drv, uint8_t *mac, NETRXCB rx, NETSETLINKSTATE set_lin
 
         if(net_cards_conf[net_card_current].net_type != NET_TYPE_NONE) {
             // We're here because of a failure
-            swprintf(tempmsg, sizeof_w(tempmsg), L"%ls:\n\n%s\n\n%ls", plat_get_string(STRING_NET_ERROR), net_drv_error, plat_get_string(STRING_NET_ERROR_DESC));
+            snprintf(tempmsg, sizeof(tempmsg), "%s:\n\n%s\n\n%s", plat_get_string(STRING_NET_ERROR), net_drv_error, plat_get_string(STRING_NET_ERROR_DESC));
             ui_msgbox(MBX_ERROR, tempmsg);
             net_cards_conf[net_card_current].net_type = NET_TYPE_NONE;
         }
@@ -819,4 +834,18 @@ network_card_get_from_internal_name(char *s)
     }
 
     return 0;
+}
+
+const device_t *
+network_card_get_from_old_internal_name(char *s)
+{
+    int c = 0;
+
+    while (net_cards_migrate[c].device != NULL) {
+        if (!strcmp(net_cards_migrate[c].old_internal_name, s))
+            return net_cards_migrate[c].device;
+        c++;
+    }
+
+    return NULL;
 }

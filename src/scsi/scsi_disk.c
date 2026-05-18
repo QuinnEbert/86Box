@@ -407,7 +407,7 @@ scsi_disk_bus_speed(scsi_disk_t *dev)
 {
     double ret = -1.0;
 
-    if (dev && dev->drv)
+    if (dev && dev->drv && (dev->drv->bus_type == HDD_BUS_ATAPI))
         ret = ide_atapi_get_period(dev->drv->ide_channel);
 
     if (ret == -1.0) {
@@ -635,7 +635,7 @@ scsi_disk_buf_alloc(scsi_disk_t *dev, uint32_t len)
     scsi_disk_log(dev->log, "Allocated buffer length: %i\n", len);
 
     if (dev->temp_buffer == NULL) {
-        dev->temp_buffer = (uint8_t *) malloc(len);
+        dev->temp_buffer = (uint8_t *) calloc(1, len);
         dev->temp_buffer_sz = len;
     }
 

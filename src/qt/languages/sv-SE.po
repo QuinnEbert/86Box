@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2026-03-10 14:03+0000\n"
-"Last-Translator: OBattler <oubattler@gmail.com>\n"
+"PO-Revision-Date: 2026-04-05 18:51+0000\n"
+"Last-Translator: Alexander Babikov <lemondrops358@gmail.com>\n"
 "Language-Team: Swedish <https://weblate.86box.net/projects/86box/86box/sv/>\n"
 "Language: sv-SE\n"
 "MIME-Version: 1.0\n"
@@ -144,53 +144,45 @@ msgstr "&Skala till heltal"
 msgid "4:&3 Integer scale"
 msgstr "Skala till heltal i 4:&3"
 
-msgid "EGA/(S)&VGA settings"
-msgstr "EGA/(S)&VGA-inställningar"
+msgid "Inverted VGA monitor"
+msgstr "Inverterad VGA-skärm"
 
-msgid "&Inverted VGA monitor"
-msgstr "&Inverterad VGA-skärm"
+msgid "VGA screen type:"
+msgstr "Skärmtyp för VGA:"
 
-msgid "VGA screen &type"
-msgstr "Skärmtyp för &VGA"
-
-msgid "RGB &Color"
-msgstr "RGB &färg"
+msgid "RGB Color"
+msgstr "RGB färg"
 
 msgid "RGB (no brown)"
 msgstr "RGB (utan brunt)"
 
-msgid "&RGB Grayscale"
-msgstr "&RGB gråskala"
+msgid "RGB Grayscale"
+msgstr "RGB gråskala"
 
 msgid "Generic RGBI color monitor"
 msgstr "Allmän RGBI färgskärm"
 
-msgid "&Amber monitor"
-msgstr "&Bärnstensfärgad skärm"
+msgid "Amber monitor"
+msgstr "Bärnstensfärgad skärm"
 
-msgid "&Green monitor"
-msgstr "&Grön skärm"
+msgid "Green monitor"
+msgstr "Grön skärm"
 
-msgid "&White monitor"
-msgstr "&Vit skärm"
+msgid "White monitor"
+msgstr "Vit skärm"
 
-msgid "Grayscale &conversion type"
-msgstr "Konverteringstyp till &gråskala"
+msgid "Grayscale conversion type:"
+msgstr "Konverteringstyp till gråskala:"
 
-msgid "BT&601 (NTSC/PAL)"
-msgstr "BT&601 (NTSC/PAL)"
+msgid "Average"
+msgstr "Genomsnittlig"
 
-msgid "BT&709 (HDTV)"
-msgstr "BT&709 (HDTV)"
+#, fuzzy
+msgid "Overscan"
+msgstr "Överskanning"
 
-msgid "&Average"
-msgstr "&Genomsnittlig"
-
-msgid "CGA/PCjr/Tandy/E&GA/(S)VGA overscan"
-msgstr "CGA/PCjr/Tandy/E&GA/(S)VGA överskanning"
-
-msgid "Change contrast for &monochrome display"
-msgstr "Ändra kontrast för &svartvita skärmar"
+msgid "Change contrast for monochrome display"
+msgstr "Ändra kontrast för svartvita skärmar"
 
 msgid "&Media"
 msgstr "&Media"
@@ -363,6 +355,21 @@ msgstr "Prestanda"
 msgid "Machine type:"
 msgstr "Maskintyp:"
 
+msgid "[1989] i486 (Socket 168 and 1)"
+msgstr ""
+
+msgid "[1994] i486 (Miscellaneous)"
+msgstr ""
+
+msgid "[1995] Socket 7 (Single Voltage)"
+msgstr ""
+
+msgid "[1996] Socket 7 (Dual Voltage)"
+msgstr ""
+
+msgid "Miscellaneous"
+msgstr ""
+
 msgid "Machine:"
 msgstr "Maskin:"
 
@@ -432,8 +439,8 @@ msgstr "Bildskärmskort:"
 msgid "Video #2:"
 msgstr "Bildskärmskort #2:"
 
-msgid "Accelerators"
-msgstr "Acceleratorer"
+msgid "Monitor"
+msgstr "Skärm"
 
 msgid "Voodoo 1 or 2 Graphics"
 msgstr "Voodoo 1 eller 2-grafik"
@@ -513,62 +520,53 @@ msgstr "Nuked (mer exakt)"
 msgid "YMFM (faster)"
 msgstr "YMFM (snabbare)"
 
-msgid "COM1 Device:"
-msgstr "COM1-enhet:"
-
-msgid "COM2 Device:"
-msgstr "COM2-enhet:"
-
-msgid "COM3 Device:"
-msgstr "COM3-enhet:"
-
-msgid "COM4 Device:"
-msgstr "COM4-enhet:"
-
-msgid "LPT1 Device:"
-msgstr "LPT1-enhet:"
-
-msgid "LPT2 Device:"
-msgstr "LPT2-enhet:"
-
-msgid "LPT3 Device:"
-msgstr "LPT3-enhet:"
-
-msgid "LPT4 Device:"
-msgstr "LPT4-enhet:"
-
 msgid "Internal LPT ECP DMA:"
 msgstr "Intern LPT ECP DMA:"
-
-msgid "Serial port 1"
-msgstr "Serieport 1"
-
-msgid "Serial port 2"
-msgstr "Serieport 2"
-
-msgid "Serial port 3"
-msgstr "Serieport 3"
-
-msgid "Serial port 4"
-msgstr "Serieport 4"
-
-msgid "Parallel port 1"
-msgstr "Parallellport 1"
-
-msgid "Parallel port 2"
-msgstr "Parallellport 2"
-
-msgid "Parallel port 3"
-msgstr "Parallellport 3"
-
-msgid "Parallel port 4"
-msgstr "Parallellport 4"
 
 msgid "Floppy disk controller:"
 msgstr "Styrenhet för diskett:"
 
 msgid "CD-ROM controller:"
 msgstr "Styrenhet för CD-ROM:"
+
+msgid "Mitsumi interface"
+msgstr ""
+
+msgid "MKE/Panasonic interface"
+msgstr ""
+
+msgid "MKE/Panasonic interface (Creative)"
+msgstr ""
+
+msgid "IDE Controller"
+msgstr "IDE-styrenhet"
+
+msgid "IDE Controller (Dual-Channel)"
+msgstr ""
+
+msgid "PC/AT IDE Controller"
+msgstr ""
+
+msgid "PC/AT IDE Controller (Dual-Channel)"
+msgstr ""
+
+msgid "PC/AT XTIDE (Primary Only)"
+msgstr ""
+
+msgid "PS/2 AT XTIDE (1.1.5) (Primary Only)"
+msgstr ""
+
+msgid "CMD PCI-0646 (Tertiary and Quaternary)"
+msgstr ""
+
+msgid "CMD PCI-0648 (Tertiary and Quaternary)"
+msgstr ""
+
+msgid "CMD PCI-0649 (Tertiary and Quaternary)"
+msgstr ""
+
+msgid "McIDE Controller"
+msgstr ""
 
 msgid "Tertiary IDE Controller"
 msgstr "Tertiär IDE-kontroller"
@@ -602,6 +600,9 @@ msgstr "Hårddiskar:"
 
 msgid "Firmware Version"
 msgstr "Firmware-version"
+
+msgid "DSP Version"
+msgstr "DSP-version"
 
 msgid "&New…"
 msgstr "&Ny…"
@@ -768,17 +769,17 @@ msgstr "Grundläggande sektoravbildningar"
 msgid "Surface images"
 msgstr "Ytavbildningar"
 
-msgid "Machine \"%hs\" is not available due to missing ROMs in the roms/machines directory. Switching to an available machine."
-msgstr "Maskinen \"%hs\" är inte tillgänglig på grund av saknade ROM-avbildningar i mappen roms/machines. Byter till en tillgänglig maskin."
+msgid "Machine \"%s\" is not available due to missing ROMs in the roms/machines directory. Switching to an available machine."
+msgstr "Maskinen \"%s\" är inte tillgänglig på grund av saknade ROM-avbildningar i mappen roms/machines. Byter till en tillgänglig maskin."
 
-msgid "Video card \"%hs\" is not available due to missing ROMs in the roms/video directory. Switching to an available video card."
-msgstr "Bildskärmskortet \"%hs\" är inte tillgängligt på grund av saknade ROM-avbildningar i mappen roms/video. Byter till ett tillgängligt bildskärmskort."
+msgid "Video card \"%s\" is not available due to missing ROMs in the roms/video directory. Switching to an available video card."
+msgstr "Bildskärmskortet \"%s\" är inte tillgängligt på grund av saknade ROM-avbildningar i mappen roms/video. Byter till ett tillgängligt bildskärmskort."
 
-msgid "Video card #2 \"%hs\" is not available due to missing ROMs in the roms/video directory. Disabling the second video card."
-msgstr "Bildskärmskort #2 \"%hs\" är inte tillgängligt på grund av saknade ROM-avbildningar i mappen roms/video. Avaktiverar det andra bildskärmskortet."
+msgid "Video card #2 \"%s\" is not available due to missing ROMs in the roms/video directory. Disabling the second video card."
+msgstr "Bildskärmskort #2 \"%s\" är inte tillgängligt på grund av saknade ROM-avbildningar i mappen roms/video. Avaktiverar det andra bildskärmskortet."
 
-msgid "Device \"%hs\" is not available due to missing ROMs. Ignoring the device."
-msgstr "Enheten \"%hs\" är inte tillgänglig på grund av saknade ROM-avbildningar. Ignorerar enheten."
+msgid "Device \"%s\" is not available due to missing ROMs. Ignoring the device."
+msgstr "Enheten \"%s\" är inte tillgänglig på grund av saknade ROM-avbildningar. Ignorerar enheten."
 
 msgid "Machine"
 msgstr "Maskin"
@@ -1058,10 +1059,6 @@ msgstr "%1 krävs för automatisk omvandling av PCL-filer till PDF.\n\nAlla doku
 
 msgid "Don't show this message again"
 msgstr "Visa inte detta meddelande igen"
-
-#, fuzzy
-msgid "Reset"
-msgstr "Starta om"
 
 msgid "CD-ROM images"
 msgstr "CD-ROM-avbildningar"
@@ -1789,17 +1786,17 @@ msgstr "MiB"
 msgid "GiB"
 msgstr "GiB"
 
-msgid "Network Card #1"
-msgstr "Nätverkskort #1"
+msgid "Adapter 1"
+msgstr "Adapter 1"
 
-msgid "Network Card #2"
-msgstr "Nätverkskort #2"
+msgid "Adapter 2"
+msgstr "Adapter 2"
 
-msgid "Network Card #3"
-msgstr "Nätverkskort #3"
+msgid "Adapter 3"
+msgstr "Adapter 3"
 
-msgid "Network Card #4"
-msgstr "Nätverkskort #4"
+msgid "Adapter 4"
+msgstr "Adapter 4"
 
 msgid "Mode:"
 msgstr "Läge:"
@@ -1821,18 +1818,6 @@ msgstr "86Box enhetsprövare"
 
 msgid "Novell NetWare 2.x Key Card"
 msgstr "Novell NetWare 2.x nyckelkort"
-
-msgid "Serial port passthrough 1"
-msgstr "Serieport passthrough 1"
-
-msgid "Serial port passthrough 2"
-msgstr "Serieport passthrough 2"
-
-msgid "Serial port passthrough 3"
-msgstr "Serieport passthrough 3"
-
-msgid "Serial port passthrough 4"
-msgstr "Serieport passthrough 4"
 
 msgid "Renderer &options…"
 msgstr "Renderingsalternativ…"
@@ -1983,6 +1968,9 @@ msgstr "BIOS-version"
 
 msgid "BIOS Language"
 msgstr "BIOS-språk"
+
+msgid "Variant"
+msgstr ""
 
 msgid "IBM 5161 Expansion Unit"
 msgstr "IBM 5161 expansionsenhet"
@@ -2247,9 +2235,6 @@ msgstr "Minnesstorlek"
 
 msgid "EMU8000 Address"
 msgstr "Adress till EMU8000"
-
-msgid "IDE Controller"
-msgstr "IDE-styrenhet"
 
 msgid "Codec"
 msgstr "Kodek"
@@ -2635,6 +2620,9 @@ msgstr "Standard"
 msgid "High-Speed"
 msgstr "Höghastighet"
 
+msgid "LPT DAC / Covox Speech Thing"
+msgstr "LPT DAC / Covox Speech Thing"
+
 msgid "Stereo LPT DAC"
 msgstr "Stereo LPT DAC"
 
@@ -2647,8 +2635,8 @@ msgstr "Allmän ESC/P 2 punktmatrisskrivare"
 msgid "Generic PostScript Printer"
 msgstr "Allmän PostScript-skrivare"
 
-msgid "Generic PCL5e Printer"
-msgstr "Allmän PCL5e-skrivare"
+msgid "Generic PCL Printer"
+msgstr "Allmän PCL-skrivare"
 
 msgid "Parallel Line Internet Protocol"
 msgstr "Parallel Line Internet Protocol"
@@ -2656,7 +2644,11 @@ msgstr "Parallel Line Internet Protocol"
 msgid "Protection Dongle for Savage Quest"
 msgstr "Skyddsdongel till Savage Quest"
 
-msgid "Serial Passthrough Device"
+msgid "Loopback Plug"
+msgstr ""
+
+#, fuzzy
+msgid "Serial Passthrough"
 msgstr "Seriepassthrough-enhet"
 
 msgid "Passthrough Mode"
@@ -2746,6 +2738,12 @@ msgstr "Allmän minnesexpansion för PC/XT"
 msgid "Generic PC/AT Memory Expansion"
 msgstr "Allmän minnesexpansion PC/AT"
 
+msgid "Generic MM58167 RTC"
+msgstr ""
+
+msgid "OPL2Board (External Device)"
+msgstr ""
+
 msgid "Unable to find Dot-Matrix fonts"
 msgstr "Kunde inte hitta typsnitt för punktmatris"
 
@@ -2808,6 +2806,12 @@ msgstr "Flytta ner"
 
 msgid "Could not load file %1"
 msgstr "Kunde inte ladda fil %1"
+
+msgid "Emulator"
+msgstr ""
+
+msgid "Input"
+msgstr ""
 
 msgid "Key bindings"
 msgstr "Tangentbindningar"
@@ -3016,8 +3020,8 @@ msgstr "Exportera…"
 msgid "Export EDID"
 msgstr "Exportera EDID"
 
-msgid "EDID file \"%ls\" is too large."
-msgstr "EDID-filen \"%ls\" är för stor."
+msgid "EDID file \"%s\" is too large."
+msgstr "EDID-filen \"%s\" är för stor."
 
 msgid "OpenGL input scale"
 msgstr "Inmatningsskala för OpenGL"
@@ -3033,9 +3037,6 @@ msgstr "Ljus"
 
 msgid "Dark"
 msgstr "Mörk"
-
-msgid "Search:"
-msgstr "Sök:"
 
 msgid "Force interpretation"
 msgstr "Tvinga tolkning"
@@ -3060,3 +3061,12 @@ msgstr "ör att ändra systemkatalogen, stoppa alla maskiner som är körs."
 
 msgid "Raw"
 msgstr "Rå"
+
+msgid "Use EDC/ECC emulation"
+msgstr ""
+
+msgid "Audio output device:"
+msgstr "Ljudutdataenhet:"
+
+msgid "System Default"
+msgstr "Systemstandard"

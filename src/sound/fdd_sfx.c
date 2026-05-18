@@ -194,7 +194,7 @@ static void voice_stop_loop_of(const sample_t *smp)
             s_voices[i].active = 0;
 }
 
-static void fdd_sfx_get_buffer(int32_t *buffer, int len, void *priv)
+static void fdd_sfx_get_buffer(int32_t *buffer, uint16_t len, void *priv)
 {
     if (!s_enabled || !s_inited) return;
     /* Activity window management: decrement per-drive counters. */

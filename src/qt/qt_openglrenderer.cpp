@@ -49,6 +49,8 @@ extern MainWindow *main_window;
 #include "qt_openglrenderer.hpp"
 #include "qt_openglshadermanagerdialog.hpp"
 
+#include "qt_defs.hpp"
+
 extern "C" {
 #include <86box/86box.h>
 #include <86box/plat.h>
@@ -68,6 +70,8 @@ extern bool cpu_thread_running;
 #define SCALE_ABSOLUTE 2
 
 static GLfloat matrix[] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
+
+const GLenum buffers[]{ GL_BACK_LEFT, GL_BACK_RIGHT };
 
 extern int video_filter_method;
 extern int video_vsync;
@@ -873,6 +877,11 @@ OpenGLRenderer::initialize()
 
         glw.initializeOpenGLFunctions();
 
+        int draw_buffer = GL_NONE;
+        glw.glGetIntegerv(GL_DRAW_BUFFER, &draw_buffer);
+        if (draw_buffer == GL_NONE)
+            glw.glDrawBuffers(2, buffers);
+
         glw.glClearColor(0, 0, 0, 1);
 
         glw.glClear(GL_COLOR_BUFFER_BIT);
@@ -1132,6 +1141,11 @@ OpenGLRenderer::finalize()
 
     context->makeCurrent(this);
 
+    int draw_buffer = GL_NONE;
+    glw.glGetIntegerv(GL_DRAW_BUFFER, &draw_buffer);
+    if (draw_buffer == GL_NONE)
+        glw.glDrawBuffers(2, buffers);
+
     delete_texture(&scene_texture);
 
     if (active_shader) {
@@ -1156,6 +1170,11 @@ OpenGLRenderer::onBlit(int buf_idx, int x, int y, int w, int h)
         return;
 
     context->makeCurrent(this);
+
+    int draw_buffer = GL_NONE;
+    glw.glGetIntegerv(GL_DRAW_BUFFER, &draw_buffer);
+    if (draw_buffer == GL_NONE)
+        glw.glDrawBuffers(2, buffers);
 
     if (source.width() != w || source.height() != h) {
         glw.glBindTexture(GL_TEXTURE_2D, scene_texture.id);
@@ -1227,6 +1246,11 @@ OpenGLRenderer::resizeEvent(QResizeEvent *event)
         return;
 
     context->makeCurrent(this);
+
+    int draw_buffer = GL_NONE;
+    glw.glGetIntegerv(GL_DRAW_BUFFER, &draw_buffer);
+    if (draw_buffer == GL_NONE)
+        glw.glDrawBuffers(2, buffers);
 
     glw.glViewport(
         destination.x(),
@@ -1728,7 +1752,7 @@ OpenGLRenderer::render()
 
         int pitch_adj = (4 - ((width * 3) & 3)) & 3;
         QImage image((uchar*)rgb, width, height, (width * 3) + pitch_adj, QImage::Format_RGB888);
-        image.mirrored(false, true).save(path, "png");
+        image.IMG_FLIPPED.save(path, "png");
         monitors[r_monitor_index].mon_screenshots--;
         free(rgb);
     }
@@ -1743,7 +1767,7 @@ OpenGLRenderer::render()
         int pitch_adj = (4 - ((width * 3) & 3)) & 3;
         QImage image((uchar*)rgb, width, height, (width * 3) + pitch_adj, QImage::Format_RGB888);
         QClipboard *clipboard = QApplication::clipboard();
-        clipboard->setImage(image.mirrored(false, true), QClipboard::Clipboard);
+        clipboard->setImage(image.IMG_FLIPPED, QClipboard::Clipboard);
         monitors[r_monitor_index].mon_screenshots_clipboard--;
         free(rgb);
     }

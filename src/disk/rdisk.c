@@ -590,7 +590,7 @@ rdisk_bus_speed(rdisk_t *dev)
 {
     double ret = -1.0;
 
-    if (dev && dev->drv)
+    if (dev && dev->drv && (dev->drv->bus_type == RDISK_BUS_ATAPI))
         ret = ide_atapi_get_period(dev->drv->ide_channel);
 
     if (ret == -1.0) {
@@ -759,7 +759,7 @@ rdisk_buf_alloc(rdisk_t *dev, const uint32_t len)
     rdisk_log(dev->log, "Allocated buffer length: %i\n", len);
 
     if (dev->buffer == NULL) {
-        dev->buffer = (uint8_t *) malloc(len);
+        dev->buffer = (uint8_t *) calloc(1, len);
         dev->buffer_sz = len;
     }
 

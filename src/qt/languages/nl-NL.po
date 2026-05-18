@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2026-03-10 14:03+0000\n"
-"Last-Translator: OBattler <oubattler@gmail.com>\n"
+"PO-Revision-Date: 2026-04-05 18:51+0000\n"
+"Last-Translator: Alexander Babikov <lemondrops358@gmail.com>\n"
 "Language-Team: Dutch <https://weblate.86box.net/projects/86box/86box/nl/>\n"
 "Language: nl-NL\n"
 "MIME-Version: 1.0\n"
@@ -144,53 +144,44 @@ msgstr "&Integerschaal"
 msgid "4:&3 Integer scale"
 msgstr "4:&3 integerschaal"
 
-msgid "EGA/(S)&VGA settings"
-msgstr "EGA/(S)&VGA-instellingen"
+msgid "Inverted VGA monitor"
+msgstr "Geïnverteerde VGA-monitor"
 
-msgid "&Inverted VGA monitor"
-msgstr "Ge&ïnverteerde VGA-monitor"
+msgid "VGA screen type:"
+msgstr "VGA-scherm type:"
 
-msgid "VGA screen &type"
-msgstr "VGA-scherm &type"
-
-msgid "RGB &Color"
-msgstr "RGB &kleur"
+msgid "RGB Color"
+msgstr "RGB kleur"
 
 msgid "RGB (no brown)"
 msgstr "RGN (geen bruin)"
 
-msgid "&RGB Grayscale"
-msgstr "&RGB grijstinten"
+msgid "RGB Grayscale"
+msgstr "RGB grijstinten"
 
 msgid "Generic RGBI color monitor"
 msgstr "Generieke RGBI kleuren monitor"
 
-msgid "&Amber monitor"
-msgstr "&Amber monitor"
+msgid "Amber monitor"
+msgstr "Amber monitor"
 
-msgid "&Green monitor"
-msgstr "&Groene monitor"
+msgid "Green monitor"
+msgstr "Groene monitor"
 
-msgid "&White monitor"
-msgstr "&Witte monitor"
+msgid "White monitor"
+msgstr "Witte monitor"
 
-msgid "Grayscale &conversion type"
-msgstr "Grijstinten &conversietype"
+msgid "Grayscale conversion type:"
+msgstr "Grijstinten conversietype:"
 
-msgid "BT&601 (NTSC/PAL)"
-msgstr "BT&601 (NTSC/PAL)"
+msgid "Average"
+msgstr "Gemiddelde"
 
-msgid "BT&709 (HDTV)"
-msgstr "BT&709 (HDTV)"
+msgid "Overscan"
+msgstr "Overscan"
 
-msgid "&Average"
-msgstr "&Gemiddelde"
-
-msgid "CGA/PCjr/Tandy/E&GA/(S)VGA overscan"
-msgstr "CGA/PCjr/Tandy/E&GA/(S)VGA overscan"
-
-msgid "Change contrast for &monochrome display"
-msgstr "Contrast wijzigen voor &monochroom beeldscherm"
+msgid "Change contrast for monochrome display"
+msgstr "Contrast wijzigen voor monochroom beeldscherm"
 
 msgid "&Media"
 msgstr "&Media"
@@ -363,6 +354,21 @@ msgstr "Prestaties"
 msgid "Machine type:"
 msgstr "Machinetype:"
 
+msgid "[1989] i486 (Socket 168 and 1)"
+msgstr ""
+
+msgid "[1994] i486 (Miscellaneous)"
+msgstr ""
+
+msgid "[1995] Socket 7 (Single Voltage)"
+msgstr ""
+
+msgid "[1996] Socket 7 (Dual Voltage)"
+msgstr ""
+
+msgid "Miscellaneous"
+msgstr ""
+
 msgid "Machine:"
 msgstr "Machine:"
 
@@ -432,8 +438,8 @@ msgstr "Video:"
 msgid "Video #2:"
 msgstr "Video #2:"
 
-msgid "Accelerators"
-msgstr "Versnellers"
+msgid "Monitor"
+msgstr "Monitor"
 
 msgid "Voodoo 1 or 2 Graphics"
 msgstr "Voodoo 1 of 2 graphics"
@@ -513,62 +519,53 @@ msgstr "Nuked (nauwkeuriger)"
 msgid "YMFM (faster)"
 msgstr "YMFM (sneller)"
 
-msgid "COM1 Device:"
-msgstr "COM1-apparaat:"
-
-msgid "COM2 Device:"
-msgstr "COM2-apparaat:"
-
-msgid "COM3 Device:"
-msgstr "COM3-apparaat:"
-
-msgid "COM4 Device:"
-msgstr "COM4-apparaat:"
-
-msgid "LPT1 Device:"
-msgstr "LPT1-apparaat:"
-
-msgid "LPT2 Device:"
-msgstr "LPT2-apparaat:"
-
-msgid "LPT3 Device:"
-msgstr "LPT3-apparaat:"
-
-msgid "LPT4 Device:"
-msgstr "LPT4-apparaat:"
-
 msgid "Internal LPT ECP DMA:"
 msgstr "Interne LPT ECP DMA:"
-
-msgid "Serial port 1"
-msgstr "Seriële poort 1"
-
-msgid "Serial port 2"
-msgstr "Seriële poort 2"
-
-msgid "Serial port 3"
-msgstr "Seriële poort 3"
-
-msgid "Serial port 4"
-msgstr "Seriële poort 4"
-
-msgid "Parallel port 1"
-msgstr "Parallelle poort 1"
-
-msgid "Parallel port 2"
-msgstr "Parallelle poort 2"
-
-msgid "Parallel port 3"
-msgstr "Parallelle poort 3"
-
-msgid "Parallel port 4"
-msgstr "Parallelle poort 4"
 
 msgid "Floppy disk controller:"
 msgstr "Floppy disk controller:"
 
 msgid "CD-ROM controller:"
 msgstr "CD-ROM controller:"
+
+msgid "Mitsumi interface"
+msgstr ""
+
+msgid "MKE/Panasonic interface"
+msgstr ""
+
+msgid "MKE/Panasonic interface (Creative)"
+msgstr ""
+
+msgid "IDE Controller"
+msgstr "IDE-controller"
+
+msgid "IDE Controller (Dual-Channel)"
+msgstr ""
+
+msgid "PC/AT IDE Controller"
+msgstr ""
+
+msgid "PC/AT IDE Controller (Dual-Channel)"
+msgstr ""
+
+msgid "PC/AT XTIDE (Primary Only)"
+msgstr ""
+
+msgid "PS/2 AT XTIDE (1.1.5) (Primary Only)"
+msgstr ""
+
+msgid "CMD PCI-0646 (Tertiary and Quaternary)"
+msgstr ""
+
+msgid "CMD PCI-0648 (Tertiary and Quaternary)"
+msgstr ""
+
+msgid "CMD PCI-0649 (Tertiary and Quaternary)"
+msgstr ""
+
+msgid "McIDE Controller"
+msgstr ""
 
 msgid "Tertiary IDE Controller"
 msgstr "Tertiaire IDE-controller"
@@ -602,6 +599,9 @@ msgstr "Harde schijven:"
 
 msgid "Firmware Version"
 msgstr "Firmware versie"
+
+msgid "DSP Version"
+msgstr "DSP versie"
 
 msgid "&New…"
 msgstr "&Nieuw…"
@@ -768,17 +768,17 @@ msgstr "Basissectorimages"
 msgid "Surface images"
 msgstr "Oppervlakte-images"
 
-msgid "Machine \"%hs\" is not available due to missing ROMs in the roms/machines directory. Switching to an available machine."
-msgstr "Machine \"%hs\" is niet beschikbaar door ontbrekende ROMs in de map roms/machines. Er wordt overgeschakeld naar een beschikbare machine."
+msgid "Machine \"%s\" is not available due to missing ROMs in the roms/machines directory. Switching to an available machine."
+msgstr "Machine \"%s\" is niet beschikbaar door ontbrekende ROMs in de map roms/machines. Er wordt overgeschakeld naar een beschikbare machine."
 
-msgid "Video card \"%hs\" is not available due to missing ROMs in the roms/video directory. Switching to an available video card."
-msgstr "Videokaart \"%hs\" is niet beschikbaar door ontbrekende ROMs in de map roms/video. Er wordt overgeschakeld naar een beschikbare videokaart."
+msgid "Video card \"%s\" is not available due to missing ROMs in the roms/video directory. Switching to an available video card."
+msgstr "Videokaart \"%s\" is niet beschikbaar door ontbrekende ROMs in de map roms/video. Er wordt overgeschakeld naar een beschikbare videokaart."
 
-msgid "Video card #2 \"%hs\" is not available due to missing ROMs in the roms/video directory. Disabling the second video card."
-msgstr "Videokaart #2 \"%hs\" is niet beschikbaar door ontbrekende ROMs in de map roms/video. De tweede videokaart wordt uitgeschakeld."
+msgid "Video card #2 \"%s\" is not available due to missing ROMs in the roms/video directory. Disabling the second video card."
+msgstr "Videokaart #2 \"%s\" is niet beschikbaar door ontbrekende ROMs in de map roms/video. De tweede videokaart wordt uitgeschakeld."
 
-msgid "Device \"%hs\" is not available due to missing ROMs. Ignoring the device."
-msgstr "Het apparaat \"%hs\" is niet beschikbaar door ontbrekende ROMs. Het apparaat wordt genegeerd."
+msgid "Device \"%s\" is not available due to missing ROMs. Ignoring the device."
+msgstr "Het apparaat \"%s\" is niet beschikbaar door ontbrekende ROMs. Het apparaat wordt genegeerd."
 
 msgid "Machine"
 msgstr "Machine"
@@ -1058,9 +1058,6 @@ msgstr "%1 is vereist voor automatische conversie van PCL-bestanden naar PDF.\n\
 
 msgid "Don't show this message again"
 msgstr "Dit bericht niet meer tonen"
-
-msgid "Reset"
-msgstr "Reset"
 
 msgid "CD-ROM images"
 msgstr "CD-ROM-images"
@@ -1788,17 +1785,17 @@ msgstr "MiB"
 msgid "GiB"
 msgstr "GiB"
 
-msgid "Network Card #1"
-msgstr "Netwerkkaart #1"
+msgid "Adapter 1"
+msgstr "Adapter 1"
 
-msgid "Network Card #2"
-msgstr "Netwerkkaart #2"
+msgid "Adapter 2"
+msgstr "Adapter 2"
 
-msgid "Network Card #3"
-msgstr "Netwerkkaart #3"
+msgid "Adapter 3"
+msgstr "Adapter 3"
 
-msgid "Network Card #4"
-msgstr "Netwerkkaart #4"
+msgid "Adapter 4"
+msgstr "Adapter 4"
 
 msgid "Mode:"
 msgstr "Modus:"
@@ -1820,18 +1817,6 @@ msgstr "86Box Apparaattester"
 
 msgid "Novell NetWare 2.x Key Card"
 msgstr "Novell NetWare 2.x Key Card"
-
-msgid "Serial port passthrough 1"
-msgstr "Seriële poort doorvoer 1"
-
-msgid "Serial port passthrough 2"
-msgstr "Seriële poort doorvoer 2"
-
-msgid "Serial port passthrough 3"
-msgstr "Seriële poort doorvoer 3"
-
-msgid "Serial port passthrough 4"
-msgstr "Seriële poort doorvoer 4"
 
 msgid "Renderer &options…"
 msgstr "Renderer-opties…"
@@ -1982,6 +1967,9 @@ msgstr "BIOS-versie"
 
 msgid "BIOS Language"
 msgstr "BIOS-taal"
+
+msgid "Variant"
+msgstr ""
 
 msgid "IBM 5161 Expansion Unit"
 msgstr "IBM 5161 Uitbreidingseenheid"
@@ -2246,9 +2234,6 @@ msgstr "Geheugengrootte"
 
 msgid "EMU8000 Address"
 msgstr "EMU8000 Adres"
-
-msgid "IDE Controller"
-msgstr "IDE-controller"
 
 msgid "Codec"
 msgstr "Codec"
@@ -2634,6 +2619,9 @@ msgstr "Standaard"
 msgid "High-Speed"
 msgstr "Hoge snelheid"
 
+msgid "LPT DAC / Covox Speech Thing"
+msgstr "LPT DAC / Covox Speech Thing"
+
 msgid "Stereo LPT DAC"
 msgstr "Stereo LPT DAC"
 
@@ -2646,8 +2634,8 @@ msgstr "Generieke ESC/P 2 dot-matrix-printer"
 msgid "Generic PostScript Printer"
 msgstr "Generieke PostScript-printer"
 
-msgid "Generic PCL5e Printer"
-msgstr "Generieke PCL5e-printer"
+msgid "Generic PCL Printer"
+msgstr "Generieke PCL-printer"
 
 msgid "Parallel Line Internet Protocol"
 msgstr "Internetprotocol voor parallelle lijnen"
@@ -2655,7 +2643,11 @@ msgstr "Internetprotocol voor parallelle lijnen"
 msgid "Protection Dongle for Savage Quest"
 msgstr "Beschermingsdongle voor Savage Quest"
 
-msgid "Serial Passthrough Device"
+msgid "Loopback Plug"
+msgstr ""
+
+#, fuzzy
+msgid "Serial Passthrough"
 msgstr "Serieel doorvoerapparaat"
 
 msgid "Passthrough Mode"
@@ -2745,6 +2737,12 @@ msgstr "Generieke PC/XT geheugenuitbreiding"
 msgid "Generic PC/AT Memory Expansion"
 msgstr "Generieke PC/AT geheugenuitbreiding"
 
+msgid "Generic MM58167 RTC"
+msgstr ""
+
+msgid "OPL2Board (External Device)"
+msgstr ""
+
 msgid "Unable to find Dot-Matrix fonts"
 msgstr "Dot-matrix-lettertypen niet gevonden"
 
@@ -2807,6 +2805,12 @@ msgstr "Omlaag verplaatsen"
 
 msgid "Could not load file %1"
 msgstr "Kon bestand %1 niet laden"
+
+msgid "Emulator"
+msgstr ""
+
+msgid "Input"
+msgstr ""
 
 msgid "Key bindings"
 msgstr "Toetskoppelingen"
@@ -3015,8 +3019,8 @@ msgstr "Exporteren…"
 msgid "Export EDID"
 msgstr "EDID exporteren"
 
-msgid "EDID file \"%ls\" is too large."
-msgstr "Het EDID-bestand \"%ls\" is te groot."
+msgid "EDID file \"%s\" is too large."
+msgstr "Het EDID-bestand \"%s\" is te groot."
 
 msgid "OpenGL input scale"
 msgstr "Invoerschaal van OpenGL"
@@ -3032,9 +3036,6 @@ msgstr "Licht"
 
 msgid "Dark"
 msgstr "Donker"
-
-msgid "Search:"
-msgstr "Zoeken:"
 
 msgid "Force interpretation"
 msgstr "Interpretatie afdwingen"
@@ -3059,3 +3060,12 @@ msgstr "Om de systeemmap te wijzigen, moet u alle actieve machines stoppen."
 
 msgid "Raw"
 msgstr "Ruw"
+
+msgid "Use EDC/ECC emulation"
+msgstr ""
+
+msgid "Audio output device:"
+msgstr "Audio-uitvoerapparaat:"
+
+msgid "System Default"
+msgstr "Systeemstandaard"

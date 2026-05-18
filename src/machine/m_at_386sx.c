@@ -134,8 +134,8 @@ static const device_config_t pbl300sx_config[] = {
 };
 
 const device_t pbl300sx_device = {
-    .name          = "Packard Bell Legend 300SX",
-    .internal_name = "pbl300sx_device",
+    .name          = "Packard Bell PB300",
+    .internal_name = "pbl300sx",
     .flags         = 0,
     .local         = 0,
     .init          = NULL,
@@ -240,7 +240,7 @@ machine_at_flytech386_init(const machine_t *model)
     device_add_params(&w837x7_device, (void *) (W83787F | W837X7_KEY_89 | W83XX7_IDE_PRI | W837X7_IDE_START));
 
     if (gfxcard[0] == VID_INTERNAL)
-        device_add(&tvga8900d_device);
+        device_add(machine_get_vid_device(machine));
 
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
 
@@ -286,7 +286,7 @@ static const device_config_t c325ax_config[] = {
 
 const device_t c325ax_device = {
     .name          = "Chaintech 3xxAX/AXB",
-    .internal_name = "325ax_device",
+    .internal_name = "325ax",
     .flags         = 0,
     .local         = 0,
     .init          = NULL,
@@ -690,7 +690,7 @@ static const device_config_t dells333sl_config[] = {
 
 const device_t dells333sl_device = {
     .name          = "Dell System 333s/L",
-    .internal_name = "dells333sl_device",
+    .internal_name = "dells333sl",
     .flags         = 0,
     .local         = 0,
     .init          = NULL,

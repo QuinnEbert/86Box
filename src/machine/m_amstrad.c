@@ -220,8 +220,8 @@ recalc_timings_1512(amsvid_t *vid)
     _dispofftime = disptime - _dispontime;
     _dispontime *= CGACONST;
     _dispofftime *= CGACONST;
-    vid->dispontime  = (uint64_t) _dispontime;
-    vid->dispofftime = (uint64_t) _dispofftime;
+    vid->dispontime  = (uint64_t) (int64_t) _dispontime;
+    vid->dispofftime = (uint64_t) (int64_t) _dispofftime;
 }
 
 static void
@@ -666,7 +666,7 @@ vid_init_1512(amstrad_t *ams)
 
     video_inform(VIDEO_FLAG_TYPE_CGA, &timing_pc1512);
 
-    vid->vram    = malloc(0x10000);
+    vid->vram    = calloc(1, 0x10000);
     vid->cgacol  = 7;
     vid->cgamode = 0x12;
 
@@ -1758,7 +1758,7 @@ vid_init_200(amstrad_t *ams)
 
     cga       = &vid->cga;
     mda       = &vid->mda;
-    cga->vram = mda->vram = malloc(0x4000);
+    cga->vram = mda->vram = calloc(1, 0x4000);
     cga_init(cga);
     mda_init(mda);
 

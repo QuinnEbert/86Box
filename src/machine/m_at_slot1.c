@@ -149,8 +149,8 @@ static const device_config_t p6kdi_config[] = {
 };
 
 const device_t p6kdi_device = {
-    .name          = "Advanced Integration Research (AIR) P6KDI",
-    .internal_name = "p6kdi_device",
+    .name          = "AIR P6KDI",
+    .internal_name = "p6kdi",
     .flags         = 0,
     .local         = 0,
     .init          = NULL,
@@ -192,7 +192,7 @@ machine_at_p6kdi_init(const machine_t *model)
     device_add(&i440fx_device);
     device_add(&piix3_device);
     device_add_params(&fdc37c93x_device, (void *) (FDC37XXX2 | FDC37C93X_NORMAL));
-    device_add(&intel_flash_bxt_device);
+    device_add(&winbond_flash_w29c020_device);
 
     return ret;
 }
@@ -248,11 +248,11 @@ machine_at_kn97_init(const machine_t *model)
 }
 
 int
-machine_at_fickn6010_init(const machine_t *model)
+machine_at_fickn6000_init(const machine_t *model)
 {
     int ret;
 
-    ret = bios_load_linear("roms/machines/fickn6010/626hb13.rom",
+    ret = bios_load_linear("roms/machines/fickn6000/626ha14.rom",
                            0x000e0000, 131072, 0);
 
     if (bios_only || !ret)
@@ -267,16 +267,15 @@ machine_at_fickn6010_init(const machine_t *model)
     pci_register_slot(0x09, PCI_CARD_NORMAL,      2, 3, 4, 1);
     pci_register_slot(0x0A, PCI_CARD_NORMAL,      3, 4, 1, 2);
     pci_register_slot(0x0B, PCI_CARD_NORMAL,      4, 1, 2, 3);
-    pci_register_slot(0x0C, PCI_CARD_NORMAL,      4, 1, 2, 3);
+    pci_register_slot(0x0C, PCI_CARD_NORMAL,      1, 2, 3, 4);
 
     device_add(&i440fx_device);
     device_add(&piix3_device);
-    /* This actually has the W83977AF, which seems to be same as
-       the W83977F but with IrDA FIR (Fast Infrared) support */
-    device_add_params(&w83977_device, (void *) (W83977F | W83977_AMI));
-    /* From the very blurry picture, it looks like an SST flash chip.
-       And indeed, the Micro House schema lists a jumper that selects
-       Intel or SST flash, which specifically mentions the 29EE010 */
+    device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
+    device_add_params(&w83877_device, (void *) (W83877F | W83877_250));
+    /* From the very blurry TRW picture, it looks like an SST flash chip.
+       And indeed, the Micro House schema lists a jumper that selects between
+       Intel and SST flash, which specifically mentions the 29EE010 */
     device_add(&sst_flash_29ee010_device);
 
     return ret;
@@ -322,7 +321,7 @@ static const device_config_t lx6_config[] = {
 
 const device_t lx6_device = {
     .name          = "ABIT AB-LX6",
-    .internal_name = "lx6_device",
+    .internal_name = "lx6",
     .flags         = 0,
     .local         = 0,
     .init          = NULL,
@@ -652,7 +651,7 @@ machine_at_brio83xx_init(const machine_t *model)
     pci_register_slot(0x14, PCI_CARD_VIDEO,       1, 2, 3, 4); /* Onboard */
 
     if (gfxcard[0] == VID_INTERNAL)
-        device_add(&s3_trio64v2_dx_onboard_pci_device);
+        device_add(machine_get_vid_device(machine));
 
     device_add(&i440ex_device);
     device_add(&piix4_device);
@@ -706,7 +705,7 @@ static const device_config_t como_config[] = {
 
 const device_t como_device = {
     .name          = "TriGem Como",
-    .internal_name = "como_device",
+    .internal_name = "como",
     .flags         = 0,
     .local         = 0,
     .init          = NULL,
@@ -745,12 +744,12 @@ machine_at_como_init(const machine_t *model)
 
     device_add(&i440ex_device);
     device_add(&piix4e_device);
-    device_add_params(&fdc37m60x_device, (void*)(FDC37XXX2 | FDC37C93X_NO_NVR | FDC37XXXX_370));
+    device_add_params(&fdc37m60x_device, (void *) (FDC37XXX2 | FDC37C93X_NO_NVR | FDC37XXXX_370));
     device_add(&intel_flash_bxt_device);
     device_add(&lm78_device);
 
     if (sound_card_current[0] == SOUND_INTERNAL)
-        device_add(&cs4235_onboard_device);
+        device_add(machine_get_snd_device(machine));
 
     return ret;
 }
@@ -888,7 +887,7 @@ static const device_config_t bx6_config[] = {
 
 const device_t bx6_device = {
     .name          = "ABIT AB-BX6",
-    .internal_name = "bx6_device",
+    .internal_name = "bx6",
     .flags         = 0,
     .local         = 0,
     .init          = NULL,
@@ -1058,7 +1057,7 @@ static const device_config_t ax6bc_config[] = {
 
 const device_t ax6bc_device = {
     .name          = "AOpen AX6BC",
-    .internal_name = "ax6bc_device",
+    .internal_name = "ax6bc",
     .flags         = 0,
     .local         = 0,
     .init          = NULL,
@@ -1155,7 +1154,7 @@ static const device_config_t ga686_config[] = {
 
 const device_t ga686_device = {
     .name          = "Gigabyte GA-686BX",
-    .internal_name = "ga686_device",
+    .internal_name = "686bx",
     .flags         = 0,
     .local         = 0,
     .init          = NULL,
@@ -1274,7 +1273,7 @@ static const device_config_t ms6119_config[] = {
 
 const device_t ms6119_device = {
     .name          = "MSI MS-6119",
-    .internal_name = "ms6119_device",
+    .internal_name = "ms6119",
     .flags         = 0,
     .local         = 0,
     .init          = NULL,
@@ -1459,7 +1458,7 @@ static const device_config_t p6sba_config[] = {
 
 const device_t p6sba_device = {
     .name          = "Supermicro P6SBA",
-    .internal_name = "p6sba_device",
+    .internal_name = "p6sba",
     .flags         = 0,
     .local         = 0,
     .init          = NULL,
@@ -1549,7 +1548,7 @@ static const device_config_t s1846_config[] = {
 
 const device_t s1846_device = {
     .name          = "Tyan Tsunami ATX",
-    .internal_name = "s1846_device",
+    .internal_name = "s1846",
     .flags         = 0,
     .local         = 0,
     .init          = NULL,
@@ -1651,7 +1650,7 @@ static const device_config_t vei8_config[] = {
 
 const device_t vei8_device = {
     .name          = "MiTAC/Trigon 6110Zu",
-    .internal_name = "vei8_device",
+    .internal_name = "vei8",
     .flags         = 0,
     .local         = 0,
     .init          = NULL,
@@ -1921,7 +1920,7 @@ static const device_config_t ms6199va_config[] = {
 
 const device_t ms6199va_device = {
     .name          = "MSI MS-6199VA",
-    .internal_name = "ms6199va_device",
+    .internal_name = "ms6199va",
     .flags         = 0,
     .local         = 0,
     .init          = NULL,

@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2026-03-10 14:03+0000\n"
+"PO-Revision-Date: 2026-03-31 14:23+0000\n"
 "Last-Translator: OBattler <oubattler@gmail.com>\n"
 "Language-Team: Portuguese (Portugal) <https://weblate.86box.net/projects/"
 "86box/86box/pt_PT/>\n"
@@ -145,53 +145,44 @@ msgstr "Escala &inteira"
 msgid "4:&3 Integer scale"
 msgstr "Escala inteira 4:&3"
 
-msgid "EGA/(S)&VGA settings"
-msgstr "Definições EGA/(S)&VGA"
+msgid "Inverted VGA monitor"
+msgstr "Monitor VGA invertido"
 
-msgid "&Inverted VGA monitor"
-msgstr "Monitor VGA &invertido"
+msgid "VGA screen type:"
+msgstr "Tipo de ecrã VGA:"
 
-msgid "VGA screen &type"
-msgstr "&Tipo de ecrã VGA"
-
-msgid "RGB &Color"
-msgstr "&Cores RGB"
+msgid "RGB Color"
+msgstr "Cores RGB"
 
 msgid "RGB (no brown)"
 msgstr "RGB (sem castanho)"
 
-msgid "&RGB Grayscale"
-msgstr "&RGB em escala de cinzentos"
+msgid "RGB Grayscale"
+msgstr "RGB em escala de cinzentos"
 
 msgid "Generic RGBI color monitor"
 msgstr "Monitor RGBI genérico em cores"
 
-msgid "&Amber monitor"
-msgstr "Monitor âmb&ar"
+msgid "Amber monitor"
+msgstr "Monitor âmbar"
 
-msgid "&Green monitor"
-msgstr "Monitor &verde"
+msgid "Green monitor"
+msgstr "Monitor verde"
 
-msgid "&White monitor"
-msgstr "Monitor &branco"
+msgid "White monitor"
+msgstr "Monitor branco"
 
-msgid "Grayscale &conversion type"
-msgstr "Tipo de &conversão para escala de cinzentos"
+msgid "Grayscale conversion type:"
+msgstr "Tipo de conversão para escala de cinzentos:"
 
-msgid "BT&601 (NTSC/PAL)"
-msgstr "BT&601 (NTSC/PAL)"
+msgid "Average"
+msgstr "Média"
 
-msgid "BT&709 (HDTV)"
-msgstr "BT&709 (HDTV)"
+msgid "Overscan"
+msgstr "Overscan"
 
-msgid "&Average"
-msgstr "&Média"
-
-msgid "CGA/PCjr/Tandy/E&GA/(S)VGA overscan"
-msgstr "Overscan de CGA/PCjr/Tandy/E&GA/(S)VGA"
-
-msgid "Change contrast for &monochrome display"
-msgstr "Mudar contraste para ecrã &monocromático"
+msgid "Change contrast for monochrome display"
+msgstr "Mudar contraste para ecrã monocromático"
 
 msgid "&Media"
 msgstr "&Media"
@@ -364,6 +355,21 @@ msgstr "Desempenho"
 msgid "Machine type:"
 msgstr "Tipo de máquina:"
 
+msgid "[1989] i486 (Socket 168 and 1)"
+msgstr "[1989] i486 (Socket 168 e 1)"
+
+msgid "[1994] i486 (Miscellaneous)"
+msgstr "[1994] i486 (vários)"
+
+msgid "[1995] Socket 7 (Single Voltage)"
+msgstr "[1995] Socket 7 (tensão única)"
+
+msgid "[1996] Socket 7 (Dual Voltage)"
+msgstr "[1995] Socket 7 (dois tensões)"
+
+msgid "Miscellaneous"
+msgstr "Vários"
+
 msgid "Machine:"
 msgstr "Máquina:"
 
@@ -433,8 +439,8 @@ msgstr "Vídeo:"
 msgid "Video #2:"
 msgstr "Vídeo 2:"
 
-msgid "Accelerators"
-msgstr "Acceleradores"
+msgid "Monitor"
+msgstr "Monitor"
 
 msgid "Voodoo 1 or 2 Graphics"
 msgstr "Gráficos Voodoo 1 ou 2"
@@ -514,62 +520,53 @@ msgstr "Nuked (mais exacto)"
 msgid "YMFM (faster)"
 msgstr "YMFM (mais rápido)"
 
-msgid "COM1 Device:"
-msgstr "Dispositivo COM1:"
-
-msgid "COM2 Device:"
-msgstr "Dispositivo COM2:"
-
-msgid "COM3 Device:"
-msgstr "Dispositivo COM3:"
-
-msgid "COM4 Device:"
-msgstr "Dispositivo COM4:"
-
-msgid "LPT1 Device:"
-msgstr "Dispositivo LPT1:"
-
-msgid "LPT2 Device:"
-msgstr "Dispositivo LPT2:"
-
-msgid "LPT3 Device:"
-msgstr "Dispositivo LPT3:"
-
-msgid "LPT4 Device:"
-msgstr "Dispositivo LPT4:"
-
 msgid "Internal LPT ECP DMA:"
 msgstr "DMA do ECP do LPT interno:"
-
-msgid "Serial port 1"
-msgstr "Porta de série 1"
-
-msgid "Serial port 2"
-msgstr "Porta de série 2"
-
-msgid "Serial port 3"
-msgstr "Porta de série 3"
-
-msgid "Serial port 4"
-msgstr "Porta de série 4"
-
-msgid "Parallel port 1"
-msgstr "Porta paralela 1"
-
-msgid "Parallel port 2"
-msgstr "Porta paralela 2"
-
-msgid "Parallel port 3"
-msgstr "Porta paralela 3"
-
-msgid "Parallel port 4"
-msgstr "Porta paralela 4"
 
 msgid "Floppy disk controller:"
 msgstr "Controlador de disquetes:"
 
 msgid "CD-ROM controller:"
 msgstr "Controlador CD-ROM:"
+
+msgid "Mitsumi interface"
+msgstr "Interfaz Mitsumi"
+
+msgid "MKE/Panasonic interface"
+msgstr "Interfaz MKE/Panasonic"
+
+msgid "MKE/Panasonic interface (Creative)"
+msgstr "Interfaz MKE/Panasonic (Creative)"
+
+msgid "IDE Controller"
+msgstr "Controlador IDE"
+
+msgid "IDE Controller (Dual-Channel)"
+msgstr "Controlador IDE (dois canais)"
+
+msgid "PC/AT IDE Controller"
+msgstr "Controlador IDE PC/AT"
+
+msgid "PC/AT IDE Controller (Dual-Channel)"
+msgstr "Controlador IDE PC/AT (dois canais)"
+
+msgid "PC/AT XTIDE (Primary Only)"
+msgstr "Contolador XTIDE PC/AT (só primário)"
+
+msgid "PS/2 AT XTIDE (1.1.5) (Primary Only)"
+msgstr "XTIDE AT PS/2 (1.1.5) (só primário)"
+
+msgid "CMD PCI-0646 (Tertiary and Quaternary)"
+msgstr "CMD PCI-0646 (terciário e quaternário)"
+
+msgid "CMD PCI-0648 (Tertiary and Quaternary)"
+msgstr "CMD PCI-0648 (terciário e quaternário)"
+
+msgid "CMD PCI-0649 (Tertiary and Quaternary)"
+msgstr "CMD PCI-0649 (terciário e quaternário)"
+
+msgid "McIDE Controller"
+msgstr "Controlador McIDE"
 
 msgid "Tertiary IDE Controller"
 msgstr "Controlador IDE terciário"
@@ -603,6 +600,9 @@ msgstr "Discos rígidos:"
 
 msgid "Firmware Version"
 msgstr "Versão de firmware"
+
+msgid "DSP Version"
+msgstr "Versão de DSP"
 
 msgid "&New…"
 msgstr "&Novo…"
@@ -769,17 +769,17 @@ msgstr "Imagens básicas de sector"
 msgid "Surface images"
 msgstr "Imagens de superfície"
 
-msgid "Machine \"%hs\" is not available due to missing ROMs in the roms/machines directory. Switching to an available machine."
-msgstr "A máquina \"%hs\" não está disponível devido à falta de ROMs na pasta roms/machines. A mudar para uma máquina disponível."
+msgid "Machine \"%s\" is not available due to missing ROMs in the roms/machines directory. Switching to an available machine."
+msgstr "A máquina \"%s\" não está disponível devido à falta de ROMs na pasta roms/machines. A mudar para uma máquina disponível."
 
-msgid "Video card \"%hs\" is not available due to missing ROMs in the roms/video directory. Switching to an available video card."
-msgstr "A placa vídeo \"%hs\" não está disponível devido à falta de ROMs na pasta roms/video. A mudar para uma placa vídeo disponível."
+msgid "Video card \"%s\" is not available due to missing ROMs in the roms/video directory. Switching to an available video card."
+msgstr "A placa vídeo \"%s\" não está disponível devido à falta de ROMs na pasta roms/video. A mudar para uma placa vídeo disponível."
 
-msgid "Video card #2 \"%hs\" is not available due to missing ROMs in the roms/video directory. Disabling the second video card."
-msgstr "A placa vídeo 2 \"%hs\" não está disponível devido à falta de ROMs na pasta roms/video. A desativar a segunda placa vídeo."
+msgid "Video card #2 \"%s\" is not available due to missing ROMs in the roms/video directory. Disabling the second video card."
+msgstr "A placa vídeo 2 \"%s\" não está disponível devido à falta de ROMs na pasta roms/video. A desativar a segunda placa vídeo."
 
-msgid "Device \"%hs\" is not available due to missing ROMs. Ignoring the device."
-msgstr "O dispositivo \"%hs\" não está disponível devido à falta de ROMs A ignorar o dispositivo."
+msgid "Device \"%s\" is not available due to missing ROMs. Ignoring the device."
+msgstr "O dispositivo \"%s\" não está disponível devido à falta de ROMs A ignorar o dispositivo."
 
 msgid "Machine"
 msgstr "Máquina"
@@ -1059,9 +1059,6 @@ msgstr "%1 é requerido para a conversão automática de ficheiros PCL para fich
 
 msgid "Don't show this message again"
 msgstr "Não mostrar mais esta mensagem"
-
-msgid "Reset"
-msgstr "Repor"
 
 msgid "CD-ROM images"
 msgstr "Imagens CD-ROM"
@@ -1789,17 +1786,17 @@ msgstr "MiB"
 msgid "GiB"
 msgstr "GiB"
 
-msgid "Network Card #1"
-msgstr "Placa de rede 1"
+msgid "Adapter 1"
+msgstr "Adaptador 1"
 
-msgid "Network Card #2"
-msgstr "Placa de rede 2"
+msgid "Adapter 2"
+msgstr "Adaptador 2"
 
-msgid "Network Card #3"
-msgstr "Placa de rede 3"
+msgid "Adapter 3"
+msgstr "Adaptador 3"
 
-msgid "Network Card #4"
-msgstr "Placa de rede 4"
+msgid "Adapter 4"
+msgstr "Adaptador 4"
 
 msgid "Mode:"
 msgstr "Modo:"
@@ -1821,18 +1818,6 @@ msgstr "Testador de unidades 86Box"
 
 msgid "Novell NetWare 2.x Key Card"
 msgstr "Cartão-chave do Novell NetWare 2.x"
-
-msgid "Serial port passthrough 1"
-msgstr "Passagem da porta de série 1"
-
-msgid "Serial port passthrough 2"
-msgstr "Passagem da porta de série 2"
-
-msgid "Serial port passthrough 3"
-msgstr "Passagem da porta de série 3"
-
-msgid "Serial port passthrough 4"
-msgstr "Passagem da porta de série 4"
 
 msgid "Renderer &options…"
 msgstr "Opções do re&nderizador…"
@@ -1983,6 +1968,9 @@ msgstr "Versão da BIOS"
 
 msgid "BIOS Language"
 msgstr "Idioma da BIOS"
+
+msgid "Variant"
+msgstr "Variante"
 
 msgid "IBM 5161 Expansion Unit"
 msgstr "Unidade de expansão IBM 5161"
@@ -2247,9 +2235,6 @@ msgstr "Tamanho da memória"
 
 msgid "EMU8000 Address"
 msgstr "Endereço da EMU8000"
-
-msgid "IDE Controller"
-msgstr "Controlador IDE"
 
 msgid "Codec"
 msgstr "Codec"
@@ -2635,6 +2620,9 @@ msgstr "Padrão"
 msgid "High-Speed"
 msgstr "Alta velocidade"
 
+msgid "LPT DAC / Covox Speech Thing"
+msgstr "DAC LPT / Covox Speech Thing"
+
 msgid "Stereo LPT DAC"
 msgstr "DAC LPT estéreo"
 
@@ -2647,8 +2635,8 @@ msgstr "Impressora matricial de pontos ESC/P 2 genérica"
 msgid "Generic PostScript Printer"
 msgstr "Impressora PostScript genérica"
 
-msgid "Generic PCL5e Printer"
-msgstr "Impressora genérica PCL5e"
+msgid "Generic PCL Printer"
+msgstr "Impressora genérica PCL"
 
 msgid "Parallel Line Internet Protocol"
 msgstr "Protocolo Internet de linha paralela"
@@ -2656,8 +2644,11 @@ msgstr "Protocolo Internet de linha paralela"
 msgid "Protection Dongle for Savage Quest"
 msgstr "Dongle de proteção para Savage Quest"
 
-msgid "Serial Passthrough Device"
-msgstr "Dispositivo de passagem de porta de série"
+msgid "Loopback Plug"
+msgstr "Conector de Loopback"
+
+msgid "Serial Passthrough"
+msgstr "Passagem de porta de série"
 
 msgid "Passthrough Mode"
 msgstr "Modo de passagem"
@@ -2746,6 +2737,12 @@ msgstr "Expansão de memória genérica PC/XT"
 msgid "Generic PC/AT Memory Expansion"
 msgstr "Expansão de memória genérica PC/AT"
 
+msgid "Generic MM58167 RTC"
+msgstr "RTC MM58167 genérico"
+
+msgid "OPL2Board (External Device)"
+msgstr "OPL2Board (dispositivo externo)"
+
 msgid "Unable to find Dot-Matrix fonts"
 msgstr "Não foi possível encontrar os fontes matriciais de pontos"
 
@@ -2808,6 +2805,12 @@ msgstr "Mover para baixo"
 
 msgid "Could not load file %1"
 msgstr "Não foi possível carregar o ficheiro %1"
+
+msgid "Emulator"
+msgstr "Emulador"
+
+msgid "Input"
+msgstr "Entrada"
 
 msgid "Key bindings"
 msgstr "Teclas de atalho"
@@ -3016,8 +3019,8 @@ msgstr "Exportar…"
 msgid "Export EDID"
 msgstr "Exportar EDID"
 
-msgid "EDID file \"%ls\" is too large."
-msgstr "O ficheiro EDID \"%ls\" é demasiado grande."
+msgid "EDID file \"%s\" is too large."
+msgstr "O ficheiro EDID \"%s\" é demasiado grande."
 
 msgid "OpenGL input scale"
 msgstr "Escala de entrada do OpenGL"
@@ -3033,9 +3036,6 @@ msgstr "Claro"
 
 msgid "Dark"
 msgstr "Escuro"
-
-msgid "Search:"
-msgstr "Procurar:"
 
 msgid "Force interpretation"
 msgstr "Forçar interpretação"
@@ -3060,3 +3060,12 @@ msgstr "Para alterar o diretório do sistema, pare todas as máquinas em funcion
 
 msgid "Raw"
 msgstr "Bruto"
+
+msgid "Use EDC/ECC emulation"
+msgstr "Utilizar emulação EDC/ECC"
+
+msgid "Audio output device:"
+msgstr "Dispositivo de saída de áudio:"
+
+msgid "System Default"
+msgstr "Padrão do sistema"

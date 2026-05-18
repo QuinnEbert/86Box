@@ -1,3 +1,5 @@
+#include "qt_settings_completer.hpp"
+
 #ifndef QT_HARDDISKDIALOG_HPP
 #define QT_HARDDISKDIALOG_HPP
 
@@ -67,6 +69,7 @@ private:
 
     // For host folder VFS hint
     QLabel *labelHostFolderHint = nullptr;
+    SettingsCompleter *scSpeed = nullptr;
 };
 
 typedef struct _86BoxGeom {

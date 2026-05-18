@@ -274,7 +274,7 @@ nvr_update_io_mapping(piix_t *dev)
 }
 
 static void
-piix_trap_io(UNUSED(int size), UNUSED(uint16_t addr), UNUSED(uint8_t write), UNUSED(uint8_t val), void *priv)
+piix_trap_io(UNUSED(const uint16_t size), UNUSED(const uint16_t port), UNUSED(const uint8_t write), UNUSED(const uint8_t val), void *priv)
 {
     piix_io_trap_t *trap = (piix_io_trap_t *) priv;
 
@@ -285,13 +285,13 @@ piix_trap_io(UNUSED(int size), UNUSED(uint16_t addr), UNUSED(uint8_t write), UNU
 }
 
 static void
-piix_trap_io_ide(int size, uint16_t addr, uint8_t write, uint8_t val, void *priv)
+piix_trap_io_ide(uint16_t size, const uint16_t port, const uint8_t write, const uint8_t val, void *priv)
 {
     const piix_io_trap_t *trap = (piix_io_trap_t *) priv;
 
     /* IDE traps are per drive, not per channel. */
     if (ide_drives[trap->dev_id]->selected)
-        piix_trap_io(size, addr, write, val, priv);
+        piix_trap_io(size, port, write, val, priv);
 }
 
 static void
@@ -474,8 +474,9 @@ piix_write(int func, int addr, UNUSED(int len), uint8_t val, void *priv)
     if ((dev->type == 4) && (func == 1) && (addr == 0xff))
         func = 2;
 
-    if ((func == 1) || (addr == 0xf8) || (addr == 0xf9))
+    if ((func == 1) || (addr == 0xf8) || (addr == 0xf9)) {
         piix_log("[W] %02X:%02X = %02X\n", func, addr, val);
+    }
 
     /* Return on unsupported function. */
     if (dev->max_func > 0) {
@@ -1292,8 +1293,6 @@ piix_reset_hard(piix_t *dev)
     fregs[0x69]                                           = 0x02;
     if ((dev->type == 1) && (dev->rev != 2))
         fregs[0x6a] = 0x04;
-    else if (dev->type == 3)
-        fregs[0x6a] = 0x10;
     fregs[0x70] = (dev->type < 4) ? 0x80 : 0x00;
     fregs[0x71] = (dev->type < 3) ? 0x80 : 0x00;
     if (dev->type <= 4) {
@@ -1381,8 +1380,10 @@ piix_reset_hard(piix_t *dev)
             fregs[0x6a] = (dev->type == 3) ? 0x01 : 0x00;
             fregs[0xc1] = 0x20;
             fregs[0xff] = (dev->type > 3) ? 0x10 : 0x00;
-        } else
-        dev->max_func = 2; /* It starts with USB disabled, then enables it. */
+        }
+        /* PIIX3 starts with USB disabled, then enables it. */
+        if (dev->type > 3)
+            dev->max_func = 2;
     }
 
     /* Function 3: Power Management */

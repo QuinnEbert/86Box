@@ -81,7 +81,7 @@ static const device_config_t p54tp4xe_config[] = {
 
 const device_t p54tp4xe_device = {
     .name          = "ASUS P/I-P55TP4XE",
-    .internal_name = "p54tp4xe_device",
+    .internal_name = "p54tp4xe",
     .flags         = 0,
     .local         = 0,
     .init          = NULL,
@@ -395,7 +395,7 @@ machine_at_vectra54_init(const machine_t *model)
     pci_register_slot(0x08, PCI_CARD_NORMAL,      3, 4, 1, 2);
 
     if (gfxcard[0] == VID_INTERNAL)
-        device_add(&s3_phoenix_trio64_onboard_pci_device);
+        device_add(machine_get_vid_device(machine));
 
     device_add(&i430fx_device);
     device_add(&piix_device);
@@ -526,8 +526,8 @@ static const device_config_t thor_config[] = {
 };
 
 const device_t thor_device = {
-    .name          = "Intel Advanced/ATX (Thor)",
-    .internal_name = "thor_device",
+    .name          = "Intel Advanced/ATX",
+    .internal_name = "thor",
     .flags         = 0,
     .local         = 0,
     .init          = NULL,
@@ -802,8 +802,8 @@ static const device_config_t monaco_config[] = {
 };
 
 const device_t monaco_device = {
-    .name          = "Intel Advanced/MA (Monaco)",
-    .internal_name = "monaco_device",
+    .name          = "Intel Advanced/MA",
+    .internal_name = "monaco",
     .flags         = 0,
     .local         = 0,
     .init          = NULL,
@@ -911,7 +911,7 @@ static const device_config_t ms5119_config[] = {
 
 const device_t ms5119_device = {
     .name          = "MSI MS-5119",
-    .internal_name = "ms5119_device",
+    .internal_name = "ms5119",
     .flags         = 0,
     .local         = 0,
     .init          = NULL,
@@ -1092,7 +1092,7 @@ static const device_config_t fmb_config[] = {
 
 const device_t fmb_device = {
     .name          = "QDI FMB",
-    .internal_name = "fmb_device",
+    .internal_name = "fmb",
     .flags         = 0,
     .local         = 0,
     .init          = NULL,
@@ -1287,7 +1287,7 @@ static const device_config_t d943_config[] = {
 
 const device_t d943_device = {
     .name          = "Siemens-Nixdorf D943",
-    .internal_name = "d943_device",
+    .internal_name = "d943",
     .flags         = 0,
     .local         = 0,
     .init          = NULL,
@@ -1336,6 +1336,40 @@ machine_at_d943_init(const machine_t *model)
 
     if (sound_card_current[0] == SOUND_INTERNAL)
         machine_snd = device_add(machine_get_snd_device(machine));
+
+    return ret;
+}
+
+#include <86box/pci_dummy.h>
+
+int
+machine_at_op47_init(const machine_t *model)
+{
+    int ret;
+
+    ret = bios_load_linear("roms/machines/op47/Op47bios.bin",
+                           0x000e0000, 131072, 0);
+
+    if (bios_only || !ret)
+        return ret;
+
+    machine_at_common_init(model);
+
+    pci_init(PCI_CONFIG_TYPE_1);
+    pci_register_slot(0x00, PCI_CARD_NORTHBRIDGE, 0, 0, 0, 0);
+    pci_register_slot(0x11, PCI_CARD_NORMAL,      1, 2, 3, 4);
+    pci_register_slot(0x14, PCI_CARD_NORMAL,      2, 3, 4, 1);
+    pci_register_slot(0x13, PCI_CARD_NORMAL,      3, 4, 1, 2);
+    pci_register_slot(0x12, PCI_CARD_NORMAL,      4, 1, 2, 3);
+    pci_register_slot(0x07, PCI_CARD_SOUTHBRIDGE, 0, 0, 0, 0);
+
+    device_add(&i430hx_device);
+    device_add(&piix3_device);
+    device_add_inst_params(&fdc37c93x_device, 1, (void *) (FDC37XXX2 | FDC37C93X_NORMAL | FDC37XXXX_370));
+    device_add_inst_params(&i82091aa_device, 2, (void *) I82091AA_26E);
+    device_add(&intel_flash_bxt_device);
+
+    /* TODO: Implement the VADEM VG-469 PCMCIA controller. */
 
     return ret;
 }
@@ -1425,8 +1459,8 @@ static const device_config_t c5sbm2_config[] = {
 };
 
 const device_t c5sbm2_device = {
-    .name          = "Chaintech 5SBM/5SBM2 (M103)",
-    .internal_name = "5sbm2_device",
+    .name          = "Chaintech 5SBM2",
+    .internal_name = "5sbm2",
     .flags         = 0,
     .local         = 0,
     .init          = NULL,
@@ -1551,7 +1585,7 @@ static const device_config_t ap5s_config[] = {
 
 const device_t ap5s_device = {
     .name          = "AOpen AP5S",
-    .internal_name = "ap5s_device",
+    .internal_name = "ap5s",
     .flags         = 0,
     .local         = 0,
     .init          = NULL,
@@ -1697,7 +1731,7 @@ static const device_config_t ms5124_config[] = {
 
 const device_t ms5124_device = {
     .name          = "MSI MS-5124",
-    .internal_name = "ms5124_device",
+    .internal_name = "ms5124",
     .flags         = 0,
     .local         = 0,
     .init          = NULL,

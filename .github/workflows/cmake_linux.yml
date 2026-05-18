@@ -79,6 +79,7 @@ jobs:
           build-essential
           ninja-build
           libfreetype-dev
+          libgles2-mesa-dev
           libsdl2-dev
           libpng-dev
           libc6-dev

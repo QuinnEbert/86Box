@@ -1359,13 +1359,11 @@ cdrom_get_from_name(const char *s)
 
     if (!found) {
         if (strcmp(s, "none")) {
-            wchar_t tempmsg[2048];
             sprintf(n, "WARNING: CD-ROM \"%s\" not found - contact 86Box support\n", s);
-            swprintf(tempmsg, sizeof_w(tempmsg), L"%hs", n);
             pclog("%s", n);
             ui_msgbox_header(MBX_INFO,
                              plat_get_string(STRING_HW_NOT_AVAILABLE_TITLE),
-                             tempmsg);
+                             n);
         }
         c = -1;
     }
@@ -3186,7 +3184,9 @@ cdrom_close(void)
 void
 cdrom_insert(const uint8_t id)
 {
-    const cdrom_t *dev = &cdrom[id];
+    cdrom_t *dev = &cdrom[id];
+
+    dev->cached_sector = -1;
 
     if (dev->bus_type && dev->insert)
         dev->insert(dev->priv);

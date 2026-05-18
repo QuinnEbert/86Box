@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2026-03-17 02:29+0000\n"
+"PO-Revision-Date: 2026-04-27 21:00+0000\n"
 "Last-Translator: David Hrdlička <hrdlickadavid@outlook.com>\n"
 "Language-Team: Czech <https://weblate.86box.net/projects/86box/86box/cs/>\n"
 "Language: cs-CZ\n"
@@ -144,53 +144,44 @@ msgstr "&Celočíselné škálování"
 msgid "4:&3 Integer scale"
 msgstr "4:&3 Celočíselné škálování"
 
-msgid "EGA/(S)&VGA settings"
-msgstr "Nastavení pro EGA a (S)&VGA"
+msgid "Inverted VGA monitor"
+msgstr "Převrátit barvy"
 
-msgid "&Inverted VGA monitor"
-msgstr "&Převrátit barvy"
+msgid "VGA screen type:"
+msgstr "Typ VGA monitoru:"
 
-msgid "VGA screen &type"
-msgstr "&Typ VGA monitoru"
-
-msgid "RGB &Color"
-msgstr "RGB &barevný"
+msgid "RGB Color"
+msgstr "RGB barevný"
 
 msgid "RGB (no brown)"
 msgstr "RGB (bez hnědé)"
 
-msgid "&RGB Grayscale"
-msgstr "&Odstíny šedi"
+msgid "RGB Grayscale"
+msgstr "Odstíny šedi"
 
 msgid "Generic RGBI color monitor"
 msgstr "Obecný RGBI barevný monitor"
 
-msgid "&Amber monitor"
-msgstr "&Jantarový monitor"
+msgid "Amber monitor"
+msgstr "Jantarový monitor"
 
-msgid "&Green monitor"
-msgstr "&Zelený monitor"
+msgid "Green monitor"
+msgstr "Zelený monitor"
 
-msgid "&White monitor"
-msgstr "&Bílý monitor"
+msgid "White monitor"
+msgstr "Bílý monitor"
 
-msgid "Grayscale &conversion type"
-msgstr "Převod na &odstíny šedi"
+msgid "Grayscale conversion type:"
+msgstr "Převod na odstíny šedi:"
 
-msgid "BT&601 (NTSC/PAL)"
-msgstr "BT&601 (NTSC/PAL)"
+msgid "Average"
+msgstr "Průměr"
 
-msgid "BT&709 (HDTV)"
-msgstr "BT&709 (HDTV)"
+msgid "Overscan"
+msgstr "Přesah obrazu"
 
-msgid "&Average"
-msgstr "&Průměr"
-
-msgid "CGA/PCjr/Tandy/E&GA/(S)VGA overscan"
-msgstr "Přesah obrazu CGA/PCjr/Tandy/E&GA/(S)VGA"
-
-msgid "Change contrast for &monochrome display"
-msgstr "&Upravit kontrast černobílé obrazovky"
+msgid "Change contrast for monochrome display"
+msgstr "Upravit kontrast černobílé obrazovky"
 
 msgid "&Media"
 msgstr "&Média"
@@ -363,6 +354,21 @@ msgstr "Výkon"
 msgid "Machine type:"
 msgstr "Typ počítače:"
 
+msgid "[1989] i486 (Socket 168 and 1)"
+msgstr "[1989] i486 (sokety 168 a 1)"
+
+msgid "[1994] i486 (Miscellaneous)"
+msgstr "[1994] i486 (ostatní)"
+
+msgid "[1995] Socket 7 (Single Voltage)"
+msgstr "[1995] Soket 7 (jednonapěťový)"
+
+msgid "[1996] Socket 7 (Dual Voltage)"
+msgstr "[1996] Soket 7 (dvojnapěťový)"
+
+msgid "Miscellaneous"
+msgstr "Ostatní"
+
 msgid "Machine:"
 msgstr "Počítač:"
 
@@ -432,8 +438,8 @@ msgstr "Grafika:"
 msgid "Video #2:"
 msgstr "Grafika 2:"
 
-msgid "Accelerators"
-msgstr "Akcelerátory"
+msgid "Monitor"
+msgstr "Monitor"
 
 msgid "Voodoo 1 or 2 Graphics"
 msgstr "Použít grafický akcelerátor Voodoo 1 nebo 2"
@@ -513,62 +519,53 @@ msgstr "Nuked (přesnější)"
 msgid "YMFM (faster)"
 msgstr "YMFM (rychlejší)"
 
-msgid "COM1 Device:"
-msgstr "Zařízení na COM1:"
-
-msgid "COM2 Device:"
-msgstr "Zařízení na COM2:"
-
-msgid "COM3 Device:"
-msgstr "Zařízení na COM3:"
-
-msgid "COM4 Device:"
-msgstr "Zařízení na COM4:"
-
-msgid "LPT1 Device:"
-msgstr "Zařízení na LPT1:"
-
-msgid "LPT2 Device:"
-msgstr "Zařízení na LPT2:"
-
-msgid "LPT3 Device:"
-msgstr "Zařízení na LPT3:"
-
-msgid "LPT4 Device:"
-msgstr "Zařízení na LPT4:"
-
 msgid "Internal LPT ECP DMA:"
 msgstr "DMA kanál ECP interního LPT portu:"
-
-msgid "Serial port 1"
-msgstr "Povolit port COM1"
-
-msgid "Serial port 2"
-msgstr "Povolit port COM2"
-
-msgid "Serial port 3"
-msgstr "Povolit port COM3"
-
-msgid "Serial port 4"
-msgstr "Povolit port COM4"
-
-msgid "Parallel port 1"
-msgstr "Povolit port LPT1"
-
-msgid "Parallel port 2"
-msgstr "Povolit port LPT2"
-
-msgid "Parallel port 3"
-msgstr "Povolit port LPT3"
-
-msgid "Parallel port 4"
-msgstr "Povolit port LPT4"
 
 msgid "Floppy disk controller:"
 msgstr "Disketový řadič:"
 
 msgid "CD-ROM controller:"
 msgstr "Řadič CD-ROM:"
+
+msgid "Mitsumi interface"
+msgstr "Rozhraní Mitsumi"
+
+msgid "MKE/Panasonic interface"
+msgstr "Rozhraní MKE/Panasonic"
+
+msgid "MKE/Panasonic interface (Creative)"
+msgstr "Rozhraní MKE/Panasonic (Creative)"
+
+msgid "IDE Controller"
+msgstr "Řadič IDE"
+
+msgid "IDE Controller (Dual-Channel)"
+msgstr "Řadič IDE (dvoukanálový)"
+
+msgid "PC/AT IDE Controller"
+msgstr "Řadič IDE pro PC/AT"
+
+msgid "PC/AT IDE Controller (Dual-Channel)"
+msgstr "Řadič IDE pro PC/AT (dvoukanálový)"
+
+msgid "PC/AT XTIDE (Primary Only)"
+msgstr "XTIDE pro PC/AT (pouze primární kanál)"
+
+msgid "PS/2 AT XTIDE (1.1.5) (Primary Only)"
+msgstr "AT XTIDE pro PS/2 (1.1.5) (pouze primární kanál)"
+
+msgid "CMD PCI-0646 (Tertiary and Quaternary)"
+msgstr "CMD PCI-0646 (terciární a kvartérní kanál)"
+
+msgid "CMD PCI-0648 (Tertiary and Quaternary)"
+msgstr "CMD PCI-0648 (terciární a kvartérní kanál)"
+
+msgid "CMD PCI-0649 (Tertiary and Quaternary)"
+msgstr "CMD PCI-0649 (terciární a kvartérní kanál)"
+
+msgid "McIDE Controller"
+msgstr "Řadič McIDE"
 
 msgid "Tertiary IDE Controller"
 msgstr "Třetí řadič IDE"
@@ -602,6 +599,9 @@ msgstr "Pevné disky:"
 
 msgid "Firmware Version"
 msgstr "Verze firmware"
+
+msgid "DSP Version"
+msgstr "Verze DSP"
 
 msgid "&New…"
 msgstr "&Nový…"
@@ -768,17 +768,17 @@ msgstr "Základní sektorové obrazy"
 msgid "Surface images"
 msgstr "Obrazy povrchu"
 
-msgid "Machine \"%hs\" is not available due to missing ROMs in the roms/machines directory. Switching to an available machine."
-msgstr "Počítač \"%hs\" není dostupný, jelikož chybí obraz jeho paměti ROM ve složce \"roms/machines\". Konfigurace se přepne na jiný dostupný počítač."
+msgid "Machine \"%s\" is not available due to missing ROMs in the roms/machines directory. Switching to an available machine."
+msgstr "Počítač \"%s\" není dostupný, jelikož chybí obraz jeho paměti ROM ve složce \"roms/machines\". Konfigurace se přepne na jiný dostupný počítač."
 
-msgid "Video card \"%hs\" is not available due to missing ROMs in the roms/video directory. Switching to an available video card."
-msgstr "Video adaptér \"%hs\" není dostupný, jelikož chybí obraz jeho paměti ROM ve složce \"roms/video\". Konfigurace se přepne na jiný dostupný adaptér."
+msgid "Video card \"%s\" is not available due to missing ROMs in the roms/video directory. Switching to an available video card."
+msgstr "Video adaptér \"%s\" není dostupný, jelikož chybí obraz jeho paměti ROM ve složce \"roms/video\". Konfigurace se přepne na jiný dostupný adaptér."
 
-msgid "Video card #2 \"%hs\" is not available due to missing ROMs in the roms/video directory. Disabling the second video card."
-msgstr "Video adaptér 2 \"%hs\" není dostupný, jelikož chybí obraz jeho paměti ROM ve složce \"roms/video\". Druhá grafická karta se zakáže."
+msgid "Video card #2 \"%s\" is not available due to missing ROMs in the roms/video directory. Disabling the second video card."
+msgstr "Video adaptér 2 \"%s\" není dostupný, jelikož chybí obraz jeho paměti ROM ve složce \"roms/video\". Druhá grafická karta se zakáže."
 
-msgid "Device \"%hs\" is not available due to missing ROMs. Ignoring the device."
-msgstr "Zařízení \"%hs\" není dostupné, jelikož chybí obraz jeho paměti ROM. Zařízení je ignorováno."
+msgid "Device \"%s\" is not available due to missing ROMs. Ignoring the device."
+msgstr "Zařízení \"%s\" není dostupné, jelikož chybí obraz jeho paměti ROM. Zařízení je ignorováno."
 
 msgid "Machine"
 msgstr "Počítač"
@@ -1058,9 +1058,6 @@ msgstr "%1 je potřeba pro automatický převod PCL dokumentů do PDF.\n\nJakék
 
 msgid "Don't show this message again"
 msgstr "Nezobrazovat dále tuto zprávu"
-
-msgid "Reset"
-msgstr "Resetovat"
 
 msgid "CD-ROM images"
 msgstr "Obraz CD-ROM disku"
@@ -1790,17 +1787,17 @@ msgstr "MiB"
 msgid "GiB"
 msgstr "GiB"
 
-msgid "Network Card #1"
-msgstr "Síťový adaptér 1"
+msgid "Adapter 1"
+msgstr "Adaptér 1"
 
-msgid "Network Card #2"
-msgstr "Síťový adaptér 2"
+msgid "Adapter 2"
+msgstr "Adaptér 2"
 
-msgid "Network Card #3"
-msgstr "Síťový adaptér 3"
+msgid "Adapter 3"
+msgstr "Adaptér 3"
 
-msgid "Network Card #4"
-msgstr "Síťový adaptér 4"
+msgid "Adapter 4"
+msgstr "Adaptér 4"
 
 msgid "Mode:"
 msgstr "Režim:"
@@ -1822,18 +1819,6 @@ msgstr "86Box Unit Tester"
 
 msgid "Novell NetWare 2.x Key Card"
 msgstr "Karta s klíčem pro Novell NetWare 2.x"
-
-msgid "Serial port passthrough 1"
-msgstr "Průchod sériového portu 1"
-
-msgid "Serial port passthrough 2"
-msgstr "Průchod sériového portu 2"
-
-msgid "Serial port passthrough 3"
-msgstr "Průchod sériového portu 3"
-
-msgid "Serial port passthrough 4"
-msgstr "Průchod sériového portu 4"
 
 msgid "Renderer &options…"
 msgstr "Možnosti rendereru…"
@@ -1984,6 +1969,9 @@ msgstr "Verze BIOS"
 
 msgid "BIOS Language"
 msgstr "Jazyk BIOS"
+
+msgid "Variant"
+msgstr "Varianta"
 
 msgid "IBM 5161 Expansion Unit"
 msgstr "Rozšiřující jednotka IBM 5161"
@@ -2248,9 +2236,6 @@ msgstr "Velikost pamĕti"
 
 msgid "EMU8000 Address"
 msgstr "Adresa EMU8000"
-
-msgid "IDE Controller"
-msgstr "Řadič IDE"
 
 msgid "Codec"
 msgstr "Kodek"
@@ -2637,6 +2622,9 @@ msgstr "Standardní"
 msgid "High-Speed"
 msgstr "Vysokorychlostní"
 
+msgid "LPT DAC / Covox Speech Thing"
+msgstr "Převodník LPT / Covox Speech Thing"
+
 msgid "Stereo LPT DAC"
 msgstr "Stereofonní převodník LPT"
 
@@ -2649,8 +2637,8 @@ msgstr "Obecná jehličková tiskárna ESC/P 2"
 msgid "Generic PostScript Printer"
 msgstr "Obecná tiskárna PostScript"
 
-msgid "Generic PCL5e Printer"
-msgstr "Obecná tiskárna PCL5e"
+msgid "Generic PCL Printer"
+msgstr "Obecná tiskárna PCL"
 
 msgid "Parallel Line Internet Protocol"
 msgstr "Internetový protokol paralelní linky"
@@ -2658,8 +2646,11 @@ msgstr "Internetový protokol paralelní linky"
 msgid "Protection Dongle for Savage Quest"
 msgstr "Ochranný klíč pro Savage Quest"
 
-msgid "Serial Passthrough Device"
-msgstr "Zařízení průchodu sériového portu"
+msgid "Loopback Plug"
+msgstr "Loopback adaptér"
+
+msgid "Serial Passthrough"
+msgstr "Průchod sériového portu"
 
 msgid "Passthrough Mode"
 msgstr "Režim průchodu"
@@ -2748,6 +2739,12 @@ msgstr "Obecné rozšíření paměti PC/XT"
 msgid "Generic PC/AT Memory Expansion"
 msgstr "Obecné rozšíření paměti PC/AT"
 
+msgid "Generic MM58167 RTC"
+msgstr "Obecné hodiny reálného času MM58167"
+
+msgid "OPL2Board (External Device)"
+msgstr "OPL2Board (externí zařízení)"
+
 msgid "Unable to find Dot-Matrix fonts"
 msgstr "Nebylo možné nalézt písma pro jehličkovou tiskárnu"
 
@@ -2810,6 +2807,12 @@ msgstr "Posunout níž"
 
 msgid "Could not load file %1"
 msgstr "Nebylo možné načíst soubor %1"
+
+msgid "Emulator"
+msgstr "Emulátor"
+
+msgid "Input"
+msgstr "Vstup"
 
 msgid "Key bindings"
 msgstr "Nastavení kláves"
@@ -3018,8 +3021,8 @@ msgstr "Exportovat…"
 msgid "Export EDID"
 msgstr "Exportovat EDID"
 
-msgid "EDID file \"%ls\" is too large."
-msgstr "Soubor EDID \"%ls\" je příliš velký."
+msgid "EDID file \"%s\" is too large."
+msgstr "Soubor EDID \"%s\" je příliš velký."
 
 msgid "OpenGL input scale"
 msgstr "Měřítko vstupu OpenGL"
@@ -3035,9 +3038,6 @@ msgstr "Světlé"
 
 msgid "Dark"
 msgstr "Tmavé"
-
-msgid "Search:"
-msgstr "Hledat:"
 
 msgid "Force interpretation"
 msgstr "Vynutit interpretaci"
@@ -3062,3 +3062,12 @@ msgstr "Před změnou systémového adresáře nejprve zastavte všechny běží
 
 msgid "Raw"
 msgstr "Surový"
+
+msgid "Use EDC/ECC emulation"
+msgstr "Povolit emulaci EDC/ECC"
+
+msgid "Audio output device:"
+msgstr "Výstupní zvukové zařízení:"
+
+msgid "System Default"
+msgstr "Výchozí nastavení systému"

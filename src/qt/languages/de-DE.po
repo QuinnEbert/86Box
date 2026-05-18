@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2026-03-12 16:30+0000\n"
-"Last-Translator: toggo9 <johann2000@outlook.at>\n"
+"PO-Revision-Date: 2026-04-09 07:38+0000\n"
+"Last-Translator: Alexander Babikov <lemondrops358@gmail.com>\n"
 "Language-Team: German <https://weblate.86box.net/projects/86box/86box/de/>\n"
 "Language: de-DE\n"
 "MIME-Version: 1.0\n"
@@ -144,53 +144,44 @@ msgstr "&Integer-Skalierung"
 msgid "4:&3 Integer scale"
 msgstr "4:&3 Integer-Skalierung"
 
-msgid "EGA/(S)&VGA settings"
-msgstr "EGA/(S)&VGA-Einstellungen"
+msgid "Inverted VGA monitor"
+msgstr "Invertierte VGA-Anzeige"
 
-msgid "&Inverted VGA monitor"
-msgstr "&Invertierte VGA-Anzeige"
+msgid "VGA screen type:"
+msgstr "VGA-Bildschirmtyp:"
 
-msgid "VGA screen &type"
-msgstr "&VGA-Bildschirmtyp"
-
-msgid "RGB &Color"
-msgstr "RGB-&Farbe"
+msgid "RGB Color"
+msgstr "RGB-Farbe"
 
 msgid "RGB (no brown)"
 msgstr "RGB (ohne Braun)"
 
-msgid "&RGB Grayscale"
-msgstr "&RGB-Graustufen"
+msgid "RGB Grayscale"
+msgstr "RGB-Graustufen"
 
 msgid "Generic RGBI color monitor"
 msgstr "Generischer RGBI-Farbmonitor"
 
-msgid "&Amber monitor"
-msgstr "&Bernstein-Monitor"
+msgid "Amber monitor"
+msgstr "Bernstein-Monitor"
 
-msgid "&Green monitor"
-msgstr "&Grüner Monitor"
+msgid "Green monitor"
+msgstr "Grüner Monitor"
 
-msgid "&White monitor"
-msgstr "&Weißer Monitor"
+msgid "White monitor"
+msgstr "Weißer Monitor"
 
-msgid "Grayscale &conversion type"
-msgstr "Methode zur &Graustufenkonversion"
+msgid "Grayscale conversion type:"
+msgstr "Methode zur Graustufenkonversion:"
 
-msgid "BT&601 (NTSC/PAL)"
-msgstr "BT&601 (NTSC/PAL)"
+msgid "Average"
+msgstr "Durchschnittsmethode"
 
-msgid "BT&709 (HDTV)"
-msgstr "BT&709 (HDTV)"
+msgid "Overscan"
+msgstr "Overscan"
 
-msgid "&Average"
-msgstr "&Durchschnittsmethode"
-
-msgid "CGA/PCjr/Tandy/E&GA/(S)VGA overscan"
-msgstr "Overscan für CGA/PCjr/Tandy/E&GA/(S)VGA-Monitore"
-
-msgid "Change contrast for &monochrome display"
-msgstr "Kontrast für &monochrome Monitore ändern"
+msgid "Change contrast for monochrome display"
+msgstr "Kontrast für monochrome Monitore ändern"
 
 msgid "&Media"
 msgstr "&Medien"
@@ -363,6 +354,21 @@ msgstr "Leistung"
 msgid "Machine type:"
 msgstr "Systemtyp:"
 
+msgid "[1989] i486 (Socket 168 and 1)"
+msgstr "[1989] i486 (Socket 168 und 1)"
+
+msgid "[1994] i486 (Miscellaneous)"
+msgstr "[1994] i486 (Verschiedenes)"
+
+msgid "[1995] Socket 7 (Single Voltage)"
+msgstr "[1995] Socket 7 (Einfache Spannung)"
+
+msgid "[1996] Socket 7 (Dual Voltage)"
+msgstr ""
+
+msgid "Miscellaneous"
+msgstr "Verschiedenes"
+
 msgid "Machine:"
 msgstr "System:"
 
@@ -432,8 +438,8 @@ msgstr "Grafikkarte:"
 msgid "Video #2:"
 msgstr "Grafikkarte 2:"
 
-msgid "Accelerators"
-msgstr "Beschleuniger"
+msgid "Monitor"
+msgstr "Monitor"
 
 msgid "Voodoo 1 or 2 Graphics"
 msgstr "Voodoo 1 oder 2 Grafik"
@@ -513,62 +519,53 @@ msgstr "Nuked (genauer)"
 msgid "YMFM (faster)"
 msgstr "YMFM (schneller)"
 
-msgid "COM1 Device:"
-msgstr "COM1-Gerät:"
-
-msgid "COM2 Device:"
-msgstr "COM2-Gerät:"
-
-msgid "COM3 Device:"
-msgstr "COM3-Gerät:"
-
-msgid "COM4 Device:"
-msgstr "COM4-Gerät:"
-
-msgid "LPT1 Device:"
-msgstr "LPT1-Gerät:"
-
-msgid "LPT2 Device:"
-msgstr "LPT2-Gerät:"
-
-msgid "LPT3 Device:"
-msgstr "LPT3-Gerät:"
-
-msgid "LPT4 Device:"
-msgstr "LPT4-Gerät:"
-
 msgid "Internal LPT ECP DMA:"
 msgstr "DMA des ECP des internen Parallelports:"
-
-msgid "Serial port 1"
-msgstr "Serielle Schnittstelle 1"
-
-msgid "Serial port 2"
-msgstr "Serielle Schnittstelle 2"
-
-msgid "Serial port 3"
-msgstr "Serielle Schnittstelle 3"
-
-msgid "Serial port 4"
-msgstr "Serielle Schnittstelle 4"
-
-msgid "Parallel port 1"
-msgstr "Parallelport 1"
-
-msgid "Parallel port 2"
-msgstr "Parallelport 2"
-
-msgid "Parallel port 3"
-msgstr "Parallelport 3"
-
-msgid "Parallel port 4"
-msgstr "Parallelport 4"
 
 msgid "Floppy disk controller:"
 msgstr "Disketten-Controller:"
 
 msgid "CD-ROM controller:"
 msgstr "CD-ROM-Controller:"
+
+msgid "Mitsumi interface"
+msgstr ""
+
+msgid "MKE/Panasonic interface"
+msgstr ""
+
+msgid "MKE/Panasonic interface (Creative)"
+msgstr ""
+
+msgid "IDE Controller"
+msgstr "IDE-Controller"
+
+msgid "IDE Controller (Dual-Channel)"
+msgstr ""
+
+msgid "PC/AT IDE Controller"
+msgstr "PC/AT IDE-Controller"
+
+msgid "PC/AT IDE Controller (Dual-Channel)"
+msgstr ""
+
+msgid "PC/AT XTIDE (Primary Only)"
+msgstr ""
+
+msgid "PS/2 AT XTIDE (1.1.5) (Primary Only)"
+msgstr ""
+
+msgid "CMD PCI-0646 (Tertiary and Quaternary)"
+msgstr ""
+
+msgid "CMD PCI-0648 (Tertiary and Quaternary)"
+msgstr ""
+
+msgid "CMD PCI-0649 (Tertiary and Quaternary)"
+msgstr ""
+
+msgid "McIDE Controller"
+msgstr ""
 
 msgid "Tertiary IDE Controller"
 msgstr "Tertiärer IDE-Controller"
@@ -602,6 +599,9 @@ msgstr "Festplatten:"
 
 msgid "Firmware Version"
 msgstr "Firmware-Version"
+
+msgid "DSP Version"
+msgstr "DSP-Version"
 
 msgid "&New…"
 msgstr "&Neu…"
@@ -768,17 +768,17 @@ msgstr "Basissektorabbilder"
 msgid "Surface images"
 msgstr "Oberflächenabbilder"
 
-msgid "Machine \"%hs\" is not available due to missing ROMs in the roms/machines directory. Switching to an available machine."
-msgstr "Das System \"%hs\" ist aufgrund von fehlenden ROMs im Verzeichnis roms/machines nicht verfügbar. Es wird auf ein verfügbares System gewechselt."
+msgid "Machine \"%s\" is not available due to missing ROMs in the roms/machines directory. Switching to an available machine."
+msgstr "Das System \"%s\" ist aufgrund von fehlenden ROMs im Verzeichnis roms/machines nicht verfügbar. Es wird auf ein verfügbares System gewechselt."
 
-msgid "Video card \"%hs\" is not available due to missing ROMs in the roms/video directory. Switching to an available video card."
-msgstr "Die Videokarte \"%hs\" ist aufgrund von fehlenden ROMs im Verzeichnis roms/video nicht verfügbar. Es wird auf eine verfügbare Videokarte gewechselt."
+msgid "Video card \"%s\" is not available due to missing ROMs in the roms/video directory. Switching to an available video card."
+msgstr "Die Videokarte \"%s\" ist aufgrund von fehlenden ROMs im Verzeichnis roms/video nicht verfügbar. Es wird auf eine verfügbare Videokarte gewechselt."
 
-msgid "Video card #2 \"%hs\" is not available due to missing ROMs in the roms/video directory. Disabling the second video card."
-msgstr "Die Videokarte 2 \"%hs\" ist aufgrund von fehlenden ROMs im Verzeichnis roms/video nicht verfügbar. Es wird deaktiviert."
+msgid "Video card #2 \"%s\" is not available due to missing ROMs in the roms/video directory. Disabling the second video card."
+msgstr "Die Videokarte 2 \"%s\" ist aufgrund von fehlenden ROMs im Verzeichnis roms/video nicht verfügbar. Es wird deaktiviert."
 
-msgid "Device \"%hs\" is not available due to missing ROMs. Ignoring the device."
-msgstr "Das Gerät \"%hs\" ist aufgrund von fehlenden ROMs nicht verfügbar. Es wird ignoriert."
+msgid "Device \"%s\" is not available due to missing ROMs. Ignoring the device."
+msgstr "Das Gerät \"%s\" ist aufgrund von fehlenden ROMs nicht verfügbar. Es wird ignoriert."
 
 msgid "Machine"
 msgstr "System"
@@ -1058,10 +1058,6 @@ msgstr "%1 wird zur automatischen Konvertierung von PCL-Dateien ins PDF-Format b
 
 msgid "Don't show this message again"
 msgstr "Diese Nachricht nicht mehr anzeigen"
-
-#, fuzzy
-msgid "Reset"
-msgstr "Zurücksetzen"
 
 msgid "CD-ROM images"
 msgstr "CD-ROM-Abbilder"
@@ -1789,17 +1785,17 @@ msgstr "MiB"
 msgid "GiB"
 msgstr "GiB"
 
-msgid "Network Card #1"
-msgstr "Netzwerkkarte 1"
+msgid "Adapter 1"
+msgstr "Adapter 1"
 
-msgid "Network Card #2"
-msgstr "Netzwerkkarte 2"
+msgid "Adapter 2"
+msgstr "Adapter 2"
 
-msgid "Network Card #3"
-msgstr "Netzwerkkarte 3"
+msgid "Adapter 3"
+msgstr "Adapter 3"
 
-msgid "Network Card #4"
-msgstr "Netzwerkkarte 4"
+msgid "Adapter 4"
+msgstr "Adapter 4"
 
 msgid "Mode:"
 msgstr "Modus:"
@@ -1821,18 +1817,6 @@ msgstr "86Box-Gerätetester"
 
 msgid "Novell NetWare 2.x Key Card"
 msgstr "Novell NetWare 2.x Schlüsselkarte"
-
-msgid "Serial port passthrough 1"
-msgstr "Serielle Schnittstelle 1 durchreichen"
-
-msgid "Serial port passthrough 2"
-msgstr "Serielle Schnittstelle 2 durchreichen"
-
-msgid "Serial port passthrough 3"
-msgstr "Serielle Schnittstelle 3 durchreichen"
-
-msgid "Serial port passthrough 4"
-msgstr "Serielle Schnittstelle 4 durchreichen"
 
 msgid "Renderer &options…"
 msgstr "Renderer-&Optionen…"
@@ -1983,6 +1967,9 @@ msgstr "BIOS-Version"
 
 msgid "BIOS Language"
 msgstr "BIOS-Sprache"
+
+msgid "Variant"
+msgstr ""
 
 msgid "IBM 5161 Expansion Unit"
 msgstr "IBM 5161 Erweiterungseinheit"
@@ -2247,9 +2234,6 @@ msgstr "Speichergröße"
 
 msgid "EMU8000 Address"
 msgstr "EMU8000-Adresse"
-
-msgid "IDE Controller"
-msgstr "IDE-Controller"
 
 msgid "Codec"
 msgstr "Codec"
@@ -2635,6 +2619,9 @@ msgstr "Standard"
 msgid "High-Speed"
 msgstr "Höchstgeschwindigkeit"
 
+msgid "LPT DAC / Covox Speech Thing"
+msgstr "LPT-DAC / Covox Speech Thing"
+
 msgid "Stereo LPT DAC"
 msgstr "Stereo-LPT-DAC"
 
@@ -2647,8 +2634,8 @@ msgstr "Allgemeiner ESC/P 2-Nadel-Drucker"
 msgid "Generic PostScript Printer"
 msgstr "Generischer PostScript-Drucker"
 
-msgid "Generic PCL5e Printer"
-msgstr "Generischer PCL5e-Drucker"
+msgid "Generic PCL Printer"
+msgstr "Generischer PCL-Drucker"
 
 msgid "Parallel Line Internet Protocol"
 msgstr "Parallel Line Internet Protokoll"
@@ -2656,7 +2643,11 @@ msgstr "Parallel Line Internet Protokoll"
 msgid "Protection Dongle for Savage Quest"
 msgstr "Kopierschutz-Dongle für Savage Quest"
 
-msgid "Serial Passthrough Device"
+msgid "Loopback Plug"
+msgstr "Loopback-Stecker"
+
+#, fuzzy
+msgid "Serial Passthrough"
 msgstr "Serielles Gerät durchreichen"
 
 msgid "Passthrough Mode"
@@ -2746,6 +2737,12 @@ msgstr "Generische PC/XT-Speichererweiterung"
 msgid "Generic PC/AT Memory Expansion"
 msgstr "Generische PC/AT-Speichererweiterung"
 
+msgid "Generic MM58167 RTC"
+msgstr ""
+
+msgid "OPL2Board (External Device)"
+msgstr ""
+
 msgid "Unable to find Dot-Matrix fonts"
 msgstr "Nadel-Schriften konnten nicht gefunden werden"
 
@@ -2808,6 +2805,12 @@ msgstr "Nach unten verschieben"
 
 msgid "Could not load file %1"
 msgstr "Datei %1 konnte nicht geladen werden"
+
+msgid "Emulator"
+msgstr ""
+
+msgid "Input"
+msgstr ""
 
 msgid "Key bindings"
 msgstr "Tastenbelegungen"
@@ -3016,8 +3019,8 @@ msgstr "Exportieren…"
 msgid "Export EDID"
 msgstr "EDID exportieren"
 
-msgid "EDID file \"%ls\" is too large."
-msgstr "Die EDID-Datei \"%ls\" ist zu groß."
+msgid "EDID file \"%s\" is too large."
+msgstr "Die EDID-Datei \"%s\" ist zu groß."
 
 msgid "OpenGL input scale"
 msgstr "Eingabeskala von OpenGL"
@@ -3033,9 +3036,6 @@ msgstr "Licht"
 
 msgid "Dark"
 msgstr "Dunkel"
-
-msgid "Search:"
-msgstr "Suche:"
 
 msgid "Force interpretation"
 msgstr "Erzwingen der Interpretation"
@@ -3060,3 +3060,12 @@ msgstr "Um das Systemverzeichnis zu ändern, stoppen Sie alle laufenden Maschine
 
 msgid "Raw"
 msgstr "Roh"
+
+msgid "Use EDC/ECC emulation"
+msgstr "EDC/ECC-Emulation verwenden"
+
+msgid "Audio output device:"
+msgstr "Audio-Ausgabegerät:"
+
+msgid "System Default"
+msgstr "Systemstandard"

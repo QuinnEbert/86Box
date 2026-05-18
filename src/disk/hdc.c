@@ -61,6 +61,7 @@ static const struct {
     { &st506_xt_dtc5150x_device             },
     { &st506_xt_xebec_device                },
     { &xtide_device                         },
+    { &jride_device                         },
     { &st506_xt_st11_m_device               },
     { &st506_xt_st11_r_device               },
     { &xta_st50x_device                     },
@@ -85,6 +86,7 @@ static const struct {
     { &esdi_at_wd1007vse1_device            },
     /* MCA */
     { &esdi_ps2_device                      },
+    { &st506_ps2_device                     },  
     { &esdi_integrated_device               },
     { &mcide_device                         },
     /* VLB */

@@ -32,6 +32,8 @@
 
 #include "evdev_mouse.hpp"
 
+#include <cmath>
+
 #include <atomic>
 #include <stdexcept>
 
@@ -126,7 +128,7 @@ RendererStack::RendererStack(QWidget *parent, int monitor_index)
         frameRateTimer->setSingleShot(false);
         frameRateTimer->setInterval(1000);
         connect(frameRateTimer, &QTimer::timeout, [this] {
-            this->setWindowTitle(QObject::tr("86Box Monitor #%1").arg(m_monitor_index + 1) + QString(" - ") + tr("%1 Hz").arg(QString::number(monitors[m_monitor_index].mon_actualrenderedframes.load()) + (monitors[m_monitor_index].mon_interlace ? "i" : "")));
+            this->setWindowTitle(QObject::tr("86Box Monitor #%1").arg(m_monitor_index + 1) + QString(" - ") + (monitors[m_monitor_index].mon_dpms ? tr("Monitor in sleep mode") : tr("%1 Hz").arg(QString::number(monitors[m_monitor_index].mon_actualrenderedframes.load()) + (monitors[m_monitor_index].mon_interlace ? "i" : ""))));
         });
         frameRateTimer->start(1000);
     }
@@ -237,10 +239,10 @@ RendererStack::mouseReleaseEvent(QMouseEvent *event)
 #ifdef Q_OS_WINDOWS
         if (((m_monitor_index >= 1) && (mouse_input_mode >= 1) && mousedata.mouse_tablet_in_proximity) || ((m_monitor_index < 1) && (mouse_input_mode >= 1)))
 #else
-#    ifndef __APPLE__
-        if (((m_monitor_index >= 1) && (mouse_input_mode >= 1) && mousedata.mouse_tablet_in_proximity) || (m_monitor_index < 1))
+#    ifdef __APPLE__
+        if (((m_monitor_index >= 1) && (mouse_input_mode >= 1) && mousedata.mouse_tablet_in_proximity) || ((m_monitor_index < 1) && (mouse_input_mode >= 1)))
 #    else
-        if ((m_monitor_index >= 1) && (mouse_input_mode >= 1) && mousedata.mouse_tablet_in_proximity)
+        if (((m_monitor_index >= 1) && (mouse_input_mode >= 1) && mousedata.mouse_tablet_in_proximity) || (m_monitor_index < 1))
 #    endif
 #endif
             mouse_set_buttons_ex(mouse_get_buttons_ex() & ~event->button());
@@ -256,10 +258,10 @@ RendererStack::mousePressEvent(QMouseEvent *event)
 #ifdef Q_OS_WINDOWS
         if (((m_monitor_index >= 1) && (mouse_input_mode >= 1) && mousedata.mouse_tablet_in_proximity) || ((m_monitor_index < 1) && (mouse_input_mode >= 1)))
 #else
-#    ifndef __APPLE__
-        if (((m_monitor_index >= 1) && (mouse_input_mode >= 1) && mousedata.mouse_tablet_in_proximity) || (m_monitor_index < 1))
+#    ifdef __APPLE__
+        if (((m_monitor_index >= 1) && (mouse_input_mode >= 1) && mousedata.mouse_tablet_in_proximity) || ((m_monitor_index < 1) && (mouse_input_mode >= 1)))
 #    else
-        if ((m_monitor_index >= 1) && (mouse_input_mode >= 1) && mousedata.mouse_tablet_in_proximity)
+        if (((m_monitor_index >= 1) && (mouse_input_mode >= 1) && mousedata.mouse_tablet_in_proximity) || (m_monitor_index < 1))
 #    endif
 #endif
             mouse_set_buttons_ex(mouse_get_buttons_ex() | event->button());
@@ -276,11 +278,13 @@ RendererStack::wheelEvent(QWheelEvent *event)
     }
 
 #if !defined(Q_OS_WINDOWS) && !defined(__APPLE__)
-    double numSteps  = (double) event->angleDelta().y() / 120.0;
-    double numStepsW = (double) event->angleDelta().x() / 120.0;
-
-    mouse_set_z((int) numSteps);
-    mouse_set_w((int) numStepsW);
+    if (event->inverted()) {
+        mouse_set_z(-((short) event->angleDelta().y()));
+        mouse_set_w(-((short) event->angleDelta().x()));
+    } else {
+        mouse_set_z((short) event->angleDelta().y());
+        mouse_set_w((short) event->angleDelta().x());
+    }
 #endif
     event->accept();
 }

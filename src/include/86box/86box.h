@@ -91,8 +91,8 @@
 #define AS_DOUBLE(x) (*((double *) &(x)))
 
 #if defined(__GNUC__) || defined(__clang__)
-#    define UNLIKELY(x) __builtin_expect((x), 0)
-#    define LIKELY(x)   __builtin_expect((x), 1)
+#    define UNLIKELY(x) __builtin_expect(!!(x), 0)
+#    define LIKELY(x)   __builtin_expect(!!(x), 1)
 #else
 #    define UNLIKELY(x) (x)
 #    define LIKELY(x)   (x)
@@ -149,9 +149,6 @@ extern int dump_on_exit;        /* (O) dump regs on exit*/
 extern int start_in_fullscreen; /* (O) start in fullscreen */
 #ifdef _WIN32
 extern int force_debug; /* (O) force debug output */
-#endif
-#ifdef USE_WX
-extern int video_fps; /* (O) render speed in fps */
 #endif
 extern int settings_only;     /* (O) show only the settings dialog */
 extern int confirm_exit_cmdl; /* (O) do not ask for confirmation on quit if set to 0 */
@@ -288,6 +285,8 @@ extern void warning_ex(const char *fmt, va_list ap);
 #endif
 extern void pclog_toggle_suppr(void);
 extern void pclog(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
+/* Optional per-line log callback for UI consumers (e.g. OSD log viewer). */
+extern void (*pclog_hook)(const char *line);
 extern void always_log(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
 extern void fatal(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
 extern void warning(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
@@ -297,9 +296,6 @@ extern void reset_screen_size(void);
 extern void reset_screen_size_monitor(int monitor_index);
 extern void set_screen_size_natural(void);
 extern void update_mouse_msg(void);
-#if 0
-extern void pc_reload(wchar_t *fn);
-#endif
 extern int  pc_init_roms(void);
 extern int  pc_init_modules(void);
 extern int  pc_init(int argc, char *argv[]);
@@ -315,6 +311,9 @@ extern void pc_send_cab(void);
 extern void pc_run(void);
 extern void pc_start(void);
 extern void pc_onesec(void);
+#ifdef _WIN32
+extern void pc_debug_console(void);
+#endif
 
 extern uint16_t get_last_addr(void);
 

@@ -21,12 +21,16 @@
 #ifdef Q_OS_WINDOWS
 #    include <windows.h>
 #endif
+#if defined(Q_OS_MACOS) || defined(Q_OS_FREEBSD)
+#    include <sys/stat.h>
+#endif
 
 extern "C" {
 #include <86box/timer.h>
 #include <86box/device.h>
 #include <86box/cassette.h>
 #include <86box/cartridge.h>
+#include <86box/config.h>
 #include <86box/fdd.h>
 #include <86box/cdrom.h>
 #include <86box/scsi_device.h>
@@ -308,6 +312,8 @@ MediaHistoryManager::addImageToHistory(int index, ui::MediaType type, const QStr
 
     setHistoryListForDeviceIndex(index, type, device_history);
     serializeImageHistoryType(type);
+
+    config_save();
 }
 
 QString
@@ -388,12 +394,22 @@ MediaHistoryManager::removeMissingImages(device_index_list_t &device_history)
         if (new_fi.filePath().left(8) == "ioctl://")
             file_exists = (GetDriveTypeA(new_fi.filePath().right(2).toUtf8().data()) == DRIVE_CDROM);
 #endif
+#if defined(Q_OS_MACOS) || defined(Q_OS_FREEBSD)
+        if (new_fi.filePath().left(8) == "ioctl://") {
+            QString device_path = new_fi.filePath().mid(8);
+            struct stat st;
+            file_exists = (stat(device_path.toUtf8().data(), &st) == 0);
+        }
+#endif
 
         if (!file_exists) {
             qWarning("Image file %s does not exist - removing from history", qPrintable(new_fi.filePath()));
             checked_path = "";
+
+            config_save();
         }
     }
+
     return device_history;
 }
 
