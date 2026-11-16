@@ -25,6 +25,8 @@ uint64_t *byte_dirty_mask, *byte_code_present_mask;
 
 void addreadlookup(uint32_t virt, uint32_t phys) { (void)virt; (void)phys; }
 void addwritelookup(uint32_t virt, uint32_t phys) { (void)virt; (void)phys; }
+void addwritelookup_remapped(uint32_t virt, uint32_t phys, uint32_t ram_addr)
+{ (void)virt; (void)phys; (void)ram_addr; }
 uint8_t mem_read_ram(uint32_t addr, void *priv) { (void)addr; (void)priv; return 0; }
 uint16_t mem_read_ramw(uint32_t addr, void *priv) { (void)addr; (void)priv; return 0; }
 uint32_t mem_read_raml(uint32_t addr, void *priv) { (void)addr; (void)priv; return 0; }
