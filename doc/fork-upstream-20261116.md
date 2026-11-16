@@ -29,8 +29,10 @@ workflow covers Linux x86_64/arm64 with SDL and Qt, macOS arm64 with SDL and
 Qt, and Windows x86_64/arm64 with Qt. Every configuration has Debug and Dev
 builds. Windows keeps Qt 5 compatibility; Linux and macOS use Qt 6. Linux
 currently uses SDL 2 while macOS and Windows use SDL 3. macOS uses the supported
-`macos-15` Apple Silicon pool and checks its actual architecture. macOS 26 was
-also tried but jobs remained queued without receiving runners. All four macOS
+`macos-26` Apple Silicon pool and checks its actual architecture. The macOS 15
+pool repeatedly failed to allocate a runner. The macOS 26 validation run built,
+signed, packaged, and smoke-tested all four configurations successfully. These
+CI packages target macOS 26 to match their Homebrew dependencies. All four macOS
 configurations share one job and dependency installation to avoid repeated
 runner allocation delays.
 

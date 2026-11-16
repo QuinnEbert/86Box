@@ -65,7 +65,7 @@ jobs:
 
   macos:
     name: macOS arm64, SDL and Qt, Debug and Dev
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -94,7 +94,7 @@ jobs:
               prefix="$PWD/build/artifacts/$ui-$variant"
               cmake -S . -B "$build_dir" --preset "$preset" \
                 -D QT="$qt" -D USE_QT6=ON -D VNC=ON \
-                -D CMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
+                -D CMAKE_OSX_DEPLOYMENT_TARGET=26.0 \
                 -D OpenAL_ROOT="$(brew --prefix openal-soft)" \
                 -D LIBSERIALPORT_ROOT="$(brew --prefix libserialport)"
               cmake --build "$build_dir" --parallel 3
