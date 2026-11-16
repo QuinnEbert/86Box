@@ -657,6 +657,9 @@ if (APPLE AND CMAKE_MACOSX_BUNDLE)
 
     # using the install_qt5_plugin to add Qt plugins into the macOS app bundle
     install_qt5_plugin("Qt${QT_MAJOR}::QCocoaIntegrationPlugin" RUNTIME_PLUGINS ${prefix})
+    if(VNC)
+        install_qt5_plugin("Qt${QT_MAJOR}::QOffscreenIntegrationPlugin" RUNTIME_PLUGINS ${prefix})
+    endif()
     install_qt5_plugin("Qt${QT_MAJOR}::QMacStylePlugin" RUNTIME_PLUGINS ${prefix})
     install_qt5_plugin("Qt${QT_MAJOR}::QICOPlugin" RUNTIME_PLUGINS ${prefix})
     install_qt5_plugin("Qt${QT_MAJOR}::QICNSPlugin" RUNTIME_PLUGINS ${prefix})

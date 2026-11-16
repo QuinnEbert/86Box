@@ -271,6 +271,15 @@ Settings::ensurePage(int index)
                 placePage(PAGE_FLOPPYCDROM, floppyCdrom);
                 placePage(PAGE_REMOVABLE, otherRemovable);
 
+                connect(hostfs, &SettingsHostFS::driveChannelChanged, harddisks, &SettingsHarddisks::reloadBusChannels);
+                connect(hostfs, &SettingsHostFS::driveChannelChanged, floppyCdrom, &SettingsFloppyCDROM::reloadBusChannels);
+                connect(hostfs, &SettingsHostFS::driveChannelChanged, otherRemovable, &SettingsOtherRemovable::reloadBusChannels_MO);
+                connect(hostfs, &SettingsHostFS::driveChannelChanged, otherRemovable, &SettingsOtherRemovable::reloadBusChannels_RDisk);
+                connect(harddisks, &SettingsHarddisks::driveChannelChanged, hostfs, &SettingsHostFS::reloadBusChannels);
+                connect(floppyCdrom, &SettingsFloppyCDROM::cdromChannelChanged, hostfs, &SettingsHostFS::reloadBusChannels);
+                connect(otherRemovable, &SettingsOtherRemovable::moChannelChanged, hostfs, &SettingsHostFS::reloadBusChannels);
+                connect(otherRemovable, &SettingsOtherRemovable::rdiskChannelChanged, hostfs, &SettingsHostFS::reloadBusChannels);
+
                 connect(machine, &SettingsMachine::currentMachineChanged, floppyCdrom,
                         &SettingsFloppyCDROM::onCurrentMachineChanged);
                 connect(floppyCdrom, &SettingsFloppyCDROM::cdromChannelChanged, harddisks,
@@ -417,6 +426,11 @@ Settings::accept()
     int changed = 0;
 
     ensureAllPages();
+    if (harddisks->driveCount() + hostfs->driveCount() > HDD_NUM) {
+        QMessageBox::warning(this, tr("Too many disks"),
+                             tr("Hard disks and shared folders together cannot exceed %1 disks.").arg(HDD_NUM));
+        return;
+    }
     /* A controller that cannot have the IDE channels it needs (two cards
        that can only use the legacy ports, say) will not work: ask. */
     ide_owner_t    owners[IDE_BUS_MAX];

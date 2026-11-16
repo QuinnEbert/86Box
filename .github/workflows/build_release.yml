@@ -64,17 +64,8 @@ jobs:
           if-no-files-found: error
 
   macos:
-    name: macOS arm64, ${{ matrix.ui.name }}, ${{ matrix.build.name }}
+    name: macOS arm64, SDL and Qt, Debug and Dev
     runs-on: macos-15
-    strategy:
-      fail-fast: false
-      matrix:
-        build:
-          - {name: Debug, preset: dev_debug, slug: -Debug}
-          - {name: Dev, preset: development, slug: -Dev}
-        ui:
-          - {name: SDL, qt: 'OFF', slug: -SDL}
-          - {name: Qt, qt: 'ON', slug: -Qt}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -86,31 +77,68 @@ jobs:
         run: >-
           brew install sdl3 rtmidi openal-soft fluidsynth libslirp vde libserialport
           libvncserver vulkan-headers zstd qtbase qttools qtimageformats
-      - name: Configure CMake
-        run: >-
-          cmake -S . -B build --preset ${{ matrix.build.preset }}
-          -D QT=${{ matrix.ui.qt }} -D USE_QT6=ON -D VNC=ON
-          -D CMAKE_OSX_DEPLOYMENT_TARGET=15.0
-          -D OpenAL_ROOT="$(brew --prefix openal-soft)"
-          -D LIBSERIALPORT_ROOT="$(brew --prefix libserialport)"
-      - name: Build
-        run: cmake --build build --parallel 3
-      - name: Generate package
-        run: cmake --install build
-      - name: Sign and archive apps
+      - name: Fetch smoke-test ROMs
+        run: git clone --depth 1 https://github.com/86Box/roms.git build/smoke-roms
+      - name: Build, package, and test all four configurations
         run: |
           set -euo pipefail
-          for app in build/artifacts/*.app; do
-            find "$app/Contents/MacOS" -type f -exec chmod 755 {} \;
-            codesign --force --deep -s - "$app"
-            codesign --verify --deep --strict "$app"
-            ditto -c -k --sequesterRsrc --keepParent "$app" "build/artifacts/86Box${{ matrix.ui.slug }}${{ matrix.build.slug }}-macOS-arm64.zip"
+          for ui in SDL Qt; do
+            qt=OFF
+            smoke_args=()
+            if [ "$ui" = Qt ]; then
+              qt=ON
+              smoke_args=(--qt)
+            fi
+            for variant in Debug Dev; do
+              preset=development
+              if [ "$variant" = Debug ]; then preset=dev_debug; fi
+              build_dir="build/macos-$ui-$variant"
+              prefix="$PWD/build/artifacts/$ui-$variant"
+              cmake -S . -B "$build_dir" --preset "$preset" \
+                -D QT="$qt" -D USE_QT6=ON -D VNC=ON \
+                -D CMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
+                -D OpenAL_ROOT="$(brew --prefix openal-soft)" \
+                -D LIBSERIALPORT_ROOT="$(brew --prefix libserialport)"
+              cmake --build "$build_dir" --parallel 3
+              cmake --install "$build_dir" --prefix "$prefix"
+              app="$prefix/86Box.app"
+              find "$app/Contents/MacOS" -type f -exec chmod 755 {} \;
+              codesign --force --deep -s - "$app"
+              codesign --verify --deep --strict "$app"
+              python3 tests/fork/headless_smoke.py --binary "$app/Contents/MacOS/86Box" \
+                --roms "$PWD/build/smoke-roms" "${smoke_args[@]}"
+              python3 tests/fork/headless_smoke.py --binary "$app/Contents/MacOS/86Box" \
+                --roms "$PWD/build/smoke-roms" "${smoke_args[@]}" --no-client
+              if [ "$ui-$variant" = Qt-Dev ]; then
+                python3 tests/fork/run_settings_roundtrip.py --build "$build_dir" --roms "$PWD/build/smoke-roms"
+              fi
+              ditto -c -k --sequesterRsrc --keepParent "$app" \
+                "build/artifacts/86Box-$ui-$variant-macOS-arm64.zip"
+            done
           done
-      - name: Upload artifact
+      - name: Upload SDL Debug artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: 86Box${{ matrix.ui.slug }}${{ matrix.build.slug }}-macOS-arm64
-          path: build/artifacts/*.zip
+          name: 86Box-SDL-Debug-macOS-arm64
+          path: build/artifacts/86Box-SDL-Debug-macOS-arm64.zip
+          if-no-files-found: error
+      - name: Upload SDL Dev artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: 86Box-SDL-Dev-macOS-arm64
+          path: build/artifacts/86Box-SDL-Dev-macOS-arm64.zip
+          if-no-files-found: error
+      - name: Upload Qt Debug artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: 86Box-Qt-Debug-macOS-arm64
+          path: build/artifacts/86Box-Qt-Debug-macOS-arm64.zip
+          if-no-files-found: error
+      - name: Upload Qt Dev artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: 86Box-Qt-Dev-macOS-arm64
+          path: build/artifacts/86Box-Qt-Dev-macOS-arm64.zip
           if-no-files-found: error
 
   windows:

@@ -3,6 +3,10 @@
 
 #include <QWidget>
 
+class HarddiskDialog;
+class SettingsCompleter;
+class QAbstractItemModel;
+
 namespace Ui {
 class SettingsHarddisks;
 }
@@ -19,6 +23,7 @@ public:
 
     void restore();
     void save(int soft);
+    int driveCount() const;
 
 protected:
     void showEvent(QShowEvent *event) override;

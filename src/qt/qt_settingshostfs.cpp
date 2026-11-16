@@ -92,14 +92,9 @@ SettingsHostFS::SettingsHostFS(QWidget *parent)
         int busRole = ui->comboBoxBus->currentData().toInt();
         Harddrives::populateBusChannels(ui->comboBoxChannel->model(), busRole, Harddrives::busTrackClass);
     }
-    connect(ui->comboBoxBus, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &SettingsHostFS::on_comboBoxBus_currentIndexChanged);
-    connect(ui->comboBoxChannel, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &SettingsHostFS::on_comboBoxChannel_currentIndexChanged);
     connect(ui->comboBoxHddType, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &SettingsHostFS::on_hddtype_currentIndexChanged);
 
     // Toolbar buttons
-    connect(ui->buttonBrowse, &QPushButton::clicked, this, &SettingsHostFS::on_buttonBrowse_clicked);
-    connect(ui->buttonAdd, &QPushButton::clicked, this, &SettingsHostFS::on_buttonAdd_clicked);
-    connect(ui->buttonRemove, &QPushButton::clicked, this, &SettingsHostFS::on_buttonRemove_clicked);
 }
 
 SettingsHostFS::~SettingsHostFS()
@@ -245,6 +240,18 @@ void SettingsHostFS::on_devname_textChanged(const QString &text)
     if (!idx.isValid()) return;
     ui->tableView->model()->setData(idx.sibling(idx.row(), ColumnFolder), text, DataDevName);
     updateDevNameCounter();
+}
+
+int SettingsHostFS::driveCount() const
+{
+    return ui->tableView->model()->rowCount();
+}
+
+void SettingsHostFS::reloadBusChannels()
+{
+    auto current = ui->tableView->currentIndex();
+    if (current.isValid())
+        refreshBusAndChannelCombos(current.siblingAtColumn(ColumnIndex).data(DataHddIndex).toInt());
 }
 
 int SettingsHostFS::changed() const
@@ -463,7 +470,6 @@ void SettingsHostFS::on_comboBoxBus_currentIndexChanged(int)
     // Track new
     modified = true;
     disks[hidx].channel = ui->comboBoxChannel->currentData().toUInt();
-    emit driveChannelChanged();
     if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_SET, DEV_HDD, disks[hidx].bus_type, disks[hidx].channel);
     modified = true;
     emit driveChannelChanged();
@@ -480,8 +486,8 @@ void SettingsHostFS::on_comboBoxChannel_currentIndexChanged(int)
     if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_CLEAR, DEV_HDD, disks[hidx].bus_type, disks[hidx].channel);
     modified = true;
     disks[hidx].channel = ui->comboBoxChannel->currentData().toUInt();
-    emit driveChannelChanged();
     if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_SET, DEV_HDD, disks[hidx].bus_type, disks[hidx].channel);
+    emit driveChannelChanged();
 }
 
 void SettingsHostFS::on_hddtype_currentIndexChanged(int)

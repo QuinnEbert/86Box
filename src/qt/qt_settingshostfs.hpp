@@ -20,6 +20,8 @@ public:
 
     void save();
     int changed() const;
+    int driveCount() const;
+    void reloadBusChannels();
 
 signals:
     void driveChannelChanged();

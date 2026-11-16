@@ -4,7 +4,7 @@ if(BUILD_TESTING)
         ../../src/disk/hdd_image.c
         ../../src/disk/hostfat.c
     )
-    target_compile_definitions(hdd_image_tests PRIVATE IS_TEST)
+    target_compile_definitions(hdd_image_tests PRIVATE IS_TEST _FILE_OFFSET_BITS=64 _LARGEFILE64_SOURCE=1 _LARGEFILE_SOURCE=1)
     target_include_directories(hdd_image_tests PRIVATE
         ${PROJECT_SOURCE_DIR}/src/include
         ${PROJECT_BINARY_DIR}/src/include

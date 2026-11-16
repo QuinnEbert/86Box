@@ -223,6 +223,12 @@ SettingsHarddisks::~SettingsHarddisks()
 }
 
 int
+SettingsHarddisks::driveCount() const
+{
+    return ui->treeView->model()->rowCount();
+}
+
+int
 SettingsHarddisks::changed()
 {
     int has_changed = 0;
