@@ -47,6 +47,8 @@ publishing releases.
 - Real SDL and Qt headless sessions complete the VNC handshake and exercise
   monitor status, pause/resume, media queries, Ctrl-Alt-Delete, hard reset,
   and clean shutdown. Startup and quit without a VNC client are checked too.
+  SDL retains the fork's unattended startup (runs without a client); Qt retains
+  its initial wait for a VNC client.
 - Local SDL and Qt installation creates bundles with copied dependencies;
   bundles are ad-hoc signed and checked separately from compilation.
 - The offscreen settings harness checks independent regular/shared disk pages,

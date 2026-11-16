@@ -84,7 +84,8 @@ def main():
             vnc = None
             try:
                 with connect(process, monitor_port) as monitor:
-                    assert command(monitor, "info status") == "paused"
+                    expected = "paused" if args.qt else "running"
+                    assert command(monitor, "info status") == expected
                     if not args.no_client:
                         vnc = connect(process, vnc_port)
                         assert exact(vnc, 12).startswith(b"RFB 003.")

@@ -215,7 +215,8 @@ vnc_init(UNUSED(void *arg))
         32, 32, 0, 1, 255, 255, 255, 16, 8, 0, 0, 0
     };
 
-    runctl_pause(RUN_PAUSE_REMOTE);
+    if (!headless_mode)
+        runctl_pause(RUN_PAUSE_REMOTE);
     cgapal_rebuild_monitor(0);
 
     if (rfb == NULL) {

@@ -797,8 +797,8 @@ main(int argc, char *argv[])
         onesec.start(1000);
 
         pc_reset_hard_init();
-        vnc_init(nullptr);
         runctl_pause(RUN_PAUSE_REMOTE);
+        vnc_init(nullptr);
         runctl_resume(static_cast<run_pause_t>(RUN_PAUSE_USER_RESUMABLE));
         runctl_thread_starting();
 
