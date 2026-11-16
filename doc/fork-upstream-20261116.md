@@ -1,7 +1,9 @@
 # Upstream integration, 16 November 2026
 
-The integration merges upstream `7437a4a66` (master fetched on 16 November)
-into fork `4a4015245`, preserving both histories. The original local branch is
+The initial integration merges upstream `7437a4a66` into fork `4a4015245`,
+preserving both histories. It also includes the subsequent upstream commits
+`2705f94f4` and `6511eade0` (memory-viewer strings and file-dialog filters),
+fetched on 16 November. The original local branch is
 `backup/pre-upstream-20261116`; development takes place on
 `integrate/upstream-20261116` until platform validation finishes.
 
