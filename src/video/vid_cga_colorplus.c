@@ -29,6 +29,7 @@
 #include <86box/pit.h>
 #include <86box/mem.h>
 #include <86box/video.h>
+#include <86box/mouse.h>
 #include <86box/vid_cga.h>
 #include <86box/vid_colorplus.h>
 #include <86box/vid_cga_comp.h>
@@ -118,6 +119,15 @@ colorplus_recalctimings(colorplus_t *colorplus)
 }
 
 void
+colorplus_update_latch(cga_t *cga, uint16_t memaddr)
+{
+    uint32_t lp_latch = memaddr;
+
+    cga->crtc[CGA_CRTC_LIGHT_PEN_ADDR_HIGH] = (lp_latch >> 8) & 0xFF;
+    cga->crtc[CGA_CRTC_LIGHT_PEN_ADDR_LOW] = lp_latch & 0xFF;
+}
+
+void
 colorplus_poll(void *priv)
 {
     colorplus_t     *colorplus = (colorplus_t *) priv;
@@ -136,10 +146,16 @@ colorplus_poll(void *priv)
     const uint8_t   *plane0     = colorplus->cga.vram;
     const uint8_t   *plane1     = colorplus->cga.vram + 0x4000;
 
+    /* Bind the monitor macros to this card's own display. */
+    const int prev_monitor_index = monitor_index_global;
+
+    monitor_index_global = colorplus->cga.monitor_used;
+
     /* If one of the extra modes is not selected, drop down to the CGA
      * drawing code. */
     if (!((colorplus->control & COLORPLUS_EITHER_MODE) && (colorplus->cga.cgamode & CGA_MODE_FLAG_GRAPHICS))) {
         cga_poll(&colorplus->cga);
+        monitor_index_global = prev_monitor_index;
         return;
     }
 
@@ -164,12 +180,19 @@ colorplus_poll(void *priv)
                 for (x = 0; x < colorplus->cga.crtc[CGA_CRTC_HDISP]; x++) {
                     dat0 = (plane0[((colorplus->cga.memaddr << 1) & 0x1fff) + ((colorplus->cga.scanline & 1) * 0x2000)] << 8) | plane0[((colorplus->cga.memaddr << 1) & 0x1fff) + ((colorplus->cga.scanline & 1) * 0x2000) + 1];
                     dat1 = (plane1[((colorplus->cga.memaddr << 1) & 0x1fff) + ((colorplus->cga.scanline & 1) * 0x2000)] << 8) | plane1[((colorplus->cga.memaddr << 1) & 0x1fff) + ((colorplus->cga.scanline & 1) * 0x2000) + 1];
-                    colorplus->cga.memaddr++;
                     for (c = 0; c < 8; c++) {
                         buffer32->line[colorplus->cga.displine][(x << 4) + (c << 1) + 8] = buffer32->line[colorplus->cga.displine][(x << 4) + (c << 1) + 1 + 8] = cols16[(dat0 >> 14) | ((dat1 >> 14) << 2)];
                         dat0 <<= 2;
                         dat1 <<= 2;
+                
+                        if (cga_lightpen_enabled && !colorplus->cga.lp_latch_found && mouse_tablet_in_proximity > 0 && (cga_is_in_lightpen(&colorplus->cga, (x << 4) + (c << 1) + 8, colorplus->cga.displine) || cga_is_in_lightpen(&colorplus->cga, (x << 4) + (c << 1) + 8, colorplus->cga.displine))) {
+                            colorplus->cga.lp_latch_found_y = colorplus->cga.displine;
+                            colorplus->cga.lp_latch_found_x = (x << 4) + (c << 1) + 8;
+                            colorplus->cga.lp_latch_found_memaddr = colorplus->cga.memaddr;
+                            colorplus->cga.lp_latch_found   = true;
+                        }
                     }
+                    colorplus->cga.memaddr++;
                 }
             } else if (colorplus->control & COLORPLUS_640x200_MODE) {
                 cols[0] = (colorplus->cga.cgacol & 15) | 16;
@@ -190,12 +213,18 @@ colorplus_poll(void *priv)
                 for (x = 0; x < colorplus->cga.crtc[CGA_CRTC_HDISP]; x++) {
                     dat0 = (plane0[((colorplus->cga.memaddr << 1) & 0x1fff) + ((colorplus->cga.scanline & 1) * 0x2000)] << 8) | plane0[((colorplus->cga.memaddr << 1) & 0x1fff) + ((colorplus->cga.scanline & 1) * 0x2000) + 1];
                     dat1 = (plane1[((colorplus->cga.memaddr << 1) & 0x1fff) + ((colorplus->cga.scanline & 1) * 0x2000)] << 8) | plane1[((colorplus->cga.memaddr << 1) & 0x1fff) + ((colorplus->cga.scanline & 1) * 0x2000) + 1];
-                    colorplus->cga.memaddr++;
                     for (c = 0; c < 16; c++) {
                         buffer32->line[colorplus->cga.displine][(x << 4) + c + 8] = cols[(dat0 >> 15) | ((dat1 >> 15) << 1)];
                         dat0 <<= 1;
                         dat1 <<= 1;
+                        if (cga_lightpen_enabled && !colorplus->cga.lp_latch_found && mouse_tablet_in_proximity > 0 && (cga_is_in_lightpen(&colorplus->cga, (x << 4) + c + 8, colorplus->cga.displine))) {
+                            colorplus->cga.lp_latch_found_y = colorplus->cga.displine;
+                            colorplus->cga.lp_latch_found_x = (x << 4) + c + 8;
+                            colorplus->cga.lp_latch_found_memaddr = colorplus->cga.memaddr;
+                            colorplus->cga.lp_latch_found   = true;
+                        }
                     }
+                    colorplus->cga.memaddr++;
                 }
             }
         } else /* Top / bottom border */
@@ -211,6 +240,7 @@ colorplus_poll(void *priv)
         else
             video_process_8(x, colorplus->cga.displine);
 
+        video_lightpen_check_trigger_strobe(0, colorplus->cga.displine, 0, colorplus->cga.firstline - 4, (1. / (CGACONST / (cpuclock * (double) (1ULL << 32)))), colorplus->cga.monitor_used);
         colorplus->cga.scanline = scanline_old;
         if (colorplus->cga.vc == colorplus->cga.crtc[CGA_CRTC_VSYNC] && !colorplus->cga.scanline)
             colorplus->cga.cgastat |= 8;
@@ -219,6 +249,7 @@ colorplus_poll(void *priv)
             colorplus->cga.displine = 0;
     } else {
         timer_advance_u64(&colorplus->cga.timer, colorplus->cga.dispontime);
+        video_lightpen_hsync();
         colorplus->cga.linepos = 0;
         if (colorplus->cga.vsynctime) {
             colorplus->cga.vsynctime--;
@@ -268,6 +299,7 @@ colorplus_poll(void *priv)
                 colorplus->cga.cgadispon = 0;
                 colorplus->cga.displine  = 0;
                 colorplus->cga.vsynctime = 16;
+                video_lightpen_vsync();
                 if (colorplus->cga.crtc[CGA_CRTC_VSYNC]) {
                     if (colorplus->cga.cgamode & CGA_MODE_FLAG_HIGHRES)
                         x = (colorplus->cga.crtc[CGA_CRTC_HDISP] << 3) + 16;
@@ -282,6 +314,12 @@ colorplus_poll(void *priv)
                         if (ysize < 32)
                             ysize = 200;
                         set_screen_size(xsize, (ysize << 1) + 16);
+                    }
+
+                    // The palette conversion has been performed, sample the lightpen position now.
+                    if (cga_lightpen_enabled && mouse_tablet_in_proximity > 0 && colorplus->cga.lp_latch_found && cga_sample_luma(buffer32, colorplus->cga.lp_latch_found_x, colorplus->cga.lp_latch_found_y) >= cga_luma_threshold) {
+                        colorplus->cga.lp_strobe = 1;
+                        colorplus_update_latch(&colorplus->cga, colorplus->cga.lp_latch_found_memaddr);
                     }
 
                     video_blit_memtoscreen(0, colorplus->cga.firstline - 4, xsize, (colorplus->cga.lastline - colorplus->cga.firstline) + 8);
@@ -323,6 +361,8 @@ colorplus_poll(void *priv)
                 colorplus->cga.charbuffer[x] = colorplus->cga.vram[((colorplus->cga.memaddr << 1) + x) & 0x3fff];
         }
     }
+
+    monitor_index_global = prev_monitor_index;
 }
 
 void
@@ -354,11 +394,14 @@ colorplus_standalone_init(UNUSED(const device_t *info))
     mem_mapping_add(&colorplus->cga.mapping, 0xb8000, 0x08000, colorplus_read, NULL, NULL, colorplus_write, NULL, NULL, NULL, MEM_MAPPING_EXTERNAL, colorplus);
     io_sethandler(0x03d0, 0x0010, colorplus_in, NULL, NULL, colorplus_out, NULL, NULL, colorplus);
 
-    colorplus->lpt = device_add_inst(&lpt_port_device, 1);
-    lpt_port_setup(colorplus->lpt, LPT_MDA_ADDR);
-    lpt_set_3bc_used(1);
+    if (!lpt_get_3bc_used()) {
+        colorplus->lpt = device_add_inst(&lpt_port_device, -1);
+        lpt_port_setup(colorplus->lpt, LPT_MDA_ADDR);
+        lpt_set_3bc_used(1);
+    }
 
     monitors[monitor_index_global].mon_composite = colorplus->cga.composite;
+    colorplus->cga.monitor_used                  = monitor_index_global;
 
     return colorplus;
 }
@@ -428,7 +471,7 @@ static const device_config_t colorplus_config[] = {
 };
 
 const device_t colorplus_device = {
-    .name          = "Colorplus",
+    .name          = "Plantronics Colorplus",
     .internal_name = "plantronics",
     .flags         = DEVICE_ISA,
     .local         = 0,

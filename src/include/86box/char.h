@@ -18,7 +18,7 @@
 #define EMU_CHAR_H
 
 #ifdef _WIN32
-#    define CHAR_FD_VALID(fd) ((fd) && ((fd) != INVALID_HANDLE_VALUE))
+#    define CHAR_FD_VALID(fd) (((void *) (fd) != NULL) && ((void *) (fd) != (void *) INVALID_HANDLE_VALUE))
 #else
 #    define CHAR_FD_VALID(fd) ((fd) >= 0)
 #endif
@@ -151,6 +151,7 @@ extern void         char_update_status(char_port_t *port);
 extern void        *char_log_open(char_port_t *port, char *dev_name);
 
 extern const device_t char_serial_passthrough_com_device;
+extern const device_t char_modem_device;
 extern const device_t char_pipe_com_device;
 extern const device_t char_pipe_lpt_device;
 extern const device_t char_file_com_device;
@@ -158,5 +159,9 @@ extern const device_t char_file_lpt_device;
 extern const device_t char_stdio_com_device;
 extern const device_t char_loopback_com_device;
 extern const device_t char_loopback_lpt_device;
+extern const device_t char_fujinet_com_device;
+#ifdef USE_AUTOMATION
+extern const device_t char_automation_com_device;
+#endif
 
 #endif /*EMU_CHAR_H*/

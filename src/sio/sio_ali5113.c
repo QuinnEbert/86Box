@@ -32,6 +32,7 @@
 #include <86box/plat_unused.h>
 
 typedef struct ali5113_t {
+    uint8_t   ports;
     uint8_t   regs[256];
     int       locked;
     int       cur_reg;
@@ -296,7 +297,7 @@ ali5113_init(const device_t *info)
 {
     ali5113_t *dev = (ali5113_t *) calloc(1, sizeof(ali5113_t));
 
-    dev->fdc = device_add(&fdc_at_ali_device);
+    dev->fdc = device_add_params(&fdc_at_ali_device, (void *) FDC_FLAG_PNP);
 
     dev->uart[0] = device_add_inst(&ns16550_device, 1);
     dev->uart[1] = device_add_inst(&ns16550_device, 2);
@@ -305,12 +306,12 @@ ali5113_init(const device_t *info)
 
     ali5113_reset(dev);
 
+    dev->ports = 0x0002 - (info->local & 0x0001);
+
     /* The ICOP-6021 BIOS seems to also support a second M5113 on port 0398h. */
-    io_sethandler(0x03f1, 0x0001,
+    io_sethandler(info->local, dev->ports,
                   ali5113_read, NULL, NULL,
                   ali5113_write, NULL, NULL, dev);
-
-    device_add_params(&kbc_at_device, (void *) KBC_VEN_ALI);
 
     return dev;
 }
@@ -319,7 +320,7 @@ const device_t ali5113_device = {
     .name          = "ALi M5113 Super I/O",
     .internal_name = "ali5113",
     .flags         = 0,
-    .local         = 0x40,
+    .local         = 0,
     .init          = ali5113_init,
     .close         = ali5113_close,
     .reset         = ali5113_reset,
@@ -328,3 +329,4 @@ const device_t ali5113_device = {
     .force_redraw  = NULL,
     .config        = NULL
 };
+

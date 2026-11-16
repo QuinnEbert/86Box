@@ -1706,9 +1706,9 @@ uop_run(const risc86_uop_t *uop, int decode_time)
     if (units == k6_2_units) {
         if (uop->type == UOP_MEU_MUL && decode_time < mul_first_available_cycle)
             decode_time = mul_first_available_cycle;
-        else if (uop->type == UOP_MEU_SHIFT && decode_time < mul_first_available_cycle)
+        else if (uop->type == UOP_MEU_SHIFT && decode_time < shift_first_available_cycle)
             decode_time = shift_first_available_cycle;
-        else if (uop->type == UOP_MEU_3DN && decode_time < mul_first_available_cycle)
+        else if (uop->type == UOP_MEU_3DN && decode_time < m3dnow_first_available_cycle)
             decode_time = m3dnow_first_available_cycle;
     }
 
@@ -2056,6 +2056,15 @@ codegen_timing_k6_opcode(uint8_t opcode, UNUSED(uint32_t fetchdat), int op_32, u
     int                          old_last_complete_timestamp = last_complete_timestamp;
     int                          bit8                        = !(opcode & 1);
 
+    /*0F 0F is 3DNow! only on the processors that have it; on a K6 without it
+      the instruction is #UD, and the 3DNow! unit it would be timed on
+      doesn't exist*/
+    if ((last_prefix == 0x0f) && (opcode == 0x0f) && !cpu_has_feature(CPU_FEATURE_3DNOW)) {
+        decode_instruction(&vector_alu1_op, 0, fetchdat, op_32, bit8);
+        codegen_block_cycles += (last_complete_timestamp - old_last_complete_timestamp);
+        return;
+    }
+
     switch (last_prefix) {
         case 0x0f:
             if (opcode == 0x0f) {
@@ -2093,7 +2102,8 @@ codegen_timing_k6_opcode(uint8_t opcode, UNUSED(uint32_t fetchdat), int op_32, u
                     }
                 }
 
-                opcode = fastreadb(cs + opcode_pc);
+                /* Behind a LOCK it can't take, opLOCK reads no suffix. */
+                opcode = codegen_timing_peek ? codegen_peekb(cs + opcode_pc) : fastreadb(cs + opcode_pc);
 
                 ins_table = mod3 ? opcode_timings_k6_0f0f_mod3 : opcode_timings_k6_0f0f;
                 deps      = mod3 ? opcode_deps_0f0f_mod3 : opcode_deps_0f0f;

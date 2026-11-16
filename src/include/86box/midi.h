@@ -3,6 +3,8 @@
 
 #define SYSEX_SIZE 8192
 
+#define RENDER_RATE                100
+
 extern uint8_t MIDI_InSysexBuf[SYSEX_SIZE];
 extern uint8_t MIDI_evt_len[256];
 
@@ -39,11 +41,11 @@ typedef struct midi_device_t {
 
 typedef struct midi_in_handler_t {
     uint8_t *buf;
-    int      cnt;
     uint32_t len;
 
     void (*msg)(void *priv, uint8_t *msg, uint32_t len);
     int (*sysex)(void *priv, uint8_t *buffer, uint32_t len, int abort);
+    int (*remain)(void *priv);
     struct midi_in_handler_t *priv;
     struct midi_in_handler_t *prev;
     struct midi_in_handler_t *next;
@@ -81,7 +83,22 @@ extern void midi_clear_buffer(void);
 extern void midi_poll(void);
 extern void midi_reset(void);
 
-extern void midi_in_handler(int set, void (*msg)(void *priv, uint8_t *msg, uint32_t len), int (*sysex)(void *priv, uint8_t *buffer, uint32_t len, int abort), void *priv);
+enum {
+    MIDI_CMD_GM_ON = 0,
+    MIDI_CMD_GS_RESET,
+    MIDI_CMD_XG_ON,
+    MIDI_CMD_MT32_RESET,
+    MIDI_CMD_ALL_NOTES_OFF
+};
+
+extern int  midi_out_device_is_open(void);
+extern void midi_out_send_command(int cmd);
+
+extern void midi_in_handler(int set,
+                            void (*msg)(void *priv, uint8_t *msg, uint32_t len),
+                            int (*sysex)(void *priv, uint8_t *buffer, uint32_t len, int abort),
+                            int (*remain)(void *priv),
+                            void *priv);
 extern void midi_in_handlers_clear(void);
 extern void midi_in_msg(uint8_t *msg, uint32_t len);
 extern void midi_in_sysex(uint8_t *buffer, uint32_t len);
@@ -105,9 +122,7 @@ extern void midi_in_sysex(uint8_t *buffer, uint32_t len);
 #ifdef EMU_DEVICE_H
 extern const device_t rtmidi_output_device;
 extern const device_t rtmidi_input_device;
-#    ifdef USE_OPL4ML
 extern const device_t opl4_midi_device;
-#    endif /* USE_OPL4ML */
 #    ifdef USE_FLUIDSYNTH
 extern const device_t fluidsynth_device;
 #    endif /* USE_FLUIDSYNTH */

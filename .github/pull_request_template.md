@@ -1,6 +1,14 @@
+Motivation
+==========
+_Explain why you are making this change._
+
 Summary
 =======
 _Briefly describe what you are submitting._
+
+Testing instructions
+====================
+_Provide steps for others to verify that the functionality works as intended._
 
 Checklist
 =========
@@ -11,6 +19,8 @@ Checklist
   * [ ] I have opened a roms pull request - https://github.com/86Box/roms/pull/changeme/
 * [ ] This pull request requires changes to the asset set
   * [ ] I have opened an assets pull request - https://github.com/86Box/assets/pull/changeme/
+* [ ] This pull request adds, changes or removes an external dependency
+  * [ ] I have opened a docs pull request - https://github.com/86Box/docs/pull/changeme/
 
 References
 ==========

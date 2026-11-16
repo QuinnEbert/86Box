@@ -26,6 +26,9 @@ endif()
 
 add_executable(86Box
     86box.c
+    runctl.c
+    debugger.c
+    debugger_register.c
     config.c
     timer.c
     io.c
@@ -37,18 +40,30 @@ add_executable(86Box
     pci_dummy.c
     pic.c
     pit.c
+    pit_exact.c
     pit_fast.c
     port_6x.c
     port_92.c
     ppi.c
     pci.c
+    eisa.c
     mca.c
     usb.c
+    usb_audio.c
+    usb_card.c
+    usb_card_via.c
+    usb_dev.c
+    usb_flash.c
+    usb_hid.c
+    usb_hub.c
+    usb_legacy.c
+    usb_msd.c
     device.c
+    upi42.c
     nvr.c
     nvr_at.c
     nvr_ps2.c
-    machine_status.c
+    machine_status.cpp
     monitor.c
 )
 
@@ -65,8 +80,12 @@ if(GDBSTUB)
     target_sources(86Box PRIVATE gdbstub.c)
 endif()
 
-if(NEW_DYNAREC)
-    add_compile_definitions(USE_NEW_DYNAREC)
+if(AUTOMATION)
+    add_compile_definitions(USE_AUTOMATION)
+    target_sources(86Box PRIVATE automation.c)
+    if(WIN32)
+        target_link_libraries(86Box ws2_32)
+    endif()
 endif()
 
 if(RELEASE)
@@ -79,11 +98,6 @@ endif()
 
 if(DISCORD)
     add_compile_definitions(DISCORD)
-    target_sources(86Box PRIVATE discord.c)
-endif()
-
-if(DEBUGREGS486)
-    add_compile_definitions(USE_DEBUG_REGS_486)
 endif()
 
 if(SCREENSHOT_MODE)
@@ -193,9 +207,7 @@ configure_file(include/86box/version.h.in include/86box/version.h @ONLY)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
 
 include_directories(include)
-if(NEW_DYNAREC)
-    include_directories(cpu codegen_new)
-elseif(DYNAREC)
+if(DYNAREC)
     include_directories(cpu codegen)
 else()
     include_directories(cpu)
@@ -206,9 +218,7 @@ add_subdirectory(char)
 add_subdirectory(chipset)
 
 add_subdirectory(cpu)
-if(NEW_DYNAREC)
-    add_subdirectory(codegen_new)
-elseif(DYNAREC)
+if(DYNAREC)
     add_subdirectory(codegen)
 endif()
 
@@ -234,6 +244,81 @@ else()
     if (EXISTS "${CMAKE_SOURCE_DIR}/floppysounds")
         install(DIRECTORY "${CMAKE_SOURCE_DIR}/floppysounds" DESTINATION ".")
         install(DIRECTORY "${CMAKE_SOURCE_DIR}/floppysounds" DESTINATION "bin")
+    endif()
+endif()
+
+if(APPLE AND CMAKE_MACOSX_BUNDLE)
+    # Ghostscript is dynamically loaded by the emulator. MacPorts and Homebrew
+    # both build it with --disable-compile-inits, so libgs looks for its
+    # PostScript resources at an absolute path from the build machine. Copy the
+    # resources to the bundle; prt_ps.c points Ghostscript at them at runtime.
+    find_library(GHOSTSCRIPT_LIBRARY NAMES gs)
+    if(GHOSTSCRIPT_LIBRARY)
+        # Resolve symlinks (Homebrew links into the Cellar), then go from lib/ to the prefix
+        get_filename_component(GHOSTSCRIPT_REALPATH "${GHOSTSCRIPT_LIBRARY}" REALPATH)
+        get_filename_component(GHOSTSCRIPT_PREFIX "${GHOSTSCRIPT_REALPATH}/../.." ABSOLUTE)
+
+        # The data directory is versioned or unversioned depending on the package
+        file(GLOB GHOSTSCRIPT_INIT
+            "${GHOSTSCRIPT_PREFIX}/share/ghostscript/*/Resource/Init/gs_init.ps"
+            "${GHOSTSCRIPT_PREFIX}/share/ghostscript/Resource/Init/gs_init.ps")
+
+        if(GHOSTSCRIPT_INIT)
+            list(GET GHOSTSCRIPT_INIT 0 GHOSTSCRIPT_INIT)
+            get_filename_component(GHOSTSCRIPT_DATA_DIR "${GHOSTSCRIPT_INIT}/../../.." ABSOLUTE)
+            message(STATUS "Ghostscript resources: ${GHOSTSCRIPT_DATA_DIR}")
+
+            foreach(GHOSTSCRIPT_SUBDIR Resource lib iccprofiles)
+                if(EXISTS "${GHOSTSCRIPT_DATA_DIR}/${GHOSTSCRIPT_SUBDIR}")
+                    install(DIRECTORY "${GHOSTSCRIPT_DATA_DIR}/${GHOSTSCRIPT_SUBDIR}"
+                        DESTINATION "86Box.app/Contents/Resources/ghostscript"
+                        COMPONENT Runtime)
+                endif()
+            endforeach()
+        else()
+            message(WARNING "Ghostscript resources not found under ${GHOSTSCRIPT_PREFIX}; "
+                            "PostScript to PDF conversion will not work in the app bundle")
+        endif()
+    endif()
+endif()
+
+if(CMAKE_SYSTEM_NAME MATCHES "Linux")
+    include(GNUInstallDirs)
+
+    set(ASSETS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/unix/assets")
+
+    # Icons
+    foreach(ICON_SIZE 16 20 24 32 40 48 64 72 128 256)
+        install(FILES "${ASSETS_DIR}/${ICON_SIZE}x${ICON_SIZE}/net.86box.86Box.png"
+            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/${ICON_SIZE}x${ICON_SIZE}/apps")
+    endforeach()
+
+    # Desktop entry
+    install(FILES "${ASSETS_DIR}/net.86box.86Box.desktop"
+        DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications")
+
+    # AppStream metadata
+    install(FILES "${ASSETS_DIR}/net.86box.86Box.metainfo.xml"
+        DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/metainfo")
+
+    # VFIO device preparation helper, and its polkit policy translated from the UI's .po files
+    if(VFIO AND VFIO_AVAILABLE)
+        install(PROGRAMS "${CMAKE_CURRENT_SOURCE_DIR}/device/vfio-setup.sh"
+            DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/86box" RENAME vfio-setup)
+
+        set(VFIO_POLICY "${CMAKE_CURRENT_BINARY_DIR}/net.86box.86Box.vfio-setup.policy")
+        file(GLOB VFIO_POLICY_PO "${CMAKE_CURRENT_SOURCE_DIR}/qt/languages/*.po")
+        add_custom_command(OUTPUT "${VFIO_POLICY}"
+            COMMAND "${CMAKE_COMMAND}" "-DIN=${ASSETS_DIR}/net.86box.86Box.vfio-setup.policy.in"
+                    "-DOUT=${VFIO_POLICY}" "-DPO_DIR=${CMAKE_CURRENT_SOURCE_DIR}/qt/languages"
+                    "-DHELPER=${CMAKE_INSTALL_FULL_LIBEXECDIR}/86box/vfio-setup"
+                    -P "${PROJECT_SOURCE_DIR}/cmake/PolkitPolicy.cmake"
+            DEPENDS "${ASSETS_DIR}/net.86box.86Box.vfio-setup.policy.in" ${VFIO_POLICY_PO}
+                    "${PROJECT_SOURCE_DIR}/cmake/PolkitPolicy.cmake"
+            COMMENT "Generating the VFIO polkit policy")
+        add_custom_target(vfio-policy ALL DEPENDS "${VFIO_POLICY}")
+        # polkit only reads policies from its own directory, usually under /usr.
+        install(FILES "${VFIO_POLICY}" DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/polkit-1/actions")
     endif()
 endif()
 
@@ -303,6 +388,8 @@ if (APPLE)
     add_subdirectory(mac)
 endif()
 
+add_subdirectory(osd)
+
 if (QT)
     add_subdirectory(qt)
 else()
@@ -312,4 +399,14 @@ endif()
 
 if(CMAKE_SYSTEM_NAME MATCHES "NetBSD")
     add_custom_command(TARGET 86Box POST_BUILD COMMAND paxctl ARGS +m $<TARGET_FILE:86Box> COMMENT "Disable PaX MPROTECT")
+endif()
+
+if(AUTOMATION)
+    # Frames sent over the automation connection are zstd-compressed. libchdr
+    # (CD images) already needs the system zstd, found by the same module.
+    if(NOT TARGET zstd::zstd)
+        list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cdrom/libchdr/cmake")
+        find_package(zstd MODULE REQUIRED)
+    endif()
+    target_link_libraries(86Box zstd::zstd)
 endif()

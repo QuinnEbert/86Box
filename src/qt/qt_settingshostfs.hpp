@@ -3,6 +3,11 @@
 
 #include <QWidget>
 #include <QModelIndex>
+#include <array>
+extern "C" {
+#include <86box/86box.h>
+#include <86box/hdd.h>
+}
 
 namespace Ui { class SettingsHostFS; }
 
@@ -14,6 +19,10 @@ public:
     ~SettingsHostFS();
 
     void save();
+    int changed() const;
+
+signals:
+    void driveChannelChanged();
 
 private slots:
     void onTableRowChanged(const QModelIndex &current);
@@ -42,6 +51,8 @@ private:
     };
 
     Ui::SettingsHostFS *ui;
+    std::array<hard_disk_t, HDD_NUM> disks{};
+    bool modified = false;
     void populate();
     void refreshBusAndChannelCombos(int hddIndex);
     int  findFreeHddSlot() const;

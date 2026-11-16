@@ -92,16 +92,16 @@ cms_update(cms_t *cms)
                         if (cms->noise[c][d / 3] & 1)
                             out_l += (cms->vol[c][d][0] * 90);
                         if (cms->noise[c][d / 3] & 1)
-                            out_r += (cms->vol[c][d][0] * 90);
+                            out_r += (cms->vol[c][d][1] * 90);
                     }
                 }
                 for (uint8_t d = 0; d < 2; d++) {
                     cms->noisecount[c][d] += cms->noisefreq[c][d];
                     while (cms->noisecount[c][d] >= 24000) {
                         cms->noisecount[c][d] -= 24000;
-                        cms->noise[c][d] <<= 1;
-                        if (!(((cms->noise[c][d] & 0x4000) >> 8) ^ (cms->noise[c][d] & 0x40)))
-                            cms->noise[c][d] |= 1;
+                        const uint32_t noise    = cms->noise[c][d];
+                        const uint32_t feedback = !(((noise >> 17) ^ (noise >> 10)) & 1);
+                        cms->noise[c][d]        = (noise << 1) | feedback;
                     }
                 }
             }
@@ -119,7 +119,7 @@ cms_get_buffer(int32_t *buffer, const uint16_t len, void *priv)
     cms_update(cms);
 
     for (uint16_t c = 0; c < len * 2; c++)
-        buffer[c] += cms->buffer[c];
+        buffer[c] += cms->buffer[c] * 2.0;
 
     cms->pos = 0;
 }

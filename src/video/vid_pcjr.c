@@ -33,6 +33,7 @@
 #include <86box/video.h>
 #include <86box/vid_cga.h>
 #include <86box/vid_cga_comp.h>
+#include <86box/vid_pcjr_comp.h>
 #include <86box/plat_unused.h>
 #include "cpu.h"
 
@@ -235,43 +236,44 @@ vid_read(uint32_t addr, void *priv)
 static int
 vid_get_h_overscan_delta(pcjr_t *pcjr)
 {
-    int def;
+    int def; /* Reference sync-start-to-display delay from the PCjr BIOS. */
     int coef;
     int ret;
 
     switch ((pcjr->array[0] & 0x13) | ((pcjr->array[3] & 0x08) << 5)) {
         case 0x13: /*320x200x16*/
-            def = 0x56;
+            def = 28;
             coef = 8;
             break;
         case 0x12: /*160x200x16*/
-            def = 0x2c; /* I'm going to assume a datasheet erratum here. */
+            def = 14;
             coef = 16;
             break;
         case 0x03: /*640x200x4*/
-            def = 0x56;
+            def = 28;
             coef = 8;
             break;
         case 0x01: /*80 column text*/
-            def = 0x5a;
+            def = 24;
             coef = 8;
             break;
         case 0x00: /*40 column text*/
         default:
-            def = 0x2c;
+            def = 13;
             coef = 16;
             break;
         case 0x02: /*320x200x4*/
-            def = 0x2b;
+            def = 14;
             coef = 16;
             break;
         case 0x102: /*640x200x2*/
-            def = 0x2b;
+            def = 14;
             coef = 16;
             break;
     }
 
-    ret = def - pcjr->crtc[0x02];
+    /* Preserve PCjr sync-start alignment; raw R3 width is not a viewport offset. */
+    ret = video_6845_get_hsync_delay(pcjr->crtc, 0) - def;
 
     if (ret < -8)
         ret = -8;
@@ -333,6 +335,7 @@ vid_render(pcjr_t *pcjr, int line, int ho_s, int ho_d)
     int      x;
 
     cols[0]        = (pcjr->array[2] & 0xf) + 16;
+    pcjr->comp_len = 0;
 
     if (pcjr->array[0] & 1)
         hline(buffer32, 0, line, (pcjr->crtc[1] << 3) + ho_s, cols[0]);
@@ -467,6 +470,10 @@ vid_render(pcjr_t *pcjr, int line, int ho_s, int ho_d)
                 dat = (pcjr->vram[((pcjr->memaddr << 1) & mask) + offset] << 8) |
                       pcjr->vram[((pcjr->memaddr << 1) & mask) + offset + 1];
                 pcjr->memaddr++;
+                if (pcjr->composite) {
+                    pcjr->comp_raw[pcjr->comp_len++] = dat >> 8;
+                    pcjr->comp_raw[pcjr->comp_len++] = dat & 0xff;
+                }
                 for (uint8_t c = 0; c < 8; c++) {
                     buffer32->line[line][ef_x + (c << 1)] = buffer32->line[line][ef_x + (c << 1) + 1] = cols[dat >> 14];
                     dat <<= 2;
@@ -481,6 +488,10 @@ vid_render(pcjr_t *pcjr, int line, int ho_s, int ho_d)
                 dat = (pcjr->vram[((pcjr->memaddr << 1) & mask) + offset] << 8) |
                       pcjr->vram[((pcjr->memaddr << 1) & mask) + offset + 1];
                 pcjr->memaddr++;
+                if (pcjr->composite) {
+                    pcjr->comp_raw[pcjr->comp_len++] = dat >> 8;
+                    pcjr->comp_raw[pcjr->comp_len++] = dat & 0xff;
+                }
                 for (uint8_t c = 0; c < 16; c++) {
                     buffer32->line[line][ef_x + c] = cols[dat >> 15];
                     dat <<= 1;
@@ -509,8 +520,50 @@ vid_render_blank(pcjr_t *pcjr, int line, int ho_s)
     }
 }
 
+/* The 320x200x4 and 640x200x2 modes get their composite colours from the
+   dedicated PCjr model rather than the generic CGA one: it works on the raw
+   video memory bits, so the four palette entries need not be distinct. */
 static void
-vid_render_process(pcjr_t *pcjr, int line, int ho_s)
+vid_render_comp(pcjr_t *pcjr, int line, int ho_d)
+{
+    int      len   = pcjr->comp_len;
+    int      bpp1  = !!(pcjr->array[3] & 0x08);
+    int      bw    = !!(pcjr->array[0] & 0x04);
+    int      brightness;
+    int      saturation;
+    int      hue;
+    int      contrast;
+    uint32_t key;
+
+    if ((ho_d + (len << 3)) > buffer32->w)
+        len = (buffer32->w - ho_d) >> 3;
+    if ((ho_d < 0) || (len <= 0))
+        return;
+
+    key = 0x80000000 | (pcjr->composite_new_era << 18) | (bpp1 << 17) | (bw << 16) |
+          ((pcjr->array[0x13] & 0x0f) << 12) | ((pcjr->array[0x12] & 0x0f) << 8) |
+          ((pcjr->array[0x11] & 0x0f) << 4) | (pcjr->array[0x10] & 0x0f);
+
+    /* The CGA composite settings, as previewed or applied. Sharpness has no
+       counterpart in this model. */
+    cga_comp_get(&brightness, &saturation, &hue, &contrast);
+
+    if ((key != pcjr->comp_key) || (hue != pcjr->comp_hue) || (brightness != pcjr->comp_brightness) ||
+        (contrast != pcjr->comp_contrast) || (saturation != pcjr->comp_saturation)) {
+        pcjr->comp_key        = key;
+        pcjr->comp_hue        = hue;
+        pcjr->comp_brightness = brightness;
+        pcjr->comp_contrast   = contrast;
+        pcjr->comp_saturation = saturation;
+        pcjr_comp_generate(pcjr->comp_lut, pcjr->composite_new_era, bw, bpp1, hue,
+                           brightness, contrast, saturation, &pcjr->array[0x10]);
+    }
+
+    pcjr_comp_line(pcjr->comp_lut, pcjr->comp_raw, len, &buffer32->line[line][ho_d]);
+}
+
+static void
+vid_render_process(pcjr_t *pcjr, int line, int ho_s, int ho_d, int rendered)
 {
     int x;
 
@@ -519,9 +572,11 @@ vid_render_process(pcjr_t *pcjr, int line, int ho_s)
     else
         x = (pcjr->crtc[1] << 4) + ho_s;
 
-    if (pcjr->composite)
+    if (pcjr->composite) {
         Composite_Process(pcjr->array[0], 0, x >> 2, buffer32->line[line]);
-    else
+        if (rendered && pcjr->comp_len)
+            vid_render_comp(pcjr, line, ho_d);
+    } else
         video_process_8(x, line);
 }
 
@@ -582,11 +637,12 @@ vid_poll(void *priv)
 
         switch (pcjr->double_type) {
             default:
-                vid_render_process(pcjr, l << 1, ho_s);
-                vid_render_process(pcjr, (l << 1) + 1, ho_s);
+                vid_render_process(pcjr, l << 1, ho_s, ho_d, pcjr->dispon);
+                vid_render_process(pcjr, (l << 1) + 1, ho_s, ho_d,
+                                   pcjr->dispon && (pcjr->double_type == DOUBLE_SIMPLE));
                 break;
             case DOUBLE_NONE:
-                vid_render_process(pcjr, l, ho_s);
+                vid_render_process(pcjr, l, ho_s, ho_d, pcjr->dispon);
                 break;
         }
 
@@ -738,6 +794,7 @@ pcjr_vid_init(pcjr_t *pcjr)
 
     display_type    = device_get_config_int("display_type");
     pcjr->composite = (display_type == PCJR_COMPOSITE);
+    pcjr->composite_new_era = (device_get_config_int("composite_type") == PCJR_COMPOSITE_NEW);
     pcjr->apply_hd  = device_get_config_int("apply_hd");
     overscan_x = 256;
     overscan_y = 32;
@@ -749,14 +806,20 @@ pcjr_vid_init(pcjr_t *pcjr)
                   vid_in, NULL, NULL, vid_out, NULL, NULL, pcjr);
     timer_add(&pcjr->timer, vid_poll, pcjr, 1);
 
-    if (pcjr->composite)
-        cga_palette = 0;
-    else
-        cga_palette = (display_type << 1);
+    if (&(cga_palette) != NULL) {
+        if (pcjr->composite)
+            cga_palette = 0;
+        else
+            cga_palette = (display_type << 1);
+    }
     cgapal_rebuild();
 
     pcjr->double_type = device_get_config_int("double_type");
     cga_interpolate_init();
+
+    /* The generic filter keeps the old-CGA PCjr profile; this applies the
+       saved composite settings to it. */
+    cga_comp_init(0);
 
     monitors[monitor_index_global].mon_composite = !!pcjr->composite;
 }

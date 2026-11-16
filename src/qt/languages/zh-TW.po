@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2026-04-05 18:51+0000\n"
-"Last-Translator: Alexander Babikov <lemondrops358@gmail.com>\n"
+"PO-Revision-Date: 2026-11-16 02:46+0000\n"
+"Last-Translator: bozoscum <bozoscum@users.noreply.weblate.86box.net>\n"
 "Language-Team: Chinese (Traditional Han script) <https://weblate.86box.net/"
 "projects/86box/86box/zh_Hant/>\n"
 "Language: zh-TW\n"
@@ -17,7 +17,7 @@ msgid "&Action"
 msgstr "動作(&A)"
 
 msgid "&Keyboard requires capture"
-msgstr "鍵盤需要捕捉(&K)"
+msgstr "需要擄取鍵盤(&K)"
 
 msgid "&Right CTRL is left ALT"
 msgstr "將右 CTRL 鍵映射為左 ALT 鍵(&R)"
@@ -67,17 +67,23 @@ msgstr "渲染器(&N)"
 msgid "&Qt (Software)"
 msgstr "Qt (軟體)(&Q)"
 
-msgid "Open&GL (3.0 Core)"
-msgstr "OpenGL (3.0 Core)(&G)"
+msgid "Open&GL"
+msgstr "OpenGL(&G)"
 
-msgid "&VNC"
-msgstr "VNC(&V)"
+msgid "&Vulkan"
+msgstr "Vulkan(&V)"
+
+msgid "V&NC"
+msgstr "VNC(&N)"
 
 msgid "Specify &dimensions…"
 msgstr "指定視窗大小(&D)…"
 
 msgid "Force &4:3 display ratio"
 msgstr "強制 4:3 顯示比例(&4)"
+
+msgid "Force &%1:%2 display ratio"
+msgstr "強制 %1:%2 顯示比例(&%1)"
 
 msgid "&Window scale factor"
 msgstr "視窗縮放係數(&W)"
@@ -144,6 +150,15 @@ msgstr "整數比例(&I)"
 
 msgid "4:&3 Integer scale"
 msgstr "4:3 整數比例(&3)"
+
+msgid "&Center"
+msgstr "置中(&C)"
+
+msgid "4:3 Cen&ter"
+msgstr "4:3 置中(&T)"
+
+msgid "4:3 Integer scale (&vertical)"
+msgstr "4:3 (垂直) 整數比例(&V)"
 
 msgid "Inverted VGA monitor"
 msgstr "VGA 監視器反色顯示"
@@ -229,11 +244,44 @@ msgstr "聲音(&O)"
 msgid "&Preferences…"
 msgstr "偏好設定(&P)…"
 
-msgid "Enable &Discord integration"
-msgstr "啟用 Discord 整合(&D)"
-
 msgid "Sound &gain…"
 msgstr "音量增益(&G)…"
+
+msgid "M&IDI output device"
+msgstr "MIDI 輸出裝置(&I)"
+
+msgid "Restart &device"
+msgstr "重新啟動機器(&D)"
+
+msgid "Send MIDI &command"
+msgstr "傳送 MIDI 命令(&C)"
+
+msgid "&GM System On"
+msgstr "開啟 GM 系統(&G)"
+
+msgid "G&S Reset"
+msgstr "重設 GS (&S)"
+
+msgid "&XG System On"
+msgstr "開啟 XG 系統(&X)"
+
+msgid "&MT-32 Reset"
+msgstr "重設 MT-32 (&M)"
+
+msgid "All &notes off"
+msgstr "關閉所有音符(&N)"
+
+msgid "Show MIDI &LCD"
+msgstr "顯示 MIDI LCD (&L)"
+
+msgid "MIDI LCD"
+msgstr "MIDI LCD"
+
+msgid "Always on &top"
+msgstr "固定最上層顯示 (&T)"
+
+msgid "&Close"
+msgstr "闗閉 (&C)"
 
 msgid "Begin trace"
 msgstr "開始追踪"
@@ -251,13 +299,13 @@ msgid "&About 86Box…"
 msgstr "關於 86Box(&A)…"
 
 msgid "&New image…"
-msgstr "新增影像(&N)…"
+msgstr "新增映像(&N)…"
 
 msgid "&Existing image…"
-msgstr "開啟已存在的影像(&E)…"
+msgstr "開啟已存在的映像(&E)…"
 
 msgid "Existing image (&Write-protected)…"
-msgstr "以防寫保護開啟已存在的影像(&W)…"
+msgstr "以防寫保護開啟已存在的映像(&W)…"
 
 msgid "&Record"
 msgstr "錄製(&R)"
@@ -266,16 +314,16 @@ msgid "&Play"
 msgstr "播放(&P)"
 
 msgid "&Rewind to the beginning"
-msgstr "倒轉至起點(&R)"
+msgstr "倒迴至起頭(&R)"
 
 msgid "&Fast forward to the end"
-msgstr "快轉至終點(&F)"
+msgstr "快轉至結尾(&F)"
 
 msgid "E&ject"
 msgstr "退出(&J)"
 
 msgid "&Image…"
-msgstr "影像(&I)…"
+msgstr "映像(&I)…"
 
 msgid "E&xport to 86F…"
 msgstr "匯出為 86F 格式(&X)…"
@@ -287,10 +335,10 @@ msgid "E&mpty"
 msgstr "卸載(&M)"
 
 msgid "Reload previous image"
-msgstr "載入上一個影像"
+msgstr "載入上一個映像"
 
-msgid "&Folder…"
-msgstr "資料夾(&F)…"
+msgid "Mount &folder…"
+msgstr "掛載資料夾(&F)…"
 
 msgid "Preferences"
 msgstr "偏好設定"
@@ -299,7 +347,7 @@ msgid "Sound Gain"
 msgstr "音量增益"
 
 msgid "New Image"
-msgstr "新增影像"
+msgstr "新增映像"
 
 msgid "Settings"
 msgstr "設定"
@@ -406,23 +454,50 @@ msgstr "MB"
 msgid "Memory:"
 msgstr "記憶體:"
 
-msgid "Time synchronization"
-msgstr "時間同步"
+msgid "Synchronize with host clock"
+msgstr "與主機時間同步"
 
-msgid "Disabled"
-msgstr "停用"
+msgid "Time zone:"
+msgstr "時區:"
 
-msgid "Enabled (local time)"
-msgstr "啟用 (本地時間)"
+msgid "Local"
+msgstr "本地"
 
-msgid "Enabled (UTC)"
-msgstr "啟用 (UTC)"
+msgid "UTC"
+msgstr "世界協調時間"
+
+msgid "Date:"
+msgstr "日期:"
+
+msgid "Match the host"
+msgstr "與主機一致"
+
+msgid "Offset the year by:"
+msgstr "年份偏移量:"
+
+msgid "(currently %1)"
+msgstr "(目前 %1)"
+
+msgid "Always use the year:"
+msgstr "固定使用年份:"
+
+msgid "Do not synchronize the date"
+msgstr "不同步日期"
 
 msgid "Use the 486 interpreter for 286 and 386 processors"
-msgstr "啓用 486 直譯器於 286 及 386 處理器"
+msgstr "啟用 486 直譯器於 286 及 386 處理器"
 
-msgid "Dynamic Recompiler"
+msgid "Dynamic recompiler"
 msgstr "動態重編譯器"
+
+msgid "Accurate FPU environment on the dynamic recompiler"
+msgstr "動態重編譯時精確的浮點運算器模擬"
+
+msgid "Block linking on the dynamic recompiler"
+msgstr "動態重編譯時的區塊連結"
+
+msgid "Debug registers on 486 and later processors"
+msgstr "486 及之後處理器的除錯暫存器"
 
 msgid "CPU frame size"
 msgstr "CPU 執行期框架大小"
@@ -454,6 +529,15 @@ msgstr "XGA 圖形"
 msgid "IBM PS/55 Display Adapter Graphics"
 msgstr "IBM PS/55 顯示介面卡圖形"
 
+msgid "PowerVR PCX1/PCX2 Graphics"
+msgstr "PowerVR PCX1/PCX2 圖形"
+
+msgid "SCSI:"
+msgstr "SCSI:"
+
+msgid "Voodoo:"
+msgstr "Voodoo:"
+
 msgid "Keyboard:"
 msgstr "鍵盤:"
 
@@ -465,6 +549,21 @@ msgstr "滑鼠:"
 
 msgid "Mouse"
 msgstr "滑鼠"
+
+msgid "&Mouse"
+msgstr "滑鼠(&M)"
+
+msgid "Tablet:"
+msgstr "平板:"
+
+msgid "Tablet"
+msgstr "平板"
+
+msgid "&Tablet"
+msgstr "平板(&T)"
+
+msgid "Tablet (&Crosshair)"
+msgstr "平板 (十字線)(&C)"
 
 msgid "Joystick:"
 msgstr "搖桿:"
@@ -484,16 +583,16 @@ msgstr "搖桿 3…"
 msgid "Joystick 4…"
 msgstr "搖桿 4…"
 
-msgid "Sound card #1:"
+msgid "Sound card 1:"
 msgstr "音效卡 1:"
 
-msgid "Sound card #2:"
+msgid "Sound card 2:"
 msgstr "音效卡 2:"
 
-msgid "Sound card #3:"
+msgid "Sound card 3:"
 msgstr "音效卡 3:"
 
-msgid "Sound card #4:"
+msgid "Sound card 4:"
 msgstr "音效卡 4:"
 
 msgid "MIDI Out Device:"
@@ -527,7 +626,7 @@ msgid "Floppy disk controller:"
 msgstr "軟碟控制器:"
 
 msgid "CD-ROM controller:"
-msgstr "CD-ROM 控制器:"
+msgstr "光碟機控制器:"
 
 msgid "Mitsumi interface"
 msgstr "Mitsumi 介面"
@@ -554,7 +653,7 @@ msgid "PC/AT XTIDE (Primary Only)"
 msgstr "PC/AT XTIDE (僅主通道)"
 
 msgid "PS/2 AT XTIDE (1.1.5) (Primary Only)"
-msgstr "PC/AT XTIDE (1.1.5) (僅主通道)"
+msgstr "PS/2 AT XTIDE (1.1.5) (僅主通道)"
 
 msgid "CMD PCI-0646 (Tertiary and Quaternary)"
 msgstr "CMD PCI-0646 (第三及第四)"
@@ -594,6 +693,12 @@ msgstr "控制器 4:"
 
 msgid "Cassette"
 msgstr "卡帶"
+
+msgid "Turbo IDE"
+msgstr "加速 IDE"
+
+msgid "Removes the IDE transfer mode speed limit. Hard disk and CD-ROM drive timings still apply."
+msgstr "移除 IDE 傳輸模式速度限制。硬碟及光碟機時序仍然套用。"
 
 msgid "Hard disks:"
 msgstr "硬碟:"
@@ -638,13 +743,49 @@ msgid "Type:"
 msgstr "類型:"
 
 msgid "Image Format:"
-msgstr "影像格式:"
+msgstr "映像格式:"
 
 msgid "Block Size:"
 msgstr "區塊大小:"
 
 msgid "Floppy drives"
 msgstr "軟碟機"
+
+msgid "5.25\" 180k"
+msgstr "5.25 英吋 180k"
+
+msgid "5.25\" 360k"
+msgstr "5.25 英吋 360k"
+
+msgid "5.25\" 720k"
+msgstr "5.25 英吋 720k"
+
+msgid "5.25\" 1.2M"
+msgstr "5.25 英吋 1.2M"
+
+msgid "5.25\" 1.2M 300/360 RPM"
+msgstr "5.25 英吋 1.2M 300/360 RPM"
+
+msgid "3.5\" 360k"
+msgstr "3.5 英吋 360k"
+
+msgid "3.5\" 720k"
+msgstr "3.5 英吋 720k"
+
+msgid "3.5\" 1.44M"
+msgstr "3.5 英吋 1.44M"
+
+msgid "3.5\" 1.25M PC-98"
+msgstr "3.5 英吋 1.25M PC-98"
+
+msgid "3.5\" 1.44M 300/360 RPM"
+msgstr "3.5 英吋 1.44M 300/360 RPM"
+
+msgid "3.5\" 2.88M"
+msgstr "3.5 英吋 2.88M"
+
+msgid "3.5\" 2.88M 300/360 RPM"
+msgstr "3.5 英吋 2.88M 300/360 RPM"
 
 msgid "Turbo timings"
 msgstr "加速時序"
@@ -654,6 +795,9 @@ msgstr "檢查 BPB"
 
 msgid "CD-ROM drives"
 msgstr "光碟機"
+
+msgid "CD-ROM:"
+msgstr "光碟:"
 
 msgid "MO drives"
 msgstr "磁光碟機"
@@ -676,8 +820,8 @@ msgstr "磁帶機:"
 msgid "ISA RTC:"
 msgstr "ISA 實時時鐘:"
 
-msgid "ISA Memory Expansion"
-msgstr "ISA 記憶體擴充"
+msgid "ISA/MCA Memory Expansion"
+msgstr "ISA/MCA 記憶體擴充"
 
 msgid "ISA ROM Cards"
 msgstr "ISA ROM 擴充卡"
@@ -728,7 +872,7 @@ msgid "&Removable disk %1 (%2): %3"
 msgstr "抽取式磁碟 %1 (%2): %3(&R)"
 
 msgid "Removable disk images"
-msgstr "抽取式磁碟影像"
+msgstr "抽取式磁碟映像"
 
 msgid "Tape %1 (%2): %3"
 msgstr "磁帶機 %1 (%2): %3"
@@ -737,13 +881,16 @@ msgid "&Tape %1 (%2): %3"
 msgstr "磁帶機 %1 (%2): %3(&T)"
 
 msgid "Tape images"
-msgstr "磁帶影像"
+msgstr "磁帶映像"
 
 msgid "Image %1"
-msgstr "影像 %1"
+msgstr "映像 %1"
 
-msgid "86Box could not find any usable ROM images.\n\nPlease <a href=\"https://github.com/86Box/roms/releases/latest\">download</a> a ROM set and extract it into the \"roms\" directory."
-msgstr "86Box 找不到任何可用的 ROM 影像。\n\n請<a href=\"https://github.com/86Box/roms/releases/latest\">下載</a> ROM 套件並將其解壓到 \"roms\" 資料夾。"
+msgid "%1 could not find any usable ROM images.\n\nPlease <a href=\"%2\">download</a> a ROM set and extract it into the \"roms\" directory."
+msgstr ""
+"%1 找不到任何可用的 ROM 映像。\n"
+"\n"
+"請<a href=\"%2\">下載</a> ROM 套件並將其解壓到 \"roms\" 目錄。"
 
 msgid "(empty)"
 msgstr "(空)"
@@ -761,22 +908,21 @@ msgid "Off"
 msgstr "關"
 
 msgid "All images"
-msgstr "所有影像"
+msgstr "所有映像"
 
 msgid "Basic sector images"
-msgstr "基本磁區影像"
+msgstr "基本磁區映像"
 
 msgid "Surface images"
-msgstr "表面影像"
+msgstr "表面映像"
 
 msgid "Machine \"%s\" is not available due to missing ROMs in the roms/machines directory. Switching to an available machine."
-msgstr "由於 roms/machines 資料夾中缺少合適的 ROM，機型 \"%s\" 不可用。將切換到其他可用機型。"
+msgstr "由於 roms/machines 目錄中缺少合適的 ROM，機型 \"%s\" "
+"不可用。將切換到其他可用機型。"
 
 msgid "Video card \"%s\" is not available due to missing ROMs in the roms/video directory. Switching to an available video card."
-msgstr "由於 roms/video 資料夾中缺少合適的 ROM，顯示卡 \"%s\" 不可用。將切換到其他可用顯示卡。"
-
-msgid "Video card #2 \"%s\" is not available due to missing ROMs in the roms/video directory. Disabling the second video card."
-msgstr "由於 roms/video 資料夾中缺少合適的 ROM，顯示卡 2 \"%s\" 不可用。禁用第二張顯示卡。"
+msgstr "由於 roms/video 目錄中缺少合適的 ROM，顯示卡 \"%s\" "
+"不可用。將切換到其他可用顯示卡。"
 
 msgid "Device \"%s\" is not available due to missing ROMs. Ignoring the device."
 msgstr "由於缺少合適的 ROM，裝置 \"%s\" 不可用。忽略裝置。"
@@ -790,6 +936,9 @@ msgstr "顯示"
 msgid "Input devices"
 msgstr "輸入裝置"
 
+msgid "Input &device"
+msgstr "輸入裝置(&D)"
+
 msgid "Sound"
 msgstr "聲音"
 
@@ -798,6 +947,9 @@ msgstr "網路"
 
 msgid "Ports (COM & LPT)"
 msgstr "連接埠 (COM 和 LPT)"
+
+msgid "Port"
+msgstr "連接埠"
 
 msgid "Ports"
 msgstr "連接埠"
@@ -808,11 +960,35 @@ msgstr "序列埠"
 msgid "Serial ports:"
 msgstr "序列埠:"
 
+msgid "COM1:"
+msgstr "COM1:"
+
+msgid "COM2:"
+msgstr "COM2:"
+
+msgid "COM3:"
+msgstr "COM3:"
+
+msgid "COM4:"
+msgstr "COM4:"
+
 msgid "Parallel ports"
 msgstr "並列埠"
 
 msgid "Parallel ports:"
 msgstr "並列埠:"
+
+msgid "LPT1:"
+msgstr "LPT1:"
+
+msgid "LPT2:"
+msgstr "LPT2:"
+
+msgid "LPT3:"
+msgstr "LPT3:"
+
+msgid "LPT4:"
+msgstr "LPT4:"
 
 msgid "Storage controllers"
 msgstr "儲存控制器"
@@ -830,7 +1006,7 @@ msgid "Controllers:"
 msgstr "控制器:"
 
 msgid "Floppy & CD-ROM drives"
-msgstr "軟碟/光碟機"
+msgstr "軟碟機/光碟機"
 
 msgid "Other removable devices"
 msgstr "其他抽取式裝置"
@@ -842,13 +1018,16 @@ msgid "Other devices"
 msgstr "其他裝置"
 
 msgid "Click to capture mouse"
-msgstr "點擊視窗捕捉滑鼠"
+msgstr "點擊視窗擄取滑鼠"
 
 msgid "Press %1 to release mouse"
 msgstr "按下 %1 釋放滑鼠"
 
 msgid "Press %1 or middle button to release mouse"
 msgstr "按下 %1 或滑鼠中鍵釋放滑鼠"
+
+msgid "Press %1 or side button to release mouse"
+msgstr "按壓 %1 或側按鍵以釋放滑鼠"
 
 msgid "Bus"
 msgstr "匯流排"
@@ -865,17 +1044,18 @@ msgstr "KB"
 msgid "Default"
 msgstr "預設"
 
-msgid "%1 Wait state(s)"
-msgstr "%1 等待狀態 (WS)"
+msgid "%n wait state(s)"
+msgid_plural "%n wait states"
+msgstr[0] "%n 等待狀態 (WS)"
 
 msgid "Type"
 msgstr "類型"
 
-msgid "No PCap devices found"
-msgstr "未發現 PCap 裝置"
+msgid "No PCap devices found. Make sure %1 is installed and that you are on a %1-compatible network connection."
+msgstr "未發現 PCap 裝置。請確認 %1 已安裝且使用相容 %1 的網路連線。"
 
-msgid "Invalid PCap device"
-msgstr "無效的 PCap 裝置"
+msgid "Invalid PCap device. Make sure %1 is installed and that you are on a %1-compatible network connection."
+msgstr "無效的 PCap 裝置。請確認 %1 已安裝且使用相容 %1 的網路連線。"
 
 msgid "Generic paddle controller(s)"
 msgstr "通用旋鈕控制器"
@@ -929,22 +1109,22 @@ msgid "6-button gamepad"
 msgstr "6 鍵遊戲手把"
 
 msgid "2-button flight yoke"
-msgstr "2 按鈕飛行搖桿"
+msgstr "2 按鈕飛行控制器"
 
 msgid "3-button flight yoke"
-msgstr "3 按鈕飛行搖桿"
+msgstr "3 按鈕飛行控制器"
 
 msgid "4-button flight yoke"
-msgstr "4 按鈕飛行搖桿"
+msgstr "4 按鈕飛行控制器"
 
 msgid "2-button flight yoke with throttle"
-msgstr "2 按鈕帶油門飛行搖桿"
+msgstr "2 按鈕帶油門飛行控制器"
 
 msgid "3-button flight yoke with throttle"
-msgstr "3 按鈕帶油門飛行搖桿"
+msgstr "3 按鈕帶油門飛行控制器"
 
 msgid "4-button flight yoke with throttle"
-msgstr "4 按鈕帶油門飛行搖桿"
+msgstr "4 按鈕帶油門飛行控制器"
 
 msgid "Steering wheel (3-axis, 2-button)"
 msgstr "方向盤 (3 軸, 2 鍵)"
@@ -956,10 +1136,10 @@ msgid "Steering wheel (3-axis, 4-button)"
 msgstr "方向盤 (3 軸, 4 鍵)"
 
 msgid "Thrustmaster Formula T1/T2 with adapter"
-msgstr "Thrustmaster Formula T1/T2 附轉接器"
+msgstr "Thrustmaster Formula T1/T2 帶轉接器"
 
 msgid "Thrustmaster Formula T1/T2 without adapter"
-msgstr "Thrustmaster Formula T1/T2 不附轉接器"
+msgstr "Thrustmaster Formula T1/T2 無轉接器"
 
 msgid "None"
 msgstr "無"
@@ -974,10 +1154,10 @@ msgid "&Floppy %1 (%2): %3"
 msgstr "軟碟 %1 (%2): %3(&F)"
 
 msgid "Advanced sector images"
-msgstr "進階磁區影像"
+msgstr "進階磁區映像"
 
 msgid "Flux images"
-msgstr "Flux 影像"
+msgstr "Flux 映像"
 
 msgid "Are you sure you want to hard reset the emulated machine?"
 msgstr "確定要硬重設模擬器嗎？"
@@ -985,11 +1165,11 @@ msgstr "確定要硬重設模擬器嗎？"
 msgid "Are you sure you want to exit 86Box?"
 msgstr "確定要退出 86Box 嗎？"
 
-msgid "Unable to initialize Ghostscript"
-msgstr "無法初始化 Ghostscript"
+msgid "Unable to initialize Ghostscript. %1 is required for automatic conversion of PostScript files to PDF.\n\nAny documents sent to the generic PostScript printer will be saved as PostScript (.ps) files."
+msgstr "無法初始化 Ghostscript。自動將 PostScript 檔案轉換為 PDF 需要 %1。\n\n使用通用 PostScript 印表機列印的文件將被儲存為 PostScript (.ps) 檔案。"
 
-msgid "Unable to initialize GhostPCL"
-msgstr "無法初始化 GhostPCL"
+msgid "Unable to initialize GhostPCL. %1 is required for automatic conversion of PCL files to PDF.\n\nAny documents sent to the generic PCL printer will be saved as Printer Command Language (.pcl) files."
+msgstr "無法初始化 GhostPCL。自動將 PCL 檔案轉換為 PDF 需要 %1。\n\n使用通用 PCL 印表機列印的文件將被儲存為 Printer Command Language (.pcl) 檔案。"
 
 msgid "MO %1 (%2): %3"
 msgstr "磁光碟 %1 (%2): %3"
@@ -998,7 +1178,7 @@ msgid "&MO %1 (%2): %3"
 msgstr "磁光碟 %1 (%2): %3(&M)"
 
 msgid "MO images"
-msgstr "磁光碟影像"
+msgstr "磁光碟映像"
 
 msgid "Welcome to 86Box!"
 msgstr "歡迎使用 86Box！"
@@ -1040,34 +1220,32 @@ msgid "About %1"
 msgstr "關於 %1"
 
 msgid "An emulator of old computers\n\nAuthors: Miran Grča (OBattler), RichardG867, Jasmine Iwanek, TC1995, coldbrewed, Teemu Korhonen (Manaatti), Joakim L. Gilje, Adrien Moulin (elyosh), Daniel Balsom (gloriouscow), Cacodemon345, Fred N. van Kempen (waltje), Tiseno100, reenigne, and others.\n\nWith previous core contributions from Sarah Walker, leilei, JohnElliott, greatpsycho, and others.\n\nReleased under the GNU General Public License version 2 or later. See LICENSE for more information."
-msgstr "一個舊式電腦模擬器\n\n作者: Miran Grča (OBattler)、RichardG867、Jasmine Iwanek、TC1995、coldbrewed、Teemu Korhonen (Manaatti)、Joakim L. Gilje、Adrien Moulin (elyosh)、Daniel Balsom (gloriouscow)、Cacodemon345、Fred N. van Kempen (waltje)、Tiseno100、reenigne 等人。\n\n早期的核心貢獻來自 Sarah Walker、leilei、JohnElliott、greatpsycho 等人。\n\n本軟體依據 GNU 通用公眾授權條款第二版或更新版本發佈。詳情見 LICENSE 檔案。"
+msgstr ""
+"一個舊型個人電腦模擬器\n"
+"\n"
+"作者: Miran Grča (OBattler)、RichardG867、Jasmine "
+"Iwanek、TC1995、coldbrewed、Teemu Korhonen (Manaatti)、Joakim L. Gilje、"
+"Adrien Moulin (elyosh)、Daniel Balsom (gloriouscow)、Cacodemon345、Fred N. "
+"van Kempen (waltje)、Tiseno100、reenigne 等人。\n"
+"\n"
+"早期的核心貢獻來自 Sarah Walker、leilei、JohnElliott、greatpsycho 等人。\n"
+"\n"
+"本軟體依據 GNU 通用公眾授權條款第二版或更新版本發佈。詳情見 LICENSE 檔案。"
 
 msgid "Hardware not available"
 msgstr "硬體不可用"
-
-msgid "Make sure %1 is installed and that you are on a %1-compatible network connection."
-msgstr "請確認 %1 已安裝且使用相容 %1 的網路連線。"
-
-msgid "Invalid configuration"
-msgstr "無效組態"
-
-msgid "%1 is required for automatic conversion of PostScript files to PDF.\n\nAny documents sent to the generic PostScript printer will be saved as PostScript (.ps) files."
-msgstr "自動將 PostScript 檔案轉換為 PDF 需要 %1。\n\n使用通用 PostScript 印表機列印的文件將被儲存為 PostScript (.ps) 檔案。"
-
-msgid "%1 is required for automatic conversion of PCL files to PDF.\n\nAny documents sent to the generic PCL printer will be saved as Printer Command Language (.pcl) files."
-msgstr "自動將 PCL 檔案轉換為 PDF 需要 %1。\n\n使用通用 PCL 印表機列印的文件將被儲存為 Printer Command Language (.pcl) 檔案。"
 
 msgid "Don't show this message again"
 msgstr "不要再顯示此訊息"
 
 msgid "CD-ROM images"
-msgstr "光碟影像"
+msgstr "光碟映像"
 
 msgid "%1 Device Configuration"
 msgstr "%1 裝置組態"
 
 msgid "Monitor in sleep mode"
-msgstr "監視器處在睡眠狀態"
+msgstr "監視器處於睡眠模式"
 
 msgid "GLSL shaders"
 msgstr "GLSL 著色器"
@@ -1088,7 +1266,7 @@ msgid "C&assette: %1"
 msgstr "卡帶: %1(&A)"
 
 msgid "Cassette images"
-msgstr "卡帶影像"
+msgstr "卡帶映像"
 
 msgid "Cartridge %1: %2"
 msgstr "卡匣 %1: %2"
@@ -1097,7 +1275,7 @@ msgid "Car&tridge %1: %2"
 msgstr "卡匣 %1: %2(&T)"
 
 msgid "Cartridge images"
-msgstr "卡匣影像"
+msgstr "卡匣映像"
 
 msgid "Resume execution"
 msgstr "恢復執行"
@@ -1142,22 +1320,25 @@ msgid "Waiting"
 msgstr "等待中"
 
 msgid "Powered Off"
-msgstr "電源關閉"
+msgstr "關閉電源"
 
 msgid "%n running"
-msgstr "%n 執行中"
+msgid_plural "%n running"
+msgstr[0] "%n 執行中"
 
 msgid "%n paused"
-msgstr "%n 已暫停"
+msgid_plural "%n paused"
+msgstr[0] "%n 已暫停"
 
 msgid "%n waiting"
-msgstr "%n 等待中"
+msgid_plural "%n waiting"
+msgstr[0] "%n 等待中"
 
 msgid "%1 total"
 msgstr "%1 總計"
 
 msgid "VMs: %1"
-msgstr "虛擬機器：%1"
+msgstr "虛擬機器: %1"
 
 msgid "System Directory:"
 msgstr "系統目錄:"
@@ -1180,8 +1361,41 @@ msgstr "無法開啟選取的組態檔進行讀取: %1"
 msgid "Use regular expressions in search box"
 msgstr "在搜尋欄中使用正規表示式"
 
+msgid "Delete virtual machines to Recycle Bin"
+msgstr "刪除虛擬機至回收筒"
+
+msgid "Discord"
+msgstr "Discord"
+
+msgid "Show running machines in my Discord status"
+msgstr "顯示在我的 Discord 執行中機器的狀態"
+
+msgid "Details shown:"
+msgstr "顯示細節:"
+
+msgid "Machine name and hardware"
+msgstr "機器名稱及硬體"
+
+msgid "Hardware only"
+msgstr "僅硬體"
+
+msgid "No details"
+msgstr "無細節"
+
+msgid "Using %1"
+msgstr "使用 %1"
+
+msgid "%n machine(s) active"
+msgid_plural "%n machines active"
+msgstr[0] "%n 部機器啟用中"
+
+msgid " (+%n more)"
+msgid_plural " (+%n more)"
+msgstr[0] " (+%n 以上)"
+
 msgid "%n machine(s) are currently active. Are you sure you want to exit the VM manager anyway?"
-msgstr "%n 台機器目前處於活動狀態。您確定要退出虛擬機器管理員嗎？"
+msgid_plural "%n machines are currently active. Are you sure you want to exit the VM manager anyway?"
+msgstr[0] "%n 部機器目前處於啟用狀態。您確定要退出虛擬機器管理員嗎？"
 
 msgid "Add new system wizard"
 msgstr "新增系統精靈"
@@ -1199,7 +1413,7 @@ msgid "Complete"
 msgstr "完成"
 
 msgid "The wizard will now launch the configuration for the new system."
-msgstr "精靈現在會啟動新系統的組態。"
+msgstr "精靈現在將啟動新系統的組態。"
 
 msgid "Use existing configuration"
 msgstr "使用現有組態"
@@ -1286,13 +1500,13 @@ msgid "Directory %1 already exists"
 msgstr "目錄 %1 已經存在"
 
 msgid "You cannot use the following characters in the name: %1"
-msgstr "您不能在名稱中使用下列字元：%1"
+msgstr "您不能在名稱中使用下列字元: %1"
 
 msgid "Clone"
 msgstr "複製"
 
 msgid "Failed to create directory for cloned VM"
-msgstr "為複製的虛擬機器建立目錄失敗"
+msgstr "建立複製虛擬機器的目錄失敗"
 
 msgid "Failed to clone VM."
 msgstr "複製虛擬機器失敗。"
@@ -1351,8 +1565,11 @@ msgstr "強制終止虛擬機器可能會導致資料遺失。只有在 86Box �
 msgid "&Delete"
 msgstr "刪除(&D)"
 
-msgid "Do you really want to delete the virtual machine \"%1\" and all its files? This action cannot be undone!"
-msgstr "您真的想要刪除虛擬機器 \"%1\" 及其所有檔案嗎？此操作無法回復！"
+msgid "Do you really want to delete the virtual machine \"%1\" and all its files?"
+msgstr "您真的想要刪除虛擬機器 \"%1\" 及其所有檔案嗎？"
+
+msgid "This action cannot be undone!"
+msgstr "此操作無法回復！"
 
 msgid "Show &config file"
 msgstr "顯示組態檔(&C)"
@@ -1393,11 +1610,26 @@ msgstr "ACPI 關機"
 msgid "ACP&I shutdown"
 msgstr "ACPI 關機(&I)"
 
+msgid "Power off"
+msgstr "關閉電源"
+
+msgid "Power &off…"
+msgstr "關閉電源(&O)…"
+
+msgid "Power &off"
+msgstr "關閉電源(&O)"
+
+msgid "Powering off the emulated machine may cause data loss. Are you sure you want to continue?"
+msgstr "強制關閉電源可能導致模擬機資料流失，確定要繼續嗎？"
+
 msgid "Hard disk (%1)"
 msgstr "硬碟 (%1)"
 
-msgid "MFM/RLL or ESDI CD-ROM drives never existed"
-msgstr "MFM/RLL 或 ESDI CD-ROM 光碟機從未存在"
+msgid "Board LED"
+msgstr "板載 LED"
+
+msgid "Board LED %1"
+msgstr "板載 LED %1"
 
 msgid "Custom…"
 msgstr "自訂…"
@@ -1412,13 +1644,13 @@ msgid "Add Existing Hard Disk"
 msgstr "增加已存在的硬碟"
 
 msgid "HDI disk images cannot be larger than 4 GB."
-msgstr "HDI 磁碟影像不能超過 4 GB。"
+msgstr "HDI 磁碟映像不能超過 4 GB。"
 
 msgid "Disk images cannot be larger than 127 GB."
-msgstr "磁碟影像不能超過 127 GB。"
+msgstr "磁碟映像不能超過 127 GB。"
 
 msgid "Hard disk images"
-msgstr "硬碟影像"
+msgstr "硬碟映像"
 
 msgid "Unable to read file"
 msgstr "無法讀取檔案"
@@ -1427,16 +1659,16 @@ msgid "Unable to write file"
 msgstr "無法寫入檔案"
 
 msgid "HDI or HDX images with a sector size other than 512 are not supported."
-msgstr "不支援非 512 位元組磁區大小的 HDI 或 HDX 影像。"
+msgstr "不支援非 512 位元組磁區大小的 HDI 或 HDX 映像。"
 
 msgid "Disk image file already exists"
-msgstr "磁碟影像檔案已存在"
+msgstr "磁碟映像檔案已存在"
 
 msgid "Please specify a valid file name."
 msgstr "請指定有效的檔案名。"
 
 msgid "Disk image created"
-msgstr "已創建磁碟影像"
+msgstr "已創建磁碟映像"
 
 msgid "Make sure the file exists and is readable."
 msgstr "請確定此檔案已存在並可讀取。"
@@ -1445,7 +1677,7 @@ msgid "Make sure the file is being saved to a writable directory."
 msgstr "請確定此檔案儲存在可寫目錄中。"
 
 msgid "Disk image too large"
-msgstr "磁碟影像太大"
+msgstr "磁碟映像太大"
 
 msgid "Remember to partition and format the newly-created drive."
 msgstr "請記得為新創建的影像建立分割區並格式化。"
@@ -1454,22 +1686,46 @@ msgid "The selected file will be overwritten. Are you sure you want to use it?"
 msgstr "選定的檔案將被覆蓋。確定繼續使用此檔案嗎？"
 
 msgid "Unsupported disk image"
-msgstr "不支援的磁碟影像"
+msgstr "不支援的磁碟映像"
 
-msgid "Overwrite"
-msgstr "覆寫"
+msgid "Unable to read device"
+msgstr "無法讀取裝置"
 
-msgid "Don't overwrite"
-msgstr "不覆寫"
+msgid "Could not determine block device size. Make sure you have permission to access this device."
+msgstr "無法得知區塊裝置大小。請確認你有權限存取此裝置。"
+
+msgid "Device too large"
+msgstr "裝置過大"
+
+msgid "Block device is too large to be used as a hard disk."
+msgstr "區塊裝置過大，無法做為硬碟使用。"
+
+msgid "Block device detected"
+msgstr "偵測到區塊裝置"
+
+msgid "Detected block device: %1\nSize: %2 MB\nGeometry: %3 cylinders, %4 heads, %5 sectors"
+msgstr ""
+"偵測到的區塊裝置: %1\n"
+"大小: %2 MB\n"
+"參數: %3 磁柱, %4 磁頭, %5 磁區"
+
+msgid "Failed to write the disk image."
+msgstr "寫入磁碟映像失敗。"
+
+msgid "Failed to read the disk image."
+msgstr "讀取磁碟映像失敗。"
+
+msgid "The disk image has been successfully created."
+msgstr "成功創建磁碟映像。"
 
 msgid "Raw image"
-msgstr "原始影像"
+msgstr "原始映像"
 
 msgid "HDI image"
-msgstr "HDI 影像"
+msgstr "HDI 映像"
 
 msgid "HDX image"
-msgstr "HDX 影像"
+msgstr "HDX 映像"
 
 msgid "Fixed-size VHD"
 msgstr "固定大小 VHD"
@@ -1484,13 +1740,13 @@ msgid "(N/A)"
 msgstr "(不適用)"
 
 msgid "Raw image (.img)"
-msgstr "原始影像 (.img)"
+msgstr "原始映像 (.img)"
 
 msgid "HDI image (.hdi)"
-msgstr "HDI 影像 (.hdi)"
+msgstr "HDI 映像 (.hdi)"
 
 msgid "HDX image (.hdx)"
-msgstr "HDX 影像 (.hdx)"
+msgstr "HDX 映像 (.hdx)"
 
 msgid "Fixed-size VHD (.vhd)"
 msgstr "固定大小 VHD (.vhd)"
@@ -1513,8 +1769,8 @@ msgstr "VHD 檔案"
 msgid "Select the parent VHD"
 msgstr "選取父 VHD 檔案"
 
-msgid "This could mean that the parent image was modified after the differencing image was created.\n\nIt can also happen if the image files were moved or copied, or by a bug in the program that created this disk.\n\nDo you want to fix the timestamps?"
-msgstr "父影像可能在創建差異影像後被修改。\n\n如果影像檔案被移動或複製，或創建此磁碟的程式中存在錯誤，也可能發生這種情況。\n\n是否需要修復時間戳？"
+msgid "Parent and child disk timestamps do not match. This could mean that the parent image was modified after the differencing image was created.\n\nIt can also happen if the image files were moved or copied, or by a bug in the program that created this disk.\n\nDo you want to fix the timestamps?"
+msgstr "父碟與子碟的時間戳不匹配。父映像可能在創建差異映像後被修改。\n\n如果映像檔案被移動或複製，或創建此磁碟的程式中存在錯誤，也可能發生這種情況。\n\n是否需要修復時間戳？"
 
 msgid "Parent and child disk timestamps do not match"
 msgstr "父碟與子碟的時間戳不匹配"
@@ -1607,22 +1863,24 @@ msgid "2% below perfect RPM"
 msgstr "低於標準轉速的 2%"
 
 msgid "Creating image…"
-msgstr "新建影像…"
+msgstr "新建映像…"
 
 msgid "(System Default)"
 msgstr "(系統預設)"
 
-msgid "Failed to initialize network driver"
-msgstr "初始化網路驅動程式失敗"
-
-msgid "The network configuration will be switched to the null driver"
-msgstr "網路組態將切換為空驅動程式"
+msgid "Failed to initialize network driver:\n\n%s\n\nThe network configuration will be switched to the null driver."
+msgstr ""
+"初始化網路驅動器失敗:\n"
+"\n"
+"%s\n"
+"\n"
+"網路組態將切換為空驅動器。"
 
 msgid "Mouse sensitivity:"
 msgstr "滑鼠靈敏度:"
 
 msgid "Select media images from program working directory"
-msgstr "從程式工作目錄中選擇媒體影像"
+msgstr "從程式工作目錄中選擇媒體映像"
 
 msgid "PIT mode:"
 msgstr "PIT 模式:"
@@ -1636,8 +1894,11 @@ msgstr "慢"
 msgid "Fast"
 msgstr "快"
 
-msgid "&Auto-pause on focus loss"
-msgstr "失去焦點時自動暫停(&A)"
+msgid "Auto-pause on focus loss"
+msgstr "失去焦點時自動暫停"
+
+msgid "Auto-pause on dialog boxes"
+msgstr "開啟對話框時自動暫停"
 
 msgid "WinBox is no longer supported"
 msgstr "不再支援 WinBox"
@@ -1664,7 +1925,7 @@ msgid "MCA devices"
 msgstr "MCA 裝置"
 
 msgid "List of MCA devices:"
-msgstr "MCA 裝置清單："
+msgstr "MCA 裝置清單:"
 
 msgid "&Tablet tool"
 msgstr "平板工具(&T)"
@@ -1697,7 +1958,7 @@ msgid "&Connected"
 msgstr "已連線(&C)"
 
 msgid "Clear image &history"
-msgstr "清除影像歷史記錄(&H)"
+msgstr "清除映像歷史記錄(&H)"
 
 msgid "Create…"
 msgstr "建立…"
@@ -1709,10 +1970,10 @@ msgid "Unknown Bus"
 msgstr "未知匯流排"
 
 msgid "Null Driver"
-msgstr "空驅動程式"
+msgstr "空驅動器"
 
 msgid "NIC:"
-msgstr "網路介面控制器："
+msgstr "網路介面控制器:"
 
 msgid "NIC %1 (%2) %3"
 msgstr "網路介面控制器 %1 (%2) %3"
@@ -1724,7 +1985,7 @@ msgid "Render behavior"
 msgstr "渲染行為"
 
 msgid "Use target framerate:"
-msgstr "使用目標影格速率："
+msgstr "使用目標影格速率:"
 
 msgid " fps"
 msgstr " fps"
@@ -1753,26 +2014,32 @@ msgstr "無法切換至 OpenGL 內容。"
 msgid "OpenGL version 3.0 or greater is required. Current version is %1.%2"
 msgstr "需要 OpenGL 版本 3.0 或更高版本。目前版本為 %1.%2"
 
-msgid "Error initializing OpenGL"
-msgstr "初始化 OpenGL 錯誤"
+msgid "Error initializing OpenGL."
+msgstr "初始化 OpenGL 錯誤。"
 
-msgid "\nFalling back to software rendering."
-msgstr "\n退回到軟體渲染。"
+msgid "Falling back to software rendering."
+msgstr "退回到軟體渲染。"
 
 msgid "<html><head/><body><p>When selecting media images (CD-ROM, floppy, etc.) the open dialog will start in the same directory as the 86Box configuration file. This setting will likely only make a difference on macOS.</p></body></html>"
-msgstr "<html><head/><body><p>當選擇媒體影像 (CD-ROM、軟碟等) 時，開啟對話框會在與 86Box 組態檔相同的目錄中開始。此設定可能只會在 macOS 上有所影響。</p></body></html>"
+msgstr ""
+"<html><head/><body><p>當選擇媒體映像 (光碟、軟碟等) 時，開啟對話框會在與 "
+"86Box 組態檔相同的目錄中開始。此設定可能只會在 macOS "
+"上有所影響。</p></body></html>"
 
 msgid "This machine might have been moved or copied."
-msgstr "這台機器可能已被移動或複製。"
+msgstr "這部機器可能已被移動或複製。"
 
 msgid "In order to ensure proper networking functionality, 86Box needs to know if this machine was moved or copied.\n\nSelect \"I Copied It\" if you are not sure."
-msgstr "為了確保正常的網路功能，86Box 需要知道這台機器是否被移動或複製。\n\n如果您不確定，請選擇「我已複製這台機器」。"
+msgstr ""
+"為了確保正常的網路功能，86Box 需要知道這部機器是否被移動或複製。\n"
+"\n"
+"如果您不確定，請選擇「我已複製這部機器」。"
 
 msgid "I Moved It"
-msgstr "我已移動這台機器"
+msgstr "我已移動這部機器"
 
 msgid "I Copied It"
-msgstr "我已複製這台機器"
+msgstr "我已複製這部機器"
 
 msgid "86Box Monitor #%1"
 msgstr "86Box 監視器 #%1"
@@ -1880,7 +2147,7 @@ msgid "Roland MT-32 Emulation"
 msgstr "Roland MT-32 模擬"
 
 msgid "Roland MT-32 (New) Emulation"
-msgstr "Roland MT-32（新）模擬"
+msgstr "Roland MT-32 (新) 模擬"
 
 msgid "Roland CM-32L Emulation"
 msgstr "Roland CM-32L 模擬"
@@ -1988,7 +2255,7 @@ msgid "Enable backlight"
 msgstr "啟用背光"
 
 msgid "Invert colors"
-msgstr "反轉顏色"
+msgstr "反轉色彩"
 
 msgid "BIOS size"
 msgstr "BIOS 大小"
@@ -2075,7 +2342,7 @@ msgid "Reverb Level"
 msgstr "殘響位準"
 
 msgid "Interpolation Method"
-msgstr "插值方法"
+msgstr "插補法"
 
 msgid "Dynamic Sample Loading"
 msgstr "動態取樣載入"
@@ -2148,6 +2415,9 @@ msgstr "序號"
 
 msgid "Host ID"
 msgstr "主機 ID"
+
+msgid "Host"
+msgstr "主機"
 
 msgid "FDC Address"
 msgstr "FDC 位址"
@@ -2230,6 +2500,9 @@ msgstr "高 DMA"
 msgid "Control PC speaker"
 msgstr "控制電腦喇叭"
 
+msgid "Control MIDI volume"
+msgstr "控制MIDI音量"
+
 msgid "Memory size"
 msgstr "記憶體大小"
 
@@ -2259,6 +2532,9 @@ msgstr "行倍增類型"
 
 msgid "Snow emulation"
 msgstr "雪花模擬"
+
+msgid "Display Enhancement Board (GO329)"
+msgstr "顯示增強板 (GO329)"
 
 msgid "Monitor type"
 msgstr "監視器類型"
@@ -2294,7 +2570,7 @@ msgid "Dithering"
 msgstr "抖動"
 
 msgid "Enable NMI for CGA emulation"
-msgstr "啟用 CGA 模擬的 NMI"
+msgstr "為 CGA 模擬啟用 NMI"
 
 msgid "Voodoo type"
 msgstr "Voodoo 類型"
@@ -2319,6 +2595,9 @@ msgstr "SLI"
 
 msgid "Start Address"
 msgstr "起始位址"
+
+msgid "Allow RAM up to the system ROM"
+msgstr "允許主記憶體覆蓋系統 ROM"
 
 msgid "Contiguous Size"
 msgstr "連續大小"
@@ -2353,20 +2632,47 @@ msgstr "EMS 2 記憶體大小"
 msgid "Enable EMS"
 msgstr "啟用 EMS"
 
-msgid "Enable EMS 1"
-msgstr "啟用 EMS 1"
-
-msgid "Enable EMS 2"
-msgstr "啟用 EMS 2"
-
 msgid "Address for > 2 MB"
 msgstr "> 2 MB 的位址"
 
 msgid "Frame Address"
 msgstr "頁框位址"
 
-msgid "USA"
-msgstr "美國"
+msgid "English"
+msgstr "英語"
+
+msgid "English (US)"
+msgstr "英語 (美國)"
+
+msgid "English (UK)"
+msgstr "英語 (英國)"
+
+msgid "English (Canada)"
+msgstr "英語 (加拿大)"
+
+msgid "German"
+msgstr "德語"
+
+msgid "French"
+msgstr "法語"
+
+msgid "Spanish"
+msgstr "西班牙語"
+
+msgid "Swedish"
+msgstr "瑞典語"
+
+msgid "Italian"
+msgstr "義大利語"
+
+msgid "Portuguese"
+msgstr "葡萄牙語"
+
+msgid "Norwegian"
+msgstr "挪威語"
+
+msgid "Greek"
+msgstr "希臘語"
 
 msgid "Danish"
 msgstr "丹麥語"
@@ -2480,7 +2786,7 @@ msgid "Composite"
 msgstr "複合視訊"
 
 msgid "True color"
-msgstr "真實色彩"
+msgstr "全彩"
 
 msgid "Old"
 msgstr "舊"
@@ -2489,7 +2795,7 @@ msgid "New"
 msgstr "新"
 
 msgid "Color (generic)"
-msgstr "彩色（通用）"
+msgstr "彩色 (通用)"
 
 msgid "Green Monochrome"
 msgstr "綠色單色"
@@ -2501,16 +2807,16 @@ msgid "Gray Monochrome"
 msgstr "灰色單色"
 
 msgid "Color (no brown)"
-msgstr "彩色（無棕色）"
+msgstr "彩色 (無棕色)"
 
 msgid "Color (IBM 5153)"
-msgstr "彩色（IBM 5153）"
+msgstr "彩色 (IBM 5153)"
 
 msgid "Simple doubling"
 msgstr "簡單倍增"
 
 msgid "sRGB interpolation"
-msgstr "sRGB 插值"
+msgstr "sRGB 插補"
 
 msgid "Linear interpolation"
 msgstr "線性插補"
@@ -2528,13 +2834,13 @@ msgid "128 KB"
 msgstr "128 KB"
 
 msgid "Monochrome (5151/MDA) (white)"
-msgstr "單色 (5151/MDA)（白色）"
+msgstr "單色 (5151/MDA) (白色)"
 
 msgid "Monochrome (5151/MDA) (green)"
-msgstr "單色 (5151/MDA)（綠色）"
+msgstr "單色 (5151/MDA) (綠色)"
 
 msgid "Monochrome (5151/MDA) (amber)"
-msgstr "單色 (5151/MDA)（琥珀色）"
+msgstr "單色 (5151/MDA) (琥珀色)"
 
 msgid "Color 40x25 (5153/CGA)"
 msgstr "彩色 40x25 (5153/CGA)"
@@ -2547,6 +2853,18 @@ msgstr "增強色彩 - 一般模式 (5154/ECD)"
 
 msgid "Enhanced Color - Enhanced Mode (5154/ECD)"
 msgstr "增強色彩 - 增強模式 (5154/ECD)"
+
+msgid "IBM 8507 (1024x768, Monochrome)"
+msgstr "IBM 8507 (1024x768，單色)"
+
+msgid "IBM 8514 (1024x768, Color)"
+msgstr "IBM 8514 (1024x768，彩色)"
+
+msgid "IBM 8503 (640x480, Monochrome)"
+msgstr "IBM 8503 (640x480，單色)"
+
+msgid "IBM 8512/13 (640x480, Color)"
+msgstr "IBM 8512/13 (640x480，彩色)"
 
 msgid "Green"
 msgstr "綠色"
@@ -2561,10 +2879,7 @@ msgid "Grayscale"
 msgstr "灰階"
 
 msgid "Color"
-msgstr "顏色"
-
-msgid "U.S. English"
-msgstr "美國英語"
+msgstr "彩色"
 
 msgid "Scandinavian"
 msgstr "斯堪地那維亞語"
@@ -2597,7 +2912,7 @@ msgid "3Dfx Voodoo 2"
 msgstr "3Dfx Voodoo 2"
 
 msgid "Obsidian SB50 + Amethyst (2 TMUs)"
-msgstr "Obsidian SB50 + Amethyst (2 TMU)"
+msgstr "Obsidian SB50 + Amethyst (2 TMUs)"
 
 msgid "8-bit"
 msgstr "8 位元"
@@ -2645,38 +2960,82 @@ msgid "Protection Dongle for Savage Quest"
 msgstr "用於 Savage Quest 的防拷保護鎖"
 
 msgid "Loopback Plug"
-msgstr "回授測試接頭"
+msgstr "回送測試接頭"
 
-#, fuzzy
 msgid "Serial Passthrough"
-msgstr "序列埠直通裝置"
+msgstr "序列埠裝置透通"
 
-msgid "Passthrough Mode"
-msgstr "直通模式"
-
-msgid "Host Serial Device"
+msgid "Host serial device"
 msgstr "主機序列裝置"
 
-msgid "Name of pipe"
-msgstr "管道名稱"
+msgid "Named Pipe"
+msgstr "命名管道"
 
-msgid "Data bits"
-msgstr "資料位元"
+msgid "Output file"
+msgstr "輸出檔案"
 
-msgid "Stop bits"
-msgstr "停止位元"
+msgid "Append to file if it exists"
+msgstr "附加到已存在檔案"
 
-msgid "Baud Rate of Passthrough"
-msgstr "直通的鮑率"
+msgid "Input file"
+msgstr "輸入檔案"
 
-msgid "Named Pipe (Server)"
-msgstr "已命名管道 (伺服器)"
+msgid "Loop input file"
+msgstr "輸入檔案回送"
 
-msgid "Named Pipe (Client)"
-msgstr "已命名管道 (用戶端)"
+msgid "Require STROBE signal"
+msgstr "要求 STROBE 訊號"
 
-msgid "Host Serial Passthrough"
-msgstr "主機序列埠直通"
+msgid "Loopback Type"
+msgstr "回送型式"
+
+msgid "Parallel cable"
+msgstr "並列纜線"
+
+msgid "Unidirectional (8-bit) / LapLink (4-bit)"
+msgstr "單向 (8位元) / LapLink (4位元)"
+
+msgid "Bidirectional (8-bit)"
+msgstr "雙向 (8位元)"
+
+msgid "Pipe path"
+msgstr "管道路徑"
+
+msgid "FIFO / terminal"
+msgstr "FIFO / 終端機"
+
+msgid "Mode"
+msgstr "模式"
+
+msgid "Server"
+msgstr "伺服器"
+
+msgid "Client"
+msgstr "用戶端"
+
+msgid "Reconnect automatically"
+msgstr "自動重新連線"
+
+msgid "Use standard input/output"
+msgstr "使用標準輸入/輸出"
+
+msgid "Create pseudoterminal"
+msgstr "建立虛擬終端機"
+
+msgid "Start terminal emulator"
+msgstr "開始終端機模擬"
+
+msgid "Run custom command"
+msgstr "執行自訂命令"
+
+msgid "Custom command"
+msgstr "自訂命令"
+
+msgid "Run custom command in terminal"
+msgstr "在終端機執行自訂命令"
+
+msgid "Virtual Console"
+msgstr "虛擬控制台"
 
 msgid "E&ject %1"
 msgstr "退出 %1(&J)"
@@ -2705,8 +3064,14 @@ msgstr "[通用] 1989 (3500 轉速)"
 msgid "[Generic] 1992 (3600 RPM)"
 msgstr "[通用] 1992 (3600 轉速)"
 
+msgid "[Generic] 1993 (4000 RPM)"
+msgstr "[通用] 1993 (4000 轉速)"
+
 msgid "[Generic] 1994 (4500 RPM)"
 msgstr "[通用] 1994 (4500 轉速)"
+
+msgid "[Generic] 1995 (5200 RPM)"
+msgstr "[通用] 1995 (5200 轉速)"
 
 msgid "[Generic] 1996 (5400 RPM)"
 msgstr "[通用] 1996 (5400 轉速)"
@@ -2720,11 +3085,14 @@ msgstr "[通用] 1998 (5400 轉速)"
 msgid "[Generic] 2000 (7200 RPM)"
 msgstr "[通用] 2000 (7200 轉速)"
 
-msgid "IBM 8514/A clone (ISA)"
-msgstr "IBM 8514/A 相容品 (ISA)"
+msgid "[Generic] 2004 (10000 RPM)"
+msgstr "[通用] 2004 (10000 轉速)"
+
+msgid "IBM 8514/A clone"
+msgstr "IBM 8514/A 相容品"
 
 msgid "Vendor"
-msgstr "製造商"
+msgstr "銷售商"
 
 msgid "30 Hz (JMP2 = 1)"
 msgstr "30 Hz (JMP2 = 1)"
@@ -2744,11 +3112,10 @@ msgstr "通用 MM58167 實時時鐘"
 msgid "OPL2Board (External Device)"
 msgstr "OPL2卡 (外部裝置)"
 
-msgid "Unable to find Dot-Matrix fonts"
-msgstr "無法找到點矩陣字型"
-
-msgid "TrueType fonts in the \"roms/printer/fonts\" directory are required for the emulation of the Generic ESC/P 2 Dot-Matrix Printer."
-msgstr "通用 ESC/P 2 點矩陣印表機的模擬需要 \"roms/printer/fonts\" 目錄中的 TrueType 字體。"
+msgid "Unable to find Dot-Matrix fonts. TrueType fonts in the \"roms/printer/fonts\" directory are required for the emulation of the Generic ESC/P 2 Dot-Matrix Printer."
+msgstr ""
+"無法找到點矩陣字型。模擬通用 ESC/P 2 點矩陣印表機需要 \"roms/printer/fonts\" "
+"目錄中的 TrueType 字體。"
 
 msgid "Inhibit multimedia keys"
 msgstr "禁止多媒體按鍵"
@@ -2757,10 +3124,13 @@ msgid "Ask for confirmation before saving settings"
 msgstr "儲存設定前要求確認"
 
 msgid "Ask for confirmation before hard resetting"
-msgstr "硬體重設前要求確認"
+msgstr "硬重設前要求確認"
 
 msgid "Ask for confirmation before quitting"
 msgstr "退出前請先確認"
+
+msgid "Precache CHD files into memory"
+msgstr "預快取 CHD 檔於記憶體中"
 
 msgid "Options"
 msgstr "選項"
@@ -2771,8 +3141,35 @@ msgstr "型號"
 msgid "Model:"
 msgstr "型號:"
 
+msgid "Brand:"
+msgstr "品牌:"
+
+msgid "Revision:"
+msgstr "修訂版號:"
+
+msgid "[Generic HDD] Device Configuration"
+msgstr "[通用硬碟機] 裝置組態"
+
 msgid "Failed to initialize Vulkan renderer."
 msgstr "初始化 Vulkan 渲染器失敗。"
+
+msgid "Failed to create Vulkan 1.3 instance."
+msgstr "Vulkan 1.3 執行體創建失敗。"
+
+msgid "No usable Vulkan physical devices found."
+msgstr "未發現可用的 Vulkan 實體裝置。"
+
+msgid "No Vulkan-capable physical devices found."
+msgstr "未發現支援 Vulkan 的實體裝置。"
+
+msgid "librashader not found. Shaders will not be available."
+msgstr "未發現 librashader。著色器將無法使用。"
+
+msgid "Vulkan device lost."
+msgstr "失去 Vulkan 裝置。"
+
+msgid "Vulkan surface lost."
+msgstr "遺失 Vulkan 描繪面。"
 
 msgid "GLSL Error"
 msgstr "GLSL 錯誤"
@@ -2795,6 +3192,9 @@ msgstr "著色器管理員"
 msgid "Shader Configuration"
 msgstr "著色器組態"
 
+msgid "GPU:"
+msgstr "GPU:"
+
 msgid "Add"
 msgstr "新增"
 
@@ -2815,6 +3215,9 @@ msgstr "輸入"
 
 msgid "Key bindings"
 msgstr "按鍵組合"
+
+msgid "VM Manager"
+msgstr "虛擬機器管理員"
 
 msgid "Action"
 msgstr "動作"
@@ -2841,10 +3244,10 @@ msgid "This key combo is already in use."
 msgstr "此組合鍵已在使用中。"
 
 msgid "Send Control+Alt+Del"
-msgstr "傳送 Control+Alt+Del"
+msgstr "傳送 Ctrl+Alt+Del"
 
 msgid "Send Control+Alt+Escape"
-msgstr "傳送 Control+Alt+Escape"
+msgstr "傳送 Ctrl+Alt+Esc"
 
 msgid "Toggle fullscreen"
 msgstr "切換全螢幕"
@@ -2860,6 +3263,12 @@ msgstr "切換暫停"
 
 msgid "Toggle mute"
 msgstr "切換靜音"
+
+msgid "Toggle on-screen display"
+msgstr "切換 OSD"
+
+msgid "Toggle &on-screen display"
+msgstr "切換 OSD(&O)"
 
 msgid "Text files"
 msgstr "文字檔案"
@@ -2895,7 +3304,12 @@ msgid "&Wipe NVRAM"
 msgstr "清除 NVRAM(&W)"
 
 msgid "This will delete all NVRAM (and related) files of the virtual machine located in the \"nvr\" subdirectory. You'll have to reconfigure the BIOS (and possibly other devices inside the VM) settings again if applicable.\n\nAre you sure you want to wipe all NVRAM contents of the virtual machine \"%1\"?"
-msgstr "這將刪除位於 (\"nvr\" 子目錄中的) 虛擬機器的所有 NVRAM (和相關) 檔案。如果套用的話，您必須重新設定 BIOS (可能還有虛擬機器內的其他裝置) 設定。\n\n您確定要清除虛擬機 \"%1\" 的所有 NVRAM 內容嗎？"
+msgstr ""
+"這將刪除位於 \"nvr\" 子目錄中的虛擬機器的所有 NVRAM (和相關) "
+"檔案。如果套用的話，您必須重新設定 BIOS (可能還有虛擬機器內的其他裝置設定) 。"
+"\n"
+"\n"
+"您確定要清除虛擬機 \"%1\" 的所有 NVRAM 內容嗎？"
 
 msgid "Success"
 msgstr "成功"
@@ -2910,7 +3324,8 @@ msgid "%1 VM Manager"
 msgstr "%1 虛擬機器管理員"
 
 msgid "%n disk(s)"
-msgstr "%n 磁碟"
+msgid_plural "%n disks"
+msgstr[0] "%n 磁碟"
 
 msgid "Unknown Status"
 msgstr "狀態不明"
@@ -3020,6 +3435,9 @@ msgstr "匯出…"
 msgid "Export EDID"
 msgstr "匯出 EDID"
 
+msgid "EDID file \"%s\" is invalid."
+msgstr "EDID 檔案 \"%s\" 無效。"
+
 msgid "EDID file \"%s\" is too large."
 msgstr "EDID 檔案 \"%s\" 太大。"
 
@@ -3053,8 +3471,26 @@ msgstr "允許重編譯(&A)"
 msgid "&Fast forward"
 msgstr "快轉(&F)"
 
+msgid "Fast forward at startup"
+msgstr "啟動時快轉"
+
+msgid "Start new machines in fast forward"
+msgstr "開始新機器時快轉"
+
+msgid "Only affects machines created from now on. Each machine can be changed in its settings, under Machine > Performance."
+msgstr "僅影響現在及之後創建的機器。各別機器可於「機器 > 效能」設定頁中修改此一設定。"
+
+msgid "Fast forward at &startup"
+msgstr "啟動時快轉(&S)"
+
 msgid "Fast forward"
 msgstr "快轉"
+
+msgid "&Non-maskable interrupt"
+msgstr "不可遮罩中斷(&N)"
+
+msgid "Non-maskable interrupt"
+msgstr "不可遮罩中斷"
 
 msgid "To change the system directory, stop all running machines."
 msgstr "欲變更系統目錄，請先停止全部運行中的機器。"
@@ -3063,10 +3499,906 @@ msgid "Raw"
 msgstr "原始"
 
 msgid "Use EDC/ECC emulation"
-msgstr "使用 EDC/ECC 摸擬"
+msgstr "使用 EDC/ECC 模擬"
 
 msgid "Audio output device:"
 msgstr "音訊輸出裝置:"
 
 msgid "System Default"
 msgstr "系統預設"
+
+msgid "Unable to open image or folder \"%s\"."
+msgstr "無法開啟影映或資料夾 \"%s\"。"
+
+msgid "Unable to open cue sheet \"%s\"."
+msgstr "無法開啟 cue sheet \"%s\"。"
+
+msgid "Unable to open MDS file \"%s\"."
+msgstr "無法開啟 MDS 檔 \"%s\"。"
+
+msgid "Unable to load CD-ROM image \"%s\"."
+msgstr "無法載入光碟映像 \"%s\"。"
+
+msgid "Unable to load image \"%s\": %1 is missing, which is required for Daemon Tools MDS v2 and MDX image support."
+msgstr "無法載入映像 \"%s\": 缺少 %1 ，此為支援 Daemon Tools MDS v2 及 MDX "
+"映像格式所必需。"
+
+msgid "Unable to load image \"%s\": %1 is missing, which is required for Aaru format image support."
+msgstr "無法載入映像 \"%s\": 缺少 %1，此為支援 Aaru 映像格式所必需。"
+
+msgid "The DVD image \"%s\" has been inserted into a drive that does not support DVD media and will be ignored."
+msgstr "DVD 映像 \"%s\" 被置入不支援 DVD 之光碟機，將被忽略。"
+
+msgid "%s: Could not connect to %s: %s"
+msgstr "%s: 無法連接到 %s: %s"
+
+msgid "%s: Could not create %s: %s"
+msgstr "%s: 無法創建 %s: %s"
+
+msgid "%s: Attached to %s"
+msgstr "%s: 附加到 %s"
+
+msgid "%s: Virtual console already in use by %s"
+msgstr "%s: 虛擬控制台已被 %s 使用中"
+
+msgid "%s: Could not create terminal: %s"
+msgstr "%s: 無法創建終端機: %s"
+
+msgid "Auto-detect"
+msgstr "自動偵測"
+
+msgid "Channel"
+msgstr "聲道"
+
+msgid "Both Channels"
+msgstr "雙聲道"
+
+msgid "Left Channel"
+msgstr "左聲道"
+
+msgid "Right Channel"
+msgstr "右聲道"
+
+msgid "Allow Flash BIOS Updates"
+msgstr "允許更新 BIOS 快閃記憶體"
+
+msgid "Slot #"
+msgstr "插槽 #"
+
+msgid "Parallel Port"
+msgstr "並列埠"
+
+msgid "Paper Size"
+msgstr "紙張大小"
+
+msgid "Letter"
+msgstr "Letter"
+
+msgid "Legal (sideways)"
+msgstr "Legal (橫向)"
+
+msgid "B4 (sideways)"
+msgstr "B4 (橫向)"
+
+msgid "Quality"
+msgstr "品質"
+
+msgid "Draft"
+msgstr "草稿"
+
+msgid "(Near) Letter"
+msgstr "近信件品質 (NLQ)"
+
+msgid "Auto LF"
+msgstr "自動送行"
+
+msgid "Tandy PSSJ Clone"
+msgstr "Tandy PSSJ 相容品"
+
+msgid "PC-CM (Color)"
+msgstr "PC-CM (彩色)"
+
+msgid "PC-MM (Monochrome)"
+msgstr "PC-MM (單色)"
+
+msgid "White Monochrome"
+msgstr "白色單色"
+
+msgid "Hardware font"
+msgstr "硬體字型"
+
+msgid "Diagnostic mode"
+msgstr "診斷模式"
+
+msgid "CGA monitor"
+msgstr "CGA 監視器"
+
+msgid "MDA monitor"
+msgstr "MDA 監視器"
+
+msgid "Television"
+msgstr "電視"
+
+msgid "Invert LCD colors"
+msgstr "反轉液晶顯示色彩"
+
+msgid "LCD (CGA mode)"
+msgstr "液晶顯示 (CGA 模式)"
+
+msgid "LCD (MDA mode)"
+msgstr "液晶顯示 (MDA 模式)"
+
+msgid "Disabled (250h)"
+msgstr "停用 (250h)"
+
+msgid "Enabled (350h)"
+msgstr "啟用 (350h)"
+
+msgid "Test mode"
+msgstr "測試模式"
+
+msgid "32 MB"
+msgstr "32 MB"
+
+msgid "64 MB"
+msgstr "64 MB"
+
+msgid "2048 MB"
+msgstr "2048 MB"
+
+msgid "Refresh rate"
+msgstr "更新頻率"
+
+msgid "US (CP 437)"
+msgstr "US (CP 437)"
+
+msgid "IBM Nordic (CP 437-Nordic)"
+msgstr "IBM Nordic (CP 437-Nordic)"
+
+msgid "Czech Kamenicky (CP 895) #1"
+msgstr "Czech Kamenicky (CP 895) #1"
+
+msgid "Czech Kamenicky (CP 895) #2"
+msgstr "Czech Kamenicky (CP 895) #2"
+
+msgid "932 (Japanese)"
+msgstr "932 (日文)"
+
+msgid "938 (Traditional Chinese)"
+msgstr "938 (正體中文)"
+
+msgid "Sample rate:"
+msgstr "取樣率:"
+
+msgid "Enable audio input (mic/line-in)"
+msgstr "啟用音訊輸入 (麥克風/線輸入)"
+
+msgid "Audio input device:"
+msgstr "音訊輸入裝置:"
+
+msgid "Audio input sample rate:"
+msgstr "音訊輸入取樣率:"
+
+msgid "Rate the emulator mixes to the host output device."
+msgstr "模擬器混音至主機輸出裝置之取樣率。"
+
+msgid "Rate the host input capture device is opened at.\n\n44100 divides evenly by SB16/AWE32 rates of 44.1/22/11 kHz."
+msgstr ""
+"主機音訊擷取裝置之取樣率。\n"
+"\n"
+"44100 可被 SB16/AWE32 的取樣率 44.1/22/11 kHz 整除。"
+
+msgid "CGA lightpen"
+msgstr "CGA光筆"
+
+msgid "Luminance threshold (%)"
+msgstr "亮度閾值 (%)"
+
+msgid "VFIO: Could not open /dev/vfio/vfio: %s. Make sure the vfio-pci module is loaded."
+msgstr "VFIO: 無法開啟 /dev/vfio/vfio: %s。請確認 vfio-pci 模組已載入。"
+
+msgid "VFIO %s: Invalid device location."
+msgstr "VFIO %s: 無效的裝置位置。"
+
+msgid "VFIO %s: Device not found."
+msgstr "VFIO %s: 未發現裝置。"
+
+msgid "VFIO %s: Device has no IOMMU group. Make sure VT-d or IOMMU is enabled on your system."
+msgstr "VFIO %s: 裝置無 IOMMU 群組。請確認系統 VT-d 或 IOMMU 已啟用。"
+
+msgid "VFIO %s: Device is not bound to vfio-pci."
+msgstr "VFIO %s: 裝置未繫結至 vfio-pci。"
+
+msgid "VFIO %s: Could not open IOMMU group %d: %s"
+msgstr "VFIO %s: 無法開啟 IOMMU 群組 %d: %s"
+
+msgid "VFIO %s: IOMMU group %d is not viable. All devices in the group must be bound to vfio-pci."
+msgstr "VFIO %s: IOMMU 群組 %d 不可行。群組中所有裝置都必需繫結至 vfio-pci。"
+
+msgid "VFIO: Could not map guest memory for DMA: %s. The locked memory limit (ulimit -l) may be too low."
+msgstr "VFIO: 無法映射記憶體予 DMA: %s，鎖定的記憶體限制 (ulimit -l) 或許太低。"
+
+msgid "VFIO %s: Could not read ROM file \"%s\"; using the device's own ROM."
+msgstr "VFIO %s: 無法讀取 ROM 檔 \"%s\"；使用裝置自有的 ROM。"
+
+msgid "VFIO %s: Could not read ROM file \"%s\"; the ROM is disabled."
+msgstr "VFIO %s: 無法讀取 ROM 檔 \"%s\"；該 ROM 已被停用。"
+
+msgid "VFIO %s: The ROM looks invalid. A custom ROM can be loaded through the VFIO settings."
+msgstr "VFIO %s: ROM 似乎不可用。可於 VFIO 設定中載入指定 ROM。"
+
+msgid "VFIO: These devices must be bound to vfio-pci, which requires administrator rights:\n\n%s\nBind them now?"
+msgstr ""
+"VFIO: 這些裝置必須繫結至 vfio-pci，這要求管理員權限:\n"
+"\n"
+"％s\n"
+"現在進行繫結？"
+
+msgid "VFIO: Administrator rights are required to give 86Box access to the passed-through devices. Continue?"
+msgstr "VFIO: 要求管理員權限以使 86Box 能取存透通裝置。繼續？"
+
+msgid "These devices were not selected, but share an IOMMU group with a selected device, so they will be bound as well:"
+msgstr "這些裝置未被選用，但與被選用裝置共用 IOMMU 群組，所以亦將被繫結:"
+
+msgid "VFIO %s: IOMMU group %d also contains %s, which the host needs. The group will not be bound to vfio-pci."
+msgstr "VFIO %s: IOMMU 群組 %d 中也包含 %s，此為主機所需。該群組將不被繫結至 vfio-"
+"pci。"
+
+msgid "VFIO: Could not prepare the devices for passthrough:\n%s"
+msgstr ""
+"VFIO: 無法為裝置設置透通;\n"
+"%s"
+
+msgid "VFIO: Administrator rights could not be requested. To prepare the devices for passthrough, run this command, then hard reset:\n\n%s"
+msgstr ""
+"VFIO: 無法取得管理員權限。為裝置設置透通，請執行下列指令，並重新啟動主機:\n"
+"\n"
+"%s"
+
+msgid "Prepare PCI devices for VFIO passthrough"
+msgstr "為 PCI 裝置設置 VFIO 透通"
+
+msgid "Authentication is required to prepare PCI devices for passthrough to 86Box."
+msgstr "要求授權以設置 PCI 裝置透通予 86Box。"
+
+msgid "Disabled"
+msgstr "停用"
+
+msgid "Unlimited capacity"
+msgstr "容量無限制"
+
+msgid "CD speed:"
+msgstr "CD 速度:"
+
+msgid "DVD speed:"
+msgstr "DVD 速度:"
+
+msgid "HD/BD speed:"
+msgstr "HD/BD 速度:"
+
+msgid "Software-initiated poweroff device (IBM 5140)"
+msgstr "軟體觸發關機裝置 (IBM 5140)"
+
+msgid "Memory &viewer"
+msgstr "記憶體檢視器(&V)"
+
+msgid "The emulator is busy; the memory view was not updated."
+msgstr "模擬器忙碌中；記憶體檢視無法更新。"
+
+msgid "The match is not on mapped memory; the selection and the view did not move."
+msgstr "匹配非位於映射記憶體；選取及檢視不移動。"
+
+msgid "Only RAM and video memory can be written."
+msgstr "僅主記憶體及顯示記憶體可被寫入。"
+
+msgid "not written (not writable RAM or video memory, or the emulator is busy)."
+msgstr "未寫入 (非可寫入之主記憶體或顯示記憶體，或模擬器忙碌中)。"
+
+msgid "The emulator is busy; try again."
+msgstr "模擬器忙碌中，請再試一次。"
+
+msgid "Copied %1 bytes from %2 to the clipboard"
+msgstr "從 %2 拷貝 %1 位元組至剪貼簿"
+
+msgid " (%1 could not be read)"
+msgstr " (無法讀取 %1)"
+
+msgid " of a %1 byte selection"
+msgstr " 的 %1 位元組選取"
+
+msgid "There is no mapped memory to search."
+msgstr "無映射記憶體可搜尋。"
+
+msgid "There is no mapped memory in the requested range."
+msgstr "要求範圍內無映射記憶體。"
+
+msgid "The search is limited to %1 bytes."
+msgstr "限制於 %1 位元組中搜尋。"
+
+msgid "Searching memory..."
+msgstr "搜尋記憶體…"
+
+msgid "The search was cancelled. The selection did not move."
+msgstr "取消搜尋。不移動選取。"
+
+msgid "Found at %1."
+msgstr "在 %1 找到。"
+
+msgid "Not found. The selection did not move."
+msgstr "未找到。不移動選取。"
+
+msgid "Fill selection"
+msgstr "填入選取"
+
+msgid "Fill %1 bytes from %2 with (hex):"
+msgstr "以值從 %2 填入 %1 位元組 (16 進制):"
+
+msgid "Enter a hex byte from 00 to FF."
+msgstr "輸入從 00 到 FF 的 16 進位位元組。"
+
+msgid "Filled %1 of %2 bytes with %3 (%4 were not writable RAM or video memory)."
+msgstr "以 %3 填入 %2 位元組的 %1 (%4 為不可寫入之主記憶體或顯示記憶體)。"
+
+msgid " Selected: %1 bytes (%2 were skipped)."
+msgstr " 已選取: %1 位元組 (%2 被略過)。"
+
+msgid "Edit byte"
+msgstr "編輯位元組"
+
+msgid "Copy selection (hex)"
+msgstr "拷貝選取 (hex)"
+
+msgid "Copy selection (ASCII)"
+msgstr "拷貝選取 (ASCII)"
+
+msgid "Fill selection..."
+msgstr "填入選取…"
+
+msgid "Copy address"
+msgstr "拷貝位址"
+
+msgid "Disassemble here"
+msgstr "反組譯此處"
+
+msgid "Dump memory from here..."
+msgstr "從此處傾印記憶體…"
+
+msgid "Memory viewer"
+msgstr "記憶體檢視器"
+
+msgid "Pause / Resume"
+msgstr "暫停 / 恢復"
+
+msgid "Step"
+msgstr "單步"
+
+msgid "Run the given number of instructions (F11)"
+msgstr "執行給定數量指令 (F11)"
+
+msgid "Instructions per step"
+msgstr "單步執行之指令數量"
+
+msgid "Physical"
+msgstr "實體的"
+
+msgid "Address, register or seg:off"
+msgstr "位址，暫存器或區段:偏移 (SEG:OFF)"
+
+msgid "Go"
+msgstr "執行"
+
+msgid "Live update"
+msgstr "實時更新"
+
+msgid "Dump..."
+msgstr "傾印…"
+
+msgid "Commands"
+msgstr "命令"
+
+msgid "Show or hide debugger commands (Ctrl+D)"
+msgstr "顯示或隱藏除錯器命令 (Ctrl+D)"
+
+msgid "Hex bytes"
+msgstr "16 進制位元組"
+
+msgid "ASCII text"
+msgstr "ASCII 文字"
+
+msgid "Value, byte"
+msgstr "值，位元組"
+
+msgid "Value, word"
+msgstr "值，字元組"
+
+msgid "Value, dword"
+msgstr "值，雙字元組"
+
+msgid "What to look for: raw hex bytes, text, or a hex value stored little-endian, as in the hex view."
+msgstr "查找何者：16 進制位元組、文字、或小端序 16 進制值 (與 16 進制檢視相同)。"
+
+msgid "Memory search"
+msgstr "記憶體搜尋"
+
+msgid "Ctrl+F focuses this box; Enter or F3 finds the next match, Shift+F3 the previous."
+msgstr "Ctrl+F 移焦至此輸入框；Enter 或 F3 找尋下一個匹配，Shift+F3 找上一個。"
+
+msgid "Find previous"
+msgstr "找尋上一個"
+
+msgid "Search upwards from the selection (Shift+F3)"
+msgstr "在選取中往回搜尋 (Shift+F3)"
+
+msgid "Find next"
+msgstr "找尋下一個"
+
+msgid "Search downwards from the selection (F3)"
+msgstr "在選取中往後搜尋 (F3)"
+
+msgid "Range..."
+msgstr "範圍…"
+
+msgid "Search within an address range instead of all memory"
+msgstr "在位址範圍內搜尋而非所有記憶體"
+
+msgid "From"
+msgstr "從"
+
+msgid "Where the search starts (hex, register or seg:off; empty means the first mapped byte; . means the selection start)."
+msgstr "搜尋起點 (16進制，暫存器或區段:偏移；留空表示第一個映射位元組；. "
+"表示選取起點)。"
+
+msgid "To (inclusive)"
+msgstr "至 (包含)"
+
+msgid "Where the search ends, that address included (hex, register or seg:off; empty means the last mapped byte; . means the selection end)."
+msgstr "搜尋終點，包含指定位址 (16進制，暫存器或區段:偏移；留空表示第一個映射位元組；"
+". 表示選取起點)。"
+
+msgid "Range from"
+msgstr "範圍從"
+
+msgid "to"
+msgstr "至"
+
+msgid "RAM"
+msgstr "主記憶體"
+
+msgid "Mapped, not RAM"
+msgstr "映射，非主記憶體"
+
+msgid "Unmapped"
+msgstr "未映射"
+
+msgid "Inaccessible"
+msgstr "不可存取"
+
+msgid "Inaccessible: only device handlers answer there (reading would have side effects), or the linear page is not present."
+msgstr "不可存取：只有裝置處理程序回應 (讀取將有副作用)，或線性分頁不存在。"
+
+msgid "Linear address, register or seg:off"
+msgstr "線性位址，暫存器或區段:偏移"
+
+msgid "Follow CS:IP"
+msgstr "跟隨 CS:IP"
+
+msgid "Bytes"
+msgstr "位元組"
+
+msgid "Instruction"
+msgstr "指令"
+
+msgid "Note"
+msgstr "註記"
+
+msgid "Double-click a line to set or clear a breakpoint there"
+msgstr "雙擊一行以在該處設置或清除中斷點"
+
+msgid "Disassembly"
+msgstr "反組譯"
+
+msgid "Disassembly (not available in this build)"
+msgstr "反組譯 (在本建置中不可用)"
+
+msgid "Viewer message"
+msgstr "檢視器訊息"
+
+msgid "Selected range"
+msgstr "選取範圍"
+
+msgid "Debugger commands"
+msgstr "除錯器命令"
+
+msgid "Debugger command output"
+msgstr "除錯器命令輸出"
+
+msgid "Debugger command"
+msgstr "除錯器命令"
+
+msgid "help — commands; Up/Down — history; . — selected address"
+msgstr "help — 命令列表；Up/Down — 歷史記錄；. — 選取位址"
+
+msgid "Commands share the memory viewer's address space and selection. Type help for commands."
+msgstr "除錯器命令與記憶體檢視器共用位址空間及選取。輸入 help 以顯示命令列表。"
+
+msgid "Let the processor run (F5)"
+msgstr "讓處理器跑 (F5)"
+
+msgid "Stop the processor at the next instruction (F5)"
+msgstr "在下個指令停止處理器 (F5)"
+
+msgid "Too many breakpoints."
+msgstr "過多中斷點。"
+
+msgid "Stopped: %1"
+msgstr "停止: %1"
+
+msgid "The emulator is busy; the view was not updated."
+msgstr "模擬器忙碌中；檢視未更新。"
+
+msgid "Stopped at a breakpoint."
+msgstr "在中斷點停止。"
+
+msgid "Stopped after stepping."
+msgstr "單步執行後停止。"
+
+msgid "Stopped."
+msgstr "停止。"
+
+msgid "Stepping..."
+msgstr "單步執行…"
+
+msgid "Running."
+msgstr "執行中。"
+
+msgid "The emulator is paused; resume it to run or step."
+msgstr "模擬器暫停中；恢復以繼續執行或單步執行。"
+
+msgid "The dynamic recompiler is off while this window is open."
+msgstr "當此視窗開啟時動態重編譯將停止。"
+
+msgid "Enter an address."
+msgstr "輸入位址。"
+
+msgid "The selector cannot be looked up."
+msgstr "選擇器無法被查找。"
+
+msgid "Unknown segment \"%1\"."
+msgstr "未知區段 \"%1\"。"
+
+msgid "Unknown offset \"%1\"."
+msgstr "未知位移 \"%1\"。"
+
+msgid "The linear address is not mapped to physical memory."
+msgstr "線性位址未被映射到實體記憶體。"
+
+msgid "\"%1\" is not an address or a register."
+msgstr "\"%1\" 不是位址或暫存器。"
+
+msgid "Usage: %1"
+msgstr "用法: %1"
+
+msgid "The selection is physical; use a linear address or switch to linear space."
+msgstr "選取為實體記憶位址；請使用線性位址或切換至線性空間。"
+
+msgid "r name [hex-value]: read or edit a register supported by the current processor.\nEAX ECX EDX EBX ESP EBP ESI EDI; AX CX DX BX SP BP SI DI; AL CL DL BL AH CH DH BH\nIP EIP FLAGS EFLAGS; CS SS DS ES FS GS; MSW CR0 CR2 CR3 CR4; DR0..DR7\nGDTR.base GDTR.limit IDTR.base IDTR.limit LDTR TR\nCS/SS/DS/ES/FS/GS/LDTR/TR: .base .limit .access .flags (hidden descriptor cache)\nSelectors load descriptors without executing guest instructions; cache fields are literal edits.\nWrites require pause at a complete instruction boundary. NEC 8080-mode register edits are unavailable."
+msgstr ""
+"r name [hex-value]: 讀取或編輯現處理器支援的存器。\n"
+"EAX ECX EDX EBX ESP EBP ESI EDI; AX CX DX BX SP BP SI DI; AL CL DL BL AH CH "
+"DH BH\n"
+"IP EIP FLAGS EFLAGS; CS SS DS ES FS GS; MSW CR0 CR2 CR3 CR4; DR0..DR7\n"
+"GDTR.base GDTR.limit IDRT.base IDTR.limit LDTR TR\n"
+"CS/SS/DS/ES/FS/GS/LDTR/TR: .base .limit .access .flags (隱藏的描述子快取欄位)"
+"\n"
+"區段選擇器載入描述子時不執行客指令；快取欄位為逐字編輯。\n"
+"寫入操作要求暫停於完整指令邊界時。未提供 NEC 8080 模態暫存器編輯。"
+
+msgid "Numbers are hexadecimal; step counts are decimal. Addresses accept registers and seg:off.\n. means the hex selection; omitted memory addresses use it.\nhelp | clear | refresh | regs\nrun | pause | step [count]\nspace physical|linear | goto address | db [address [length]] (max 1000 hex bytes)\nwrite address byte [byte ...] | dump (opens selection export)\ndbio [address [length]] | writeio address byte [byte ...] (device side effects; requires pause)\nu address (linear disassembly) | follow on|off\nbp address | bc address|all | bl (linear breakpoints)\nr [register [value]] (read/set; values are hex); help registers lists names\npeek port [b|w|d] | poke port value [b|w|d]\nRegister/memory writes and I/O require pause. I/O invokes device handlers, including read side effects."
+msgstr ""
+"數字為十六進制；單步計數為十進制。位址輸入亦可接受暫存器及區段:位移定址。\n"
+". 表示16進制選取；省略記憶位址時使用。\n"
+"help | clear | refresh | regs\n"
+"run | pause | step [count]\n"
+"space physical|linear | goto address | db [address [length]] (最大 1000 (16 "
+"進制) 位元組)\n"
+"write address byte [byte ...] | dump (opens selection export)\n"
+"dbio [address [length]] | writeio address byte [byte ...] "
+"(裝置副作用；要求暫停)\n"
+"u address (線性反組譯) | follow on|off\n"
+"bp address | bc address|all | bl (線性中斷點)\n"
+"r [register [value]] (讀取/設定；數值為 16 進位); help registers "
+"表列暫存器名稱\n"
+"peek port [b|w|d] | poke port value [b|w|d]\n"
+"暫存器/記憶體寫入及 I/O 要求暫停。I/O 觸發裝置操作，包括讀取的副作用。"
+
+msgid "Register unavailable, value invalid, or processor not paused at a complete instruction boundary."
+msgstr "暫存器不可用，數值不可用，或處理器未暫停於完整指令邊界。"
+
+msgid "Pause the processor before side-effecting memory access."
+msgstr "在記憶體存取副作用前暫停處理器。"
+
+msgid "Write exceeds 4096 bytes or wraps the address space."
+msgstr "寫入多於 4096 位元組或位址空間回捲。"
+
+msgid "Pause the processor before writing memory."
+msgstr "寫入記憶體前暫停處理器。"
+
+msgid "Issued %1 of %2 byte writes; devices may ignore writes. Untranslated addresses are skipped."
+msgstr "%2 位元組中 %1 寫入已發送；裝置可能忽略寫入。未轉換的位址已略過。"
+
+msgid "Wrote %1 of %2 bytes; read-only or inaccessible bytes are skipped."
+msgstr "%2 位元組中 %1 已寫入；唯讀或不可存取的位元組被略過。"
+
+msgid "Disassembly is not available in this build."
+msgstr "反組譯在此建置中不可用。"
+
+msgid "Breakpoint %1 at %2."
+msgstr "中斷點 %1 在 %2。"
+
+msgid "set"
+msgstr "設置"
+
+msgid "cleared"
+msgstr "已清除"
+
+msgid "%1 breakpoint(s), linear addresses:"
+msgstr "%1 中斷點，線性位址:"
+
+msgid "Pause the processor before accessing I/O ports."
+msgstr "存取 I/O 埠前暫停處理器。"
+
+msgid "Unknown command or invalid arguments. Type help for syntax."
+msgstr "未知的命令或不可用的參數。輸入 help 以取得語法。"
+
+msgid "Dump memory"
+msgstr "傾印記憶體"
+
+msgid "Browse..."
+msgstr "瀏覽…"
+
+msgid "Start (hex, register or seg:off):"
+msgstr "起始 (16 進制，暫存器或區段:偏移):"
+
+msgid "Length (hex bytes):"
+msgstr "長度 (16 進制位元組):"
+
+msgid "Address space:"
+msgstr "位址空間:"
+
+msgid "Fill byte for memory that cannot be read:"
+msgstr "不可讀取的記憶體以位元組填入:"
+
+msgid "File:"
+msgstr "檔案:"
+
+msgid "Only RAM and other directly mapped memory is read. Unmapped and inaccessible bytes are not read; the fill byte is written in their place."
+msgstr "僅主記憶體及其他直接映射記憶體被讀取。未映射及不可存取之位元組未被讀取；在其"
+"位置以充填位元組顯示。"
+
+msgid "Binary files (*.bin);;All files (*)"
+msgstr "二進位檔 (*.bin)；全部檔案 (*)"
+
+msgid "The length must be a hex number above 0."
+msgstr "長度必須為非 0 之 16 進制數。"
+
+msgid "The fill byte must be a hex number from 00 to FF."
+msgstr "充填位元組必須為從 00 到 FF 的 16 進制數值。"
+
+msgid "Could not open %1 for writing."
+msgstr "無法開啟 %1 以寫入。"
+
+msgid "Dumping memory..."
+msgstr "記憶體傾印中…"
+
+msgid "Could not write to %1."
+msgstr "無法寫入至 %1。"
+
+msgid "Dumped %1 bytes from %2 to %3 (%4 bytes could not be read and were filled)."
+msgstr "從 %2 傾印 %1 位元組至 %3 (%4 位元組無法讀取並使用充填位元組替代)。"
+
+msgid "Enter hex bytes in pairs, e.g. \"8B 44 24 08\"."
+msgstr "輸入成對 16 進制位元組，例如 \"8B 44 24 08\"。"
+
+msgid "\"%1\" is not made of hex bytes."
+msgstr "\"%1\" 不是由 16 進制位元組組成。"
+
+msgid "Enter a hex value from 0 to %1."
+msgstr "輸入從 0 到 %1 間之 16 進制數值。"
+
+msgid "The value is too large for %1 bytes."
+msgstr "數值大過於 %1 位元組上限。"
+
+msgid "Enter something to search for."
+msgstr "輸入點什麼東西來搜尋。"
+
+msgid "The range ends before it starts."
+msgstr "範圍結束點在起始點之前。"
+
+msgid "Serial Plug and Play"
+msgstr "序列隨插即用"
+
+msgid "Standard 9600 bps modem (PNPC100)"
+msgstr "標準 9600 bps 數據機 (PNPC100)"
+
+msgid "Standard 14400 bps modem (PNPC101)"
+msgstr "標準 14400 bps 數據機 (PNPC101)"
+
+msgid "Standard 28800 bps modem (PNPC102)"
+msgstr "標準 28800 bps 數據機 (PNPC102)"
+
+msgid "Standard modem (PNPC103)"
+msgstr "標準數據機 (PNPC103)"
+
+msgid "Enhanced 9600 bps modem (PNPC104)"
+msgstr "增強型 9600 bps 數據機 (PNPC104)"
+
+msgid "Enhanced 14400 bps modem (PNPC105)"
+msgstr "增強型 14400 bps 數據機 (PNPC105)"
+
+msgid "Enhanced 28800 bps modem (PNPC106)"
+msgstr "增強型 28800 bps 數據機 (PNPC106)"
+
+msgid "Enhanced modem (PNPC107)"
+msgstr "增強型數據機 (PNPC107)"
+
+msgid "Telephone Tone Region"
+msgstr "電話音調區域"
+
+msgid "North America"
+msgstr "北美洲"
+
+msgid "United Kingdom"
+msgstr "英國"
+
+msgid "Continental Europe"
+msgstr "歐陸"
+
+msgid "Japan"
+msgstr "日本"
+
+msgid "Handshake Modem Standard"
+msgstr "數據機握手標準"
+
+msgid "Automatic (from DTE speed)"
+msgstr "自動 (由 DTE 速率)"
+
+msgid "Connection Type"
+msgstr "連接型式"
+
+msgid "Username"
+msgstr "使用者名稱"
+
+msgid "Password"
+msgstr "密碼"
+
+msgid "PPP Compression and Encryption"
+msgstr "PPP 壓縮及加密"
+
+msgid "Automatic"
+msgstr "自動"
+
+msgid "Require MPPE"
+msgstr "要求 MPPE"
+
+msgid "PPP Multilink Group (same on each link)"
+msgstr "PPP 多重連接群組 (各別連接均相同)"
+
+msgid "PPP Primary DNS Server"
+msgstr "PPP 主要 DNS 伺服器"
+
+msgid "PPP Secondary DNS Server"
+msgstr "PPP 次要 DNS 伺服器"
+
+msgid "CCP Directional Negotiation"
+msgstr "CCP 定向協商"
+
+msgid "Bidirectional"
+msgstr "雙向"
+
+msgid "Transmit-Only"
+msgstr "只發送"
+
+msgid "Receive-Only"
+msgstr "只接收"
+
+msgid "Asymmetric Preferred"
+msgstr "非對稱優先"
+
+msgid "PPP Callback (Microsoft CBCP)"
+msgstr "PPP 回撥 (微軟 CBCP)"
+
+msgid "Offered (caller may decline)"
+msgstr "已提供 (呼叫端可拒絕)"
+
+msgid "Required (caller must accept)"
+msgstr "強制要求 (呼叫端必需接受)"
+
+msgid "PPP Keepalive Interval (seconds, 0 = off)"
+msgstr "PPP 存活檢測間隔 (秒，0 = 關閉)"
+
+msgid "Report received DTMF to the host (<DLE>digit)"
+msgstr "向主機報告接收到的 DTMF (<DLE>digit)"
+
+msgid "Off (only with +VDR=1)"
+msgstr "關閉 (僅與 +VDR=1)"
+
+msgid "Caller ID between emulator instances (enable on both)"
+msgstr "模擬器實例間呼叫者識別 (雙方皆啟用)"
+
+msgid "Caller ID sent when dialling (number,name)"
+msgstr "撥號時傳送呼叫者識別 (門號，名稱)"
+
+msgid "Network to guest queue limit (back-pressure)"
+msgstr "網路至客戶端佇列限制 (回壓機制)"
+
+msgid "Unlimited (legacy)"
+msgstr "無限制 (舊式)"
+
+msgid "250 ms of line time"
+msgstr "250 微秒傳輸時間"
+
+msgid "500 ms of line time"
+msgstr "500 微秒傳輸時間"
+
+msgid "1 s of line time"
+msgstr "1 秒傳輸時間"
+
+msgid "2 s of line time"
+msgstr "2 秒傳輸時間"
+
+msgid "TCP send timeout"
+msgstr "TCP 傳送逾時"
+
+msgid "Card:"
+msgstr "界面卡:"
+
+msgid "Hub:"
+msgstr "集線器:"
+
+msgid "Mass storage:"
+msgstr "大容量儲存裝置:"
+
+msgid "Its drives are hard disks, CD-ROM drives and other removable devices set up on their own pages, on bus SCSI, in the channels named \"USB Mass Storage\". Each drive is one logical unit, in channel order."
+msgstr ""
+"磁碟機包含硬碟機、光碟機以及其他抽取式裝置，各自於 SCSI "
+"匯流排有其專屬設置頁面中名為 \"USB大容量儲存裝置\" "
+"通道內。每個磁碟機為一個邏輯單元並按照通道順序排列。"
+
+msgid "Hard disks…"
+msgstr "硬碟…"
+
+msgid "CD-ROM drives…"
+msgstr "光碟機…"
+
+msgid "Other removable devices…"
+msgstr "其他抽取式裝罝…"
+
+msgid "4-port USB 1.1 hub"
+msgstr "四埠 USB 1.1 集線器"
+
+msgid "USB Mass Storage"
+msgstr "USB 大容量儲存裝置"
+
+msgid "Mount folder as a temporary floppy"
+msgstr "將資料夾載掛成臨時軟碟機"
+
+msgid "The selected drive does not support folder mounting."
+msgstr "選取的磁碟機不支援資料夾載掛。"
+
+msgid "The contents exceed the capacity of the configured floppy drive."
+msgstr "內容超出軟碟機組態的容量。"
+
+msgid "The floppy is out of directory entries or space, or a filename cannot be represented on FAT12."
+msgstr "軟碟空間或目錄項不足，或檔案名稱無法於 FAT12 呈現。"
+
+msgid "The source contains a filename that cannot be represented on FAT12."
+msgstr "來源包含一個無法以 FAT12 呈現之檔案名稱。"
+
+msgid "There is not enough memory to create the floppy image."
+msgstr "記憶體不足，無法創建軟碟映像。"
+
+msgid "The source path is too long or its contents could not be read."
+msgstr "來源路徑過長或內容無法讀取。"
+
+msgid "Unable to mount folder or ZIP archive"
+msgstr "無法載掛資料夾或 ZIP 壓縮檔"

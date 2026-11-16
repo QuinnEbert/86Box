@@ -4,14 +4,6 @@ on:
   workflow_dispatch:
   push:
   pull_request:
-    paths:
-      - src/**
-      - cmake/**
-      - "**/CMakeLists.txt"
-      - CMakePresets.json
-      - .github/workflows/build_release.yml
-      - vcpkg.json
-      - "!**/Makefile*"
 
 permissions:
   contents: write
@@ -23,285 +15,134 @@ concurrency:
 
 jobs:
   linux:
-    name: "Linux ${{ matrix.environment.arch }}, ${{ matrix.ui.name }}, ${{ matrix.build.name }}, ${{ matrix.dynarec.name }}"
+    name: Linux ${{ matrix.environment.arch }}, ${{ matrix.ui.name }}, ${{ matrix.build.name }}
     runs-on: ${{ matrix.environment.runner }}
-
     strategy:
       fail-fast: false
       matrix:
         build:
-          - name: Debug
-            preset: dev_debug
-            slug: -Debug
-          - name: Dev
-            preset: development
-            slug: -Dev
-        dynarec:
-          - name: ODR
-            new: off
-            slug: -ODR
-          - name: NDR
-            new: on
-            slug: -NDR
+          - {name: Debug, preset: dev_debug, slug: -Debug}
+          - {name: Dev, preset: development, slug: -Dev}
         ui:
-          - name: SDL GUI
-            qt: off
-            slug: ""
-            packages: ""
-          - name: Qt GUI
-            qt: on
-            slug: -Qt
-            packages: >-
-              qtbase5-dev
-              qtbase5-private-dev
-              qttools5-dev
-              qttranslations5-l10n
-              libevdev-dev
-              libxkbcommon-x11-dev
+          - {name: SDL, qt: 'OFF', slug: -SDL}
+          - {name: Qt, qt: 'ON', slug: -Qt}
         environment:
-          - arch: x86_64
-            toolchain: ./cmake/flags-gcc-x86_64.cmake
-            slug: -x86_64
-            runner: ubuntu-22.04
-          - arch: arm64
-            toolchain: ./cmake/flags-gcc-aarch64.cmake
-            slug: -arm64
-            runner: ubuntu-22.04-arm
-        exclude:
-          - dynarec:
-              new: off
-            environment:
-              arch: arm64
-
+          - {arch: x86_64, runner: ubuntu-24.04}
+          - {arch: arm64, runner: ubuntu-24.04-arm}
     steps:
-      - name: Install dependencies
-        run: >-
-          sudo apt update && sudo apt install -y
-          build-essential
-          ninja-build
-          libfreetype-dev
-          libsdl2-dev
-          libpng-dev
-          libc6-dev
-          librtmidi-dev
-          libopenal-dev
-          libslirp-dev
-          libfluidsynth-dev
-          libvdeplug-dev
-          libserialport-dev
-          ${{ matrix.ui.packages }}
-
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
+      - name: Install dependencies
+        run: >-
+          sudo apt-get update && sudo apt-get install -y
+          build-essential ninja-build pkg-config libfreetype-dev libsdl2-dev
+          libpng-dev librtmidi-dev libopenal-dev libslirp-dev libfluidsynth-dev
+          libvdeplug-dev libserialport-dev libvncserver-dev libzstd-dev
+          qt6-base-dev qt6-base-private-dev qt6-tools-dev qt6-tools-dev-tools
+          qt6-l10n-tools libevdev-dev libxkbcommon-x11-dev libvulkan-dev
       - name: Configure CMake
         run: >-
           cmake -S . -B build --preset ${{ matrix.build.preset }}
-          --toolchain ${{ matrix.environment.toolchain }}
-          -D NEW_DYNAREC=${{ matrix.dynarec.new }}
-          -D QT=${{ matrix.ui.qt }}
-
+          -D QT=${{ matrix.ui.qt }} -D USE_QT6=ON -D SDL2=ON -D VNC=ON
       - name: Build
-        run: cmake --build build
-
+        run: cmake --build build --parallel 4
       - name: Generate package
         run: cmake --install build
-
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: 86Box${{ matrix.ui.slug }}${{ matrix.dynarec.slug }}${{ matrix.build.slug }}-UbuntuJammy${{ matrix.environment.slug }}-gha${{ github.run_number }}
+          name: 86Box${{ matrix.ui.slug }}${{ matrix.build.slug }}-Linux-${{ matrix.environment.arch }}
           path: build/artifacts/**
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   macos:
-    name: "macOS arm64, ${{ matrix.ui.name }}, ${{ matrix.build.name }}, NDR"
-    runs-on: macos-15
-
+    name: macOS arm64, ${{ matrix.ui.name }}, ${{ matrix.build.name }}
+    runs-on: macos-26
     strategy:
       fail-fast: false
       matrix:
         build:
-          - name: Debug
-            preset: dev_debug
-            slug: -Debug
-          - name: Dev
-            preset: development
-            slug: -Dev
+          - {name: Debug, preset: dev_debug, slug: -Debug}
+          - {name: Dev, preset: development, slug: -Dev}
         ui:
-          - name: SDL GUI
-            qt: off
-            slug: ""
-            packages: ""
-          - name: Qt GUI
-            qt: on
-            slug: -Qt
-            packages: qt@5
-
+          - {name: SDL, qt: 'OFF', slug: -SDL}
+          - {name: Qt, qt: 'ON', slug: -Qt}
     steps:
-      - name: Install dependencies
-        run: >-
-          brew install
-          sdl2
-          rtmidi
-          openal-soft
-          fluidsynth
-          libslirp
-          vde
-          libserialport
-          ${{ matrix.ui.packages }}
-
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
+      - name: Install dependencies
+        run: >-
+          brew install sdl3 rtmidi openal-soft fluidsynth libslirp vde libserialport
+          libvncserver vulkan-headers zstd qtbase qttools qtimageformats
       - name: Configure CMake
-        run: |
-          openal_prefix="$(brew --prefix openal-soft)"
-          libserialport_prefix="$(brew --prefix libserialport)"
-          cmake_args=(
-            -G Ninja
-            -S .
-            -B build
-            --preset ${{ matrix.build.preset }}
-            --toolchain ./cmake/llvm-macos-aarch64.cmake
-            -D NEW_DYNAREC=on
-            -D CMAKE_INSTALL_PREFIX=./build/artifacts
-            -D QT=${{ matrix.ui.qt }}
-            -D OpenAL_ROOT="$openal_prefix"
-            -D LIBSERIALPORT_ROOT="$libserialport_prefix"
-          )
-          if [ "${{ matrix.ui.qt }}" = "on" ]; then
-            qt_prefix="$(brew --prefix qt@5)"
-            cmake_args+=(
-              -D USE_QT6=OFF
-              -D CMAKE_PREFIX_PATH="$qt_prefix"
-            )
-          fi
-          cmake "${cmake_args[@]}"
-
+        run: >-
+          cmake -S . -B build --preset ${{ matrix.build.preset }}
+          -D QT=${{ matrix.ui.qt }} -D USE_QT6=ON -D VNC=ON
+          -D CMAKE_OSX_DEPLOYMENT_TARGET=26.0
+          -D OpenAL_ROOT=$(brew --prefix openal-soft)
+          -D LIBSERIALPORT_ROOT=$(brew --prefix libserialport)
       - name: Build
-        run: cmake --build build
-
+        run: cmake --build build --parallel 3
       - name: Generate package
         run: cmake --install build
-
-      - name: Fix app permissions
-        run: find build/artifacts -path "*.app/Contents/MacOS/*" -type f -exec chmod 755 {} \;
-
-      - name: Ad-hoc sign app
+      - name: Sign and archive apps
         run: |
+          set -euo pipefail
           for app in build/artifacts/*.app; do
+            find "$app/Contents/MacOS" -type f -exec chmod 755 {} \;
             codesign --force --deep -s - "$app"
+            codesign --verify --deep --strict "$app"
+            ditto -c -k --sequesterRsrc --keepParent "$app" "build/artifacts/86Box${{ matrix.ui.slug }}${{ matrix.build.slug }}-macOS-arm64.zip"
           done
-
-      - name: Zip app with ditto
-        run: |
-          artifact="86Box${{ matrix.ui.slug }}-NDR${{ matrix.build.slug }}-macOS-arm64-gha${{ github.run_number }}"
-          for app in build/artifacts/*.app; do
-            /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$app" "build/artifacts/${artifact}.zip"
-          done
-
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: 86Box${{ matrix.ui.slug }}-NDR${{ matrix.build.slug }}-macOS-arm64-gha${{ github.run_number }}
+          name: 86Box${{ matrix.ui.slug }}${{ matrix.build.slug }}-macOS-arm64
           path: build/artifacts/*.zip
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   windows:
-    name: "Windows ${{ matrix.environment.msystem }}, Qt 5 GUI, ${{ matrix.build.name }}, ${{ matrix.dynarec.name }}"
+    name: Windows ${{ matrix.environment.msystem }}, Qt, ${{ matrix.build.name }}
     runs-on: ${{ matrix.environment.runner }}
-
     strategy:
       fail-fast: false
       matrix:
         build:
-          - name: Debug
-            preset: dev_debug
-            slug: -Debug
-          - name: Dev
-            preset: development
-            slug: -Dev
-        dynarec:
-          - name: ODR
-            new: off
-            slug: -ODR
-          - name: NDR
-            new: on
-            slug: -NDR
+          - {name: Debug, preset: dev_debug, slug: -Debug}
+          - {name: Dev, preset: development, slug: -Dev}
         environment:
-          - msystem: UCRT64
-            toolchain: ./cmake/flags-gcc-x86_64.cmake
-            slug: -64
-            runner: windows-2022
-          - msystem: CLANGARM64
-            toolchain: ./cmake/flags-gcc-aarch64.cmake
-            slug: -arm64
-            runner: windows-11-arm
-        exclude:
-          - dynarec:
-              new: off
-            environment:
-              msystem: CLANGARM64
-
+          - {msystem: UCRT64, runner: windows-2022, arch: x86_64}
+          - {msystem: CLANGARM64, runner: windows-11-arm, arch: arm64}
     defaults:
       run:
         shell: msys2 {0}
-
     steps:
-      - name: Prepare MSYS2 environment
-        uses: msys2/setup-msys2@v2
-        with:
-          release: true
-          update: true
-          msystem: ${{ matrix.environment.msystem }}
-          pacboy: >-
-            ninja:p cmake:p gcc:p pkgconf:p freetype:p SDL2:p zlib:p libpng:p
-            openal:p rtmidi:p libslirp:p fluidsynth:p libserialport:p qt5-static:p
-            vulkan-headers:p llvm-openmp:p
-
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
+      - name: Prepare MSYS2 environment
+        uses: ./.github/actions/setup-msys2
+        with:
+          msystem: ${{ matrix.environment.msystem }}
       - name: Configure CMake
         run: >-
-          cmake -G Ninja -S . -B build --preset ${{ matrix.build.preset }}
-          --toolchain ${{ matrix.environment.toolchain }}
-          -D NEW_DYNAREC=${{ matrix.dynarec.new }}
-          -D QT=on
-
+          cmake -S . -B build --preset ${{ matrix.build.preset }}
+          -D QT=ON -D USE_QT6=OFF -D VNC=OFF
       - name: Build
-        run: cmake --build build
-
+        run: cmake --build build --parallel 4
       - name: Generate package
         run: cmake --install build
-
-      - name: Ensure floppy sounds next to EXE
-        run: |
-          set -eo pipefail
-          exe=$(find build/artifacts -maxdepth 4 -type f -iname "86Box*.exe" -print -quit)
-          if [ -z "$exe" ]; then
-            echo "No EXE found under build/artifacts; skipping copy"
-            exit 0
-          fi
-          exedir=$(dirname "$exe")
-          if [ ! -d "$exedir/floppysounds" ]; then
-            mkdir -p "$exedir/floppysounds"
-            cp -r floppysounds/* "$exedir/floppysounds/" || true
-          fi
-
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: 86Box${{ matrix.dynarec.slug }}${{ matrix.build.slug }}-Windows${{ matrix.environment.slug }}-gha${{ github.run_number }}
+          name: 86Box-Qt${{ matrix.build.slug }}-Windows-${{ matrix.environment.arch }}
           path: build/artifacts/**
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   release:
     name: Publish release artifacts
@@ -309,7 +150,7 @@ jobs:
       - linux
       - macos
       - windows
-    if: ${{ always() && github.event_name != 'pull_request' }}
+    if: ${{ success() && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/')) }}
     runs-on: ubuntu-latest
     concurrency:
       group: release-${{ github.sha }}

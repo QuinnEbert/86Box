@@ -122,6 +122,15 @@ mda_read(uint32_t addr, void *priv)
     return mda->vram[addr & 0xfff];
 }
 
+/* For the memory viewer. */
+static uint8_t *
+mda_debug_ptr(uint32_t addr, UNUSED(int write), void *priv)
+{
+    mda_t *mda = (mda_t *) priv;
+
+    return &mda->vram[addr & 0xfff];
+}
+
 void
 mda_recalctimings(mda_t *mda)
 {
@@ -271,6 +280,7 @@ mda_poll(void *priv)
             }
 
             video_process_8(mda->crtc[MDA_CRTC_HDISP] * 9, mda->displine);
+            video_lightpen_check_trigger_strobe(0, mda->displine, 0, mda->firstline, (1. / (MDACONST / (cpuclock * (double) (1ULL << 32)))) * 9.0, monitor_index_global);
         }
         mda->scanline = scanline_old;
         if (mda->vc == mda->crtc[MDA_CRTC_VSYNC] && !mda->scanline) {
@@ -281,6 +291,7 @@ mda_poll(void *priv)
             mda->displine = 0;
     } else {
         timer_advance_u64(&mda->timer, mda->dispontime);
+        video_lightpen_hsync();
         if (mda->dispon)
             mda->status &= ~1;
         mda->linepos = 0;
@@ -334,6 +345,7 @@ mda_poll(void *priv)
                 mda->dispon    = 0;
                 mda->displine  = 0;
                 mda->vsynctime = 16;
+                video_lightpen_vsync();
                 if (mda->crtc[MDA_CRTC_VSYNC]) {
                     uint32_t x = mda->crtc[MDA_CRTC_HDISP] * 9;
                     mda->lastline++;
@@ -377,6 +389,9 @@ mda_poll(void *priv)
 void
 mda_init(mda_t *mda)
 {
+    /* For the memory viewer; here, as machines with the card built in map
+       the same handlers. */
+    mem_debug_add(mda_read, mda_write, mda_debug_ptr);
 
     for (uint16_t attr = 0; attr < 256; attr++) {
         mda_attr_to_color_table[attr][0][0] = mda_attr_to_color_table[attr][1][0] = mda_attr_to_color_table[attr][1][1] = 16;
@@ -451,9 +466,11 @@ mda_standalone_init(UNUSED(const device_t *info))
 
     mda_init(mda);
 
-    mda->lpt = device_add_inst(&lpt_port_device, 1);
-    lpt_port_setup(mda->lpt, LPT_MDA_ADDR);
-    lpt_set_3bc_used(1);
+    if (!lpt_get_3bc_used()) {
+        mda->lpt = device_add_inst(&lpt_port_device, -1);
+        lpt_port_setup(mda->lpt, LPT_MDA_ADDR);
+        lpt_set_3bc_used(1);
+    }
 
     return mda;
 }
@@ -538,4 +555,3 @@ const device_t mda_device = {
     .force_redraw  = NULL,
     .config        = mda_config
 };
-

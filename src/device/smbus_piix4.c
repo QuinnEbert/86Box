@@ -26,6 +26,7 @@
 #include <86box/i2c.h>
 #include <86box/smbus.h>
 #include <86box/plat_fallthrough.h>
+#include "cpu.h"
 
 #ifdef ENABLE_SMBUS_PIIX4_LOG
 int smbus_piix4_do_log = ENABLE_SMBUS_PIIX4_LOG;
@@ -135,6 +136,7 @@ smbus_piix4_write(uint16_t addr, uint8_t val, void *priv)
 
                 /* Raise DEV_ERR if no device is at this address, or if the device returned NAK. */
                 if (!i2c_start(i2c_smbus, smbus_addr, read)) {
+                    smbus_piix4_log("No device at SMBUS address %02X\n", smbus_addr);
                     dev->next_stat = 0x04;
                     break;
                 }
@@ -277,6 +279,7 @@ smbus_piix4_write(uint16_t addr, uint8_t val, void *priv)
 
                     default: /* unknown */
 unknown_protocol:
+                        smbus_piix4_log("Unknown protocol: %02X\n", cmd);
                         dev->next_stat = 0x04; /* raise DEV_ERR */
                         timer_bytes    = 0;
                         break;
@@ -318,6 +321,7 @@ unknown_protocol:
         timer_disable(&dev->response_timer);
         /* delay = ((half clock for start + half clock for stop) + (bytes * (8 bits + ack))) * bit period in usecs */
         timer_set_delay_u64(&dev->response_timer, (1 + (timer_bytes * 9)) * dev->bit_period * TIMER_USEC);
+        cpu_override_dynarec |= CPU_OVERRIDE_BOARD;
     }
 }
 
@@ -328,6 +332,8 @@ smbus_piix4_response(void *priv)
 
     /* Dispatch the status register update. */
     dev->stat = dev->next_stat;
+
+    cpu_override_dynarec &= ~CPU_OVERRIDE_BOARD;
 }
 
 void

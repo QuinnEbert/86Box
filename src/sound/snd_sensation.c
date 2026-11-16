@@ -26,6 +26,7 @@
  *          Copyright 2016-2025 Miran Grca.
  *          Copyright 2018-2025 TheCollector1995.
  *          Copyright 2026 win2kgamer
+ *          Copyright 2026 Xeon3D.
  */
 #include <math.h>
 #include <stdarg.h>
@@ -46,6 +47,7 @@
 #include <86box/pic.h>
 #include <86box/sound.h>
 #include <86box/snd_opl.h>
+#include <86box/snd_ymz263b.h>
 #include <86box/plat_unused.h>
 #include "cpu.h"
 #include <86box/log.h>
@@ -93,6 +95,7 @@ typedef struct sensation_t {
     uint8_t midi_queue[16];
     int     midi_r;
     int     midi_w;
+    int     midi_used;
     int     uart_in;
     int     uart_out;
     int     sysex;
@@ -124,6 +127,7 @@ typedef struct sensation_t {
     uint8_t visdac_regs[16];
     uint8_t visdac_iregs0[16];
     uint8_t visdac_iregs1[16];
+    uint8_t visdac_imute[2];
     uint8_t visdac_mode;
     uint8_t visdac_ctrl;
     uint8_t visdac_dma_ff;
@@ -136,7 +140,6 @@ typedef struct sensation_t {
 
     int16_t visdac_buffer[SOUNDBUFLEN * 2];
     int visdac_pos;
-    uint8_t visdac_playback_pos : 1;
     int visdac_irq_status;
     uint8_t visdac_dma_nodata;
 
@@ -153,6 +156,17 @@ typedef struct sensation_t {
     int    wave_vol_r;
 
     void * log; /* New logging system */
+
+    mma_play_adpcm_t play_adpcm[2];
+    int              play_dma_channel;
+
+    /* the MMA's recording side. */
+    mma_rec_t rec;
+    int       rec_on[2];
+    int       rec_count[2];
+    int       rec_dma_ch;   /* interleaved DMA: the channel whose unit goes next */
+    int       rec_dma_byte; /* bytes of that unit already gone */
+    int       rec_above[2];  /* the FIFO was above its level at the last check */
 } sensation_t;
 
 void sensation_mma_timer_poll(void *priv);
@@ -178,6 +192,24 @@ sensation_visdac_update(sensation_t *dev)
     }
 }
 
+/* The sample counter counts 16-bit DMA transfers, so it only advances when
+   a word has actually been fetched, and it fires on underflow. */
+static void
+sensation_visdac_count_word(sensation_t *dev)
+{
+    dev->visdac_count--;
+
+    if (dev->visdac_count < 0) {
+        dev->visdac_count = ((dev->visdac_regs[0x0e] << 8) | dev->visdac_regs[0x0c]);
+        dev->visdac_ctrl |= 0x04;
+        if (dev->visdac_ctrl & 0x02) {
+            sensation_log(dev->log, "VISDAC IRQ fired\n");
+            dev->visdac_irq_status = 1;
+            picint(1 << dev->visdac_irq);
+        }
+    }
+}
+
 static uint32_t
 sensation_visdac_dmaread(sensation_t *dev, UNUSED(int channel))
 {
@@ -195,6 +227,8 @@ sensation_visdac_dmaread(sensation_t *dev, UNUSED(int channel))
             return DMA_NODATA;
         } else
             dev->visdac_dma_nodata = 0;
+
+        sensation_visdac_count_word(dev);
 
         ret = dev->visdac_dma_data & 0xff;
     }
@@ -257,7 +291,6 @@ sensation_visdac_poll(void *priv)
                 if (dev->visdac_dma_nodata) {
                     dev->visdac_out_l = dev->visdac_out_r = 0;
                 }
-                dev->visdac_playback_pos++;
                 break;
             case 0x00: /* 8-bit Stereo PCM */
                 dev->visdac_out_l = (int16_t) ((sensation_visdac_dmaread(dev, dev->visdac_dma) ^ 0x80) << 8);
@@ -293,30 +326,6 @@ sensation_visdac_poll(void *priv)
             dev->visdac_out_r = 0;
         else
             dev->visdac_out_r = (int16_t) ((dev->visdac_out_r * dev->wave_vol_r) >> 16);
-        if (dev->visdac_count < 0) {
-            dev->visdac_count = ((dev->visdac_regs[0x0e] << 8) | dev->visdac_regs[0x0c]);
-            dev->visdac_ctrl |= 0x04;
-            if (dev->visdac_ctrl & 0x02) {
-                sensation_log(dev->log, "VISDAC IRQ fired\n");
-                dev->visdac_irq_status = 1;
-                picint(1 << dev->visdac_irq);
-            }
-        }
-        switch (format) {
-            case 0x80: /* 8-bit Mono */
-                if (!(dev->visdac_playback_pos & 0x01))
-                    dev->visdac_count--;
-                break;
-            case 0x00: /* 8-bit Stereo */
-            case 0x88: /* 16-bit Mono */
-                    dev->visdac_count--;
-                    break;
-            case 0x08: /* 16-bit Stereo */
-                    dev->visdac_count -= 2;
-                    break;
-            default:
-                    break;
-        }
     } else {
         dev->visdac_out_l = dev->visdac_out_r = 0;
     }
@@ -354,37 +363,293 @@ sensation_update_mma_irq_status(sensation_t *dev)
     }
 }
 
-void
-sensation_getsamp_dma(sensation_t *dev, int channel)
+static void
+sensation_getsamp_dma(sensation_t *dev, int channel, uint8_t reg9)
 {
-    int dma_dat;
+    int       dma_dat;
+    const int bytes = mma_play_bytes(reg9, dev->sensation_mma_regs[channel][0xc]);
 
     dev->finish_dma = 0;
 
-    if ((dev->sensation_mma_regs[channel][0xc] & 0x60) && (((dev->sensation_mma_fifo_end[channel] - dev->sensation_mma_fifo_start[channel]) & 255) >= 127)) {
+    /* room for a whole sample (8-bit too), and a DMA channel with
+       nothing to give ends a fill loop as a full FIFO does. */
+    if ((((dev->sensation_mma_fifo_end[channel] - dev->sensation_mma_fifo_start[channel]) & 255) + bytes) > 128) {
         dev->finish_dma = 1;
         return;
     }
 
     dma_set_drq(dev->mma_dma, 1);
     dma_dat = dma_channel_read(dev->mma_dma);
-    if (dma_dat == DMA_NODATA)
+    if (dma_dat == DMA_NODATA) {
+        dev->finish_dma = 1;
         return;
+    }
 
     dev->sensation_mma_fifo[channel][dev->sensation_mma_fifo_end[channel]] = dma_dat;
     dev->sensation_mma_fifo_end[channel] = (dev->sensation_mma_fifo_end[channel] + 1) & 255;
-    if (dev->sensation_mma_regs[channel][0xc] & 0x60) {
+    if (bytes == 2) {
         dma_dat = dma_channel_read(dev->mma_dma);
         if (dma_dat == DMA_NODATA)
             return;
         dev->sensation_mma_fifo[channel][dev->sensation_mma_fifo_end[channel]] = dma_dat;
         dev->sensation_mma_fifo_end[channel]                                   = (dev->sensation_mma_fifo_end[channel] + 1) & 255;
     }
-    if (((dev->sensation_mma_fifo_end[channel] - dev->sensation_mma_fifo_start[channel]) & 255) >= dev->sensation_mma_intpos[channel]) {
-        dev->sensation_mma_status &= ~(0x01 << channel);
-        sensation_update_mma_irq_status(dev);
+    /* the FIFO flag is a latch that only a status read clears. Were
+       it dropped here, the IRQ could fall before the CPU takes it (a lost,
+       spurious interrupt on the 8259), and Tandy's driver would wait on. */
+    if (((dev->sensation_mma_fifo_end[channel] - dev->sensation_mma_fifo_start[channel]) & 255) >= dev->sensation_mma_intpos[channel])
         dma_set_drq(dev->mma_dma, 0);
+}
+
+static int
+sensation_mma_adpcm_interleaved(const sensation_t *dev, uint8_t reg9)
+{
+    return (reg9 & MMA_R9_PLAY) && !(reg9 & MMA_R9_PCM) &&
+           (dev->sensation_mma_regs[0][0xc] & MMA_RC_ILV);
+}
+
+static void
+sensation_mma_adpcm_dma(sensation_t *dev, uint8_t reg9)
+{
+    if (!(dev->sensation_mma_regs[0][0xc] & dev->sensation_mma_regs[1][0xc] & MMA_RC_ENB))
+        return;
+
+    /* Keep the byte order across DMA block boundaries. */
+    for (int i = 0; i < 256; i++) {
+        sensation_getsamp_dma(dev, dev->play_dma_channel, reg9);
+        if (dev->finish_dma)
+            break;
+        dev->play_dma_channel ^= 1;
     }
+}
+
+/* the MMA's recording (ADC). A channel records while GO is set with
+   P/R clear (interleaved, channel 1 follows channel 0's P/R, FREQ and GO).
+   Its samples go into the channel's FIFO in its data format; with ENB the
+   DMA takes them out (alternating channels by sample when interleaved), or
+   the CPU reads them from register 0Bh. The FIFO flag rises as more than
+   the FIFO INT level come to wait; a full FIFO drops samples and sets OV. */
+static int
+sensation_mma_fifo_fill(const sensation_t *dev, int ch)
+{
+    return (dev->sensation_mma_fifo_end[ch] - dev->sensation_mma_fifo_start[ch]) & 255;
+}
+
+static void
+sensation_mma_rec_flags(sensation_t *dev)
+{
+    for (int ch = 0; ch < 2; ch++) {
+        int above;
+
+        if (!dev->rec_on[ch])
+            continue;
+        /* The flag rises as the FIFO passes the level, not again while it
+           stays above: drivers read the status (clearing it) and leave the
+           FIFO to the DMA, and a flag raised anew at every sample made an
+           interrupt with nothing to say every sample period. */
+        above = sensation_mma_fifo_fill(dev, ch) > mma_rec_fifo_level(dev->sensation_mma_regs[ch][0xc]);
+        if (above && !dev->rec_above[ch])
+            dev->sensation_mma_status |= (1 << ch);
+        else if (!above)
+            dev->sensation_mma_status &= ~(1 << ch);
+        dev->rec_above[ch] = above;
+    }
+    sensation_update_mma_irq_status(dev);
+}
+
+static uint8_t
+sensation_mma_fifo_read(sensation_t *dev, int ch)
+{
+    uint8_t ret;
+
+    /* Only a recording channel gives its FIFO to the CPU; a playing one
+       reads back the register as before, so a stray read cannot take a
+       byte of a 12-bit pair from the playback FIFO. */
+    if (dev->sensation_mma_regs[ch][9] & MMA_R9_PLAY)
+        return dev->sensation_mma_regs[ch][0xb];
+    if (!sensation_mma_fifo_fill(dev, ch))
+        return 0x00;
+
+    ret                                = dev->sensation_mma_fifo[ch][dev->sensation_mma_fifo_start[ch]];
+    dev->sensation_mma_fifo_start[ch] = (dev->sensation_mma_fifo_start[ch] + 1) & 255;
+    sensation_mma_rec_flags(dev);
+
+    return ret;
+}
+
+/* Whether channel ch records, and the host's input open while any does. */
+static void
+sensation_mma_rec_update(sensation_t *dev)
+{
+    const uint8_t r9_0 = dev->sensation_mma_regs[0][9];
+    const int     ilv  = dev->sensation_mma_regs[0][0xc] & MMA_RC_ILV;
+    int           on[2];
+
+    on[0] = ((r9_0 & (MMA_R9_RST | MMA_R9_PLAY | MMA_R9_GO)) == MMA_R9_GO);
+    if (ilv)
+        on[1] = on[0];
+    else
+        on[1] = ((dev->sensation_mma_regs[1][9] & (MMA_R9_RST | MMA_R9_PLAY | MMA_R9_GO)) == MMA_R9_GO);
+
+    for (int ch = 0; ch < 2; ch++) {
+        if (on[ch] && !dev->rec_on[ch]) {
+            dev->rec_count[ch] = mma_sample_period(dev->sensation_mma_regs[ilv ? 0 : ch][9]);
+            mma_rec_adpcm_reset(&dev->rec, ch);
+            dev->rec_above[ch] = 0;
+            dev->rec_dma_ch   = 0;
+            dev->rec_dma_byte = 0;
+        } else if (!on[ch] && dev->rec_on[ch])
+            dev->sensation_mma_status &= ~(1 << ch);
+        dev->rec_on[ch] = on[ch];
+    }
+
+    mma_rec_input(&dev->rec, on[0] || on[1]);
+    if (!on[0] && !on[1])
+        sensation_update_mma_irq_status(dev);
+}
+
+/* The ADC's input for a channel: the host's input, left on channel 0 and
+   right on channel 1. Which of the VIS mixer's sources (mic, line, CD...)
+   reach the MMA's ADC, and through which MB87077 volume, is unknown. */
+static int
+sensation_mma_rec_source(sensation_t *dev, int ch)
+{
+    return ch ? dev->rec.r : dev->rec.l;
+}
+
+static void
+sensation_mma_rec_push(sensation_t *dev, int ch, uint8_t reg9)
+{
+    uint8_t   bytes[2];
+    const int n = mma_rec_encode(&dev->rec, ch, sensation_mma_rec_source(dev, ch), reg9,
+                                 dev->sensation_mma_regs[ch][0xc], bytes);
+
+    for (int i = 0; i < n; i++) {
+        if (sensation_mma_fifo_fill(dev, ch) >= 128) {
+            dev->sensation_mma_status |= 0x80; /* overrun */
+            break;
+        }
+        dev->sensation_mma_fifo[ch][dev->sensation_mma_fifo_end[ch]] = bytes[i];
+        dev->sensation_mma_fifo_end[ch]                              = (dev->sensation_mma_fifo_end[ch] + 1) & 255;
+    }
+}
+
+/* One byte from a channel's FIFO to the DMA; 0 when the DMA takes none. */
+static int
+sensation_mma_rec_dma_byte(sensation_t *dev, int ch)
+{
+    if (!sensation_mma_fifo_fill(dev, ch))
+        return 0;
+    if (dma_channel_write(dev->mma_dma, dev->sensation_mma_fifo[ch][dev->sensation_mma_fifo_start[ch]]) == DMA_NODATA)
+        return 0;
+    dev->sensation_mma_fifo_start[ch] = (dev->sensation_mma_fifo_start[ch] + 1) & 255;
+    return 1;
+}
+
+static void
+sensation_mma_rec_dma(sensation_t *dev, int ch)
+{
+    const int ilv = (ch == 0) && (dev->sensation_mma_regs[0][0xc] & MMA_RC_ILV);
+
+    if (!(dev->sensation_mma_regs[ch][0xc] & MMA_RC_ENB))
+        return;
+
+    dma_set_drq(dev->mma_dma, 1);
+    if (ilv) {
+        const int unit = mma_rec_unit(dev->sensation_mma_regs[0][9], dev->sensation_mma_regs[0][0xc]);
+
+        for (;;) {
+            const int c = dev->rec_dma_ch;
+
+            /* A unit only starts when both channels have one waiting. */
+            if (!dev->rec_dma_byte && ((sensation_mma_fifo_fill(dev, c) < unit) || (sensation_mma_fifo_fill(dev, c ^ 1) < unit)))
+                break;
+            if (!sensation_mma_rec_dma_byte(dev, c))
+                break;
+            if (++dev->rec_dma_byte >= unit) {
+                dev->rec_dma_byte = 0;
+                dev->rec_dma_ch ^= 1;
+            }
+        }
+    } else
+        while (sensation_mma_rec_dma_byte(dev, ch))
+            ;
+    if (!sensation_mma_fifo_fill(dev, ch))
+        dma_set_drq(dev->mma_dma, 0);
+}
+
+static void
+sensation_mma_rec_tick(sensation_t *dev, int ch)
+{
+    const int     ilv  = (ch == 0) && (dev->sensation_mma_regs[0][0xc] & MMA_RC_ILV);
+    const uint8_t reg9 = dev->sensation_mma_regs[ch][9];
+
+    /* Both channels sample the same input frame; channel 0 moves it on, or
+       channel 1 when it records alone. */
+    if ((ch == 0) || !dev->rec_on[0])
+        mma_rec_next_frame(&dev->rec, 1000000.0 / (mma_sample_period(reg9) * 1.88964));
+
+    sensation_mma_rec_push(dev, ch, reg9);
+    if (ilv)
+        sensation_mma_rec_push(dev, 1, reg9);
+
+    sensation_mma_rec_dma(dev, ch);
+    sensation_mma_rec_flags(dev);
+}
+
+/* The mixer registers: set 0 is CD (channels 0/1) and MIDI (2/3), set 1 is
+   wave (0/1) and mic/line/phone (2/3). Each channel has a single volume
+   register; bit 2 of the index selects whether a data write also unmutes the
+   channel (index 4-7) or mutes it (index 0-3), and both indexes read back the
+   same volume. Bit 2 of the index register reads back as the selected
+   channel's unmute state. VISBIOS and the VIS firmware mute or unmute a
+   channel by writing its current volume back through index 0-3 or 4-7, and
+   save and restore the mute state through the index register while ramping
+   the volume around DAC rate changes. */
+static void
+sensation_visdac_update_mixer(sensation_t *dev)
+{
+    const uint8_t *r0 = dev->visdac_iregs0;
+    const uint8_t *r1 = dev->visdac_iregs1;
+    const uint8_t  m0 = dev->visdac_imute[0];
+    const uint8_t  m1 = dev->visdac_imute[1];
+
+    dev->cd_vol_l   = (m0 & 0x01) ? 0 : visdac_vols_6bits[r0[4] & 0x3f];
+    dev->cd_vol_r   = (m0 & 0x02) ? 0 : visdac_vols_6bits[r0[5] & 0x3f];
+    dev->fm_vol_l   = (m0 & 0x04) ? 0 : visdac_vols_6bits[r0[6] & 0x3f];
+    dev->fm_vol_r   = (m0 & 0x08) ? 0 : visdac_vols_6bits[r0[7] & 0x3f];
+    dev->wave_vol_l = (m1 & 0x01) ? 0 : visdac_vols_6bits[r1[4] & 0x3f];
+    dev->wave_vol_r = (m1 & 0x02) ? 0 : visdac_vols_6bits[r1[5] & 0x3f];
+}
+
+static void
+sensation_visdac_iwrite(sensation_t *dev, int set, uint8_t index, uint8_t val)
+{
+    uint8_t *iregs = set ? dev->visdac_iregs1 : dev->visdac_iregs0;
+    uint8_t  chan  = index & 0x03;
+
+    index &= 0x0f;
+    if (index < 8) {
+        iregs[chan] = iregs[chan | 0x04] = val;
+        if (index & 0x04)
+            dev->visdac_imute[set] &= ~(1 << chan);
+        else
+            dev->visdac_imute[set] |= (1 << chan);
+        sensation_visdac_update_mixer(dev);
+    } else
+        iregs[index] = val;
+}
+
+static uint8_t
+sensation_visdac_iindex_read(sensation_t *dev, int set, uint8_t index)
+{
+    if ((index & 0x0f) < 8) {
+        index &= ~0x04;
+        if (!(dev->visdac_imute[set] & (1 << (index & 0x03))))
+            index |= 0x04;
+    }
+
+    return index;
 }
 
 void
@@ -397,6 +662,9 @@ sensation_visdac_write(uint16_t port, uint8_t val, void *priv)
     switch (port & 0xF) {
         case 0x00: /* Mode/Enable register */
             visdac->visdac_regs[0x00] = val;
+            /* A mode change discards any half-consumed DMA word. */
+            if (visdac->visdac_mode != val)
+                visdac->visdac_dma_ff = 0;
             visdac->visdac_mode = val;
             sensation_visdac_updatefreq(visdac);
             if (!(visdac->visdac_mode & 0x10)) {
@@ -417,78 +685,14 @@ sensation_visdac_write(uint16_t port, uint8_t val, void *priv)
             break;
         case 0x02: /* Indirect register set 0 data */
             visdac->visdac_regs[0x02] = val;
-            visdac->visdac_iregs0[visdac->visdac_regs[0x03] & 0x0f] = val;
-            switch (visdac->visdac_regs[0x03]) {
-                case 0: /* CD L Mute */
-                    visdac->cd_vol_l = 0;
-                    break;
-                case 1: /* CD R Mute */
-                    visdac->cd_vol_r = 0;
-                    break;
-                case 2: /* MIDI L Mute */
-                    visdac->fm_vol_l = 0;
-                    break;
-                case 3: /* MIDI R Mute */
-                    visdac->fm_vol_r = 0;
-                    break;
-                case 4: /* CD L Volume */
-                    if (visdac->visdac_iregs0[0x04] == 0x00)
-                        visdac->cd_vol_l = 0;
-                    else
-                        visdac->cd_vol_l = visdac_vols_6bits[(visdac->visdac_iregs0[0x04] & 0x3f)];
-                    break;
-                case 5: /* CD R Volume */
-                    if (visdac->visdac_iregs0[0x05] == 0x00)
-                        visdac->cd_vol_r = 0;
-                    else
-                        visdac->cd_vol_r = visdac_vols_6bits[(visdac->visdac_iregs0[0x05] & 0x3f)];
-                    break;
-                case 6: /* MIDI L Volume */
-                    if (visdac->visdac_iregs0[0x06] == 0x00)
-                        visdac->fm_vol_l = 0;
-                    else
-                        visdac->fm_vol_l = visdac_vols_6bits[(visdac->visdac_iregs0[0x06] & 0x3f)];
-                    break;
-                case 7: /* MIDI R Volume */
-                    if (visdac->visdac_iregs0[0x07] == 0x00)
-                        visdac->fm_vol_r = 0;
-                    else
-                        visdac->fm_vol_r = visdac_vols_6bits[(visdac->visdac_iregs0[0x07] & 0x3f)];
-                    break;
-                default:
-                    break;
-            }
+            sensation_visdac_iwrite(visdac, 0, visdac->visdac_regs[0x03], val);
             break;
         case 0x03: /* Indirect register set 0 index */
             visdac->visdac_regs[0x03] = val;
             break;
         case 0x04: /* Indirect register set 1 data */
             visdac->visdac_regs[0x04] = val;
-            visdac->visdac_iregs1[visdac->visdac_regs[0x05] & 0x0f] = val;
-            switch (visdac->visdac_regs[0x05]) {
-                case 0: /* Wave L Mute */
-                    visdac->wave_vol_l = 0;
-                    break;
-                case 1: /* Wave R Mute */
-                    visdac->wave_vol_r = 0;
-                    break;
-                case 2: /* Mic/Line/Phone L Mute */
-                    break;
-                case 3: /* Mic/Line/Phone R Mute */
-                    break;
-                case 4: /* Wave L Volume */
-                    visdac->wave_vol_l = visdac_vols_6bits[(visdac->visdac_iregs1[0x04] & 0x3f)];
-                    break;
-                case 5: /* Wave R Volume */
-                    visdac->wave_vol_r = visdac_vols_6bits[(visdac->visdac_iregs1[0x05] & 0x3f)];
-                    break;
-                case 6: /* Mic/Line/Phone L Volume */
-                    break;
-                case 7: /* Mic/Line/Phone R Volume */
-                    break;
-                default:
-                    break;
-            }
+            sensation_visdac_iwrite(visdac, 1, visdac->visdac_regs[0x05], val);
             break;
         case 0x05: /* Indirect register set 1 index */
             visdac->visdac_regs[0x05] = val;
@@ -531,14 +735,14 @@ sensation_visdac_write(uint16_t port, uint8_t val, void *priv)
             break;
         case 0x0c: /* Sample Count Low Byte */
             visdac->visdac_regs[0x0c] = val;
-            visdac->visdac_count = (visdac->visdac_count & 0xFF00) | val;
+            visdac->visdac_count = (visdac->visdac_regs[0x0e] << 8) | val;
             break;
         case 0x0d:
             visdac->visdac_regs[0x0d] = val;
             break;
         case 0x0e: /* Sample Count High Byte */
             visdac->visdac_regs[0x0e] = val;
-            visdac->visdac_count = (visdac->visdac_count & 0xFF) | (val << 8);
+            visdac->visdac_count = (val << 8) | visdac->visdac_regs[0x0c];
             break;
         case 0x0f:
             visdac->visdac_regs[0x0f] = val;
@@ -602,43 +806,36 @@ sensation_mma_write(uint16_t addr, uint8_t val, void *priv)
                     break;
 
                 case 0x9:
-                    switch (val & 0x18) {
-                        case 0x00:
-                            dev->sensation_mma.voice_latch[0] = 12;
-                            break; /*44100 Hz*/
-                        case 0x08:
-                            dev->sensation_mma.voice_latch[0] = 24;
-                            break; /*22050 Hz*/
-                        case 0x10:
-                            dev->sensation_mma.voice_latch[0] = 48;
-                            break; /*11025 Hz*/
-                        case 0x18:
-                            dev->sensation_mma.voice_latch[0] = 72;
-                            break; /* 7350 Hz*/
-
-                        default:
-                            break;
+                    dev->sensation_mma.voice_latch[0] = mma_sample_period(val);
+                    if ((val & MMA_R9_RST) || ((val ^ dev->sensation_mma_regs[0][9]) & (MMA_R9_PCM | MMA_R9_PLAY))) {
+                        mma_play_adpcm_reset(&dev->play_adpcm[0]);
+                        dev->play_dma_channel = 0;
+                        if (dev->sensation_mma_regs[0][0xc] & MMA_RC_ILV)
+                            mma_play_adpcm_reset(&dev->play_adpcm[1]);
                     }
-                    if (val & 0x80) {
+                    if (val & MMA_R9_RST) {
                         dev->sensation_mma_enable[0]   = 0;
+                        dev->sensation_mma_out[0]      = 0; /* no DC left behind */
                         dev->sensation_mma_fifo_end[0] = dev->sensation_mma_fifo_start[0] = 0;
                         dev->sensation_mma_status &= ~0x01;
                         sensation_update_mma_irq_status(dev);
                         dma_set_drq(dev->mma_dma, 0);
                     }
-                    if (val & 0x01) /*Start playback*/
-                    {
-                        if (!(dev->sensation_mma_regs[0][0x9] & 1))
+                    if ((val & MMA_R9_GO) && (val & MMA_R9_PLAY)) {
+                        if ((dev->sensation_mma_regs[0][9] & (MMA_R9_GO | MMA_R9_PLAY)) != (MMA_R9_GO | MMA_R9_PLAY) ||
+                            (val & MMA_R9_RST))
                             dev->sensation_mma.voice_count[0] = dev->sensation_mma.voice_latch[0];
 
-                        if (dev->sensation_mma_regs[0][0xc] & 1) {
+                        if (sensation_mma_adpcm_interleaved(dev, val)) {
+                            sensation_mma_adpcm_dma(dev, val);
+                        } else if (dev->sensation_mma_regs[0][0xc] & MMA_RC_ENB) {
                             if (dev->sensation_mma_regs[0][0xc] & 0x80) {
                                 dev->sensation_mma_enable[1]      = 1;
                                 dev->sensation_mma.voice_count[1] = dev->sensation_mma.voice_latch[1];
 
                                 while (((dev->sensation_mma_fifo_end[0] - dev->sensation_mma_fifo_start[0]) & 255) < 128) {
-                                    sensation_getsamp_dma(dev, 0);
-                                    sensation_getsamp_dma(dev, 1);
+                                    sensation_getsamp_dma(dev, 0, val);
+                                    sensation_getsamp_dma(dev, 1, val);
                                     if (dev->finish_dma)
                                         break;
                                 }
@@ -654,7 +851,7 @@ sensation_mma_write(uint16_t addr, uint8_t val, void *priv)
                                 }
                             } else {
                                 while (((dev->sensation_mma_fifo_end[0] - dev->sensation_mma_fifo_start[0]) & 255) < 128) {
-                                    sensation_getsamp_dma(dev, 0);
+                                    sensation_getsamp_dma(dev, 0, val);
                                     if (dev->finish_dma)
                                         break;
                                 }
@@ -682,7 +879,7 @@ sensation_mma_write(uint16_t addr, uint8_t val, void *priv)
                     break;
 
                 case 0xc:
-                    dev->sensation_mma_intpos[0] = (7 - ((val >> 2) & 7)) * 8;
+                    dev->sensation_mma_intpos[0] = mma_rec_fifo_level(val); /* (7 - level) * 16, as the SDTK */
                     break;
 
                 case 0xd:
@@ -690,10 +887,11 @@ sensation_mma_write(uint16_t addr, uint8_t val, void *priv)
 
                     if ((dev->sensation_midi_ctrl & 0x0f) != 0x0f) {
                         if ((dev->sensation_midi_ctrl & 0x0f) == 0x00) {
-                            dev->uart_out = 0;
-                            dev->uart_in  = 0;
-                            dev->midi_w   = 0;
-                            dev->midi_r   = 0;
+                            dev->uart_out  = 0;
+                            dev->uart_in   = 0;
+                            dev->midi_w    = 0;
+                            dev->midi_r    = 0;
+                            dev->midi_used = 0;
                             dev->sensation_mma_status &= ~0x8c;
                         } else {
                             if (dev->sensation_midi_ctrl & 0x01)
@@ -701,9 +899,10 @@ sensation_mma_write(uint16_t addr, uint8_t val, void *priv)
                             if (dev->sensation_midi_ctrl & 0x04)
                                 dev->uart_out = 1;
                             if (dev->sensation_midi_ctrl & 0x02) {
-                                dev->uart_in = 0;
-                                dev->midi_w  = 0;
-                                dev->midi_r  = 0;
+                                dev->uart_in   = 0;
+                                dev->midi_w    = 0;
+                                dev->midi_r    = 0;
+                                dev->midi_used = 0;
                             }
                             if (dev->sensation_midi_ctrl & 0x08)
                                 dev->uart_out = 0;
@@ -728,6 +927,8 @@ sensation_mma_write(uint16_t addr, uint8_t val, void *priv)
                     break;
             }
             dev->sensation_mma_regs[0][dev->sensation_mma_addr] = val;
+            if ((dev->sensation_mma_addr == 0x9) || (dev->sensation_mma_addr == 0xc))
+                sensation_mma_rec_update(dev);
             break;
         case 7:
             if (dev->sensation_mma_addr >= 0xe)
@@ -735,38 +936,28 @@ sensation_mma_write(uint16_t addr, uint8_t val, void *priv)
             switch (dev->sensation_mma_addr) {
                 case 0x9:
                     sensation_mma_update(dev);
-                    switch (val & 0x18) {
-                        case 0x00:
-                            dev->sensation_mma.voice_latch[1] = 12;
-                            break; /*44100 Hz*/
-                        case 0x08:
-                            dev->sensation_mma.voice_latch[1] = 24;
-                            break; /*22050 Hz*/
-                        case 0x10:
-                            dev->sensation_mma.voice_latch[1] = 48;
-                            break; /*11025 Hz*/
-                        case 0x18:
-                            dev->sensation_mma.voice_latch[1] = 72;
-                            break; /* 7350 Hz*/
-
-                        default:
-                            break;
-                    }
-                    if (val & 0x80) {
+                    dev->sensation_mma.voice_latch[1] = mma_sample_period(val);
+                    if ((val & MMA_R9_RST) ||
+                        (!(dev->sensation_mma_regs[0][0xc] & MMA_RC_ILV) &&
+                         ((val ^ dev->sensation_mma_regs[1][9]) & (MMA_R9_PCM | MMA_R9_PLAY))))
+                        mma_play_adpcm_reset(&dev->play_adpcm[1]);
+                    if (val & MMA_R9_RST) {
                         dev->sensation_mma_enable[1]   = 0;
+                        dev->sensation_mma_out[1]      = 0; /* no DC left behind */
                         dev->sensation_mma_fifo_end[1] = dev->sensation_mma_fifo_start[1] = 0;
                         dev->sensation_mma_status &= ~0x02;
                         sensation_update_mma_irq_status(dev);
                         dma_set_drq(dev->mma_dma, 0);
                     }
-                    if (val & 0x01) /*Start playback*/
-                    {
-                        if (!(dev->sensation_mma_regs[1][0x9] & 1))
+                    if ((val & MMA_R9_GO) && (val & MMA_R9_PLAY)) {
+                        if ((dev->sensation_mma_regs[1][9] & (MMA_R9_GO | MMA_R9_PLAY)) != (MMA_R9_GO | MMA_R9_PLAY) ||
+                            (val & MMA_R9_RST))
                             dev->sensation_mma.voice_count[1] = dev->sensation_mma.voice_latch[1];
 
-                        if (dev->sensation_mma_regs[1][0xc] & 1) {
+                        if ((dev->sensation_mma_regs[1][0xc] & MMA_RC_ENB) &&
+                            !sensation_mma_adpcm_interleaved(dev, dev->sensation_mma_regs[0][9])) {
                             while (((dev->sensation_mma_fifo_end[1] - dev->sensation_mma_fifo_start[1]) & 255) < 128) {
-                                sensation_getsamp_dma(dev, 1);
+                                sensation_getsamp_dma(dev, 1, val);
                                 if (dev->finish_dma)
                                     break;
                             }
@@ -788,13 +979,15 @@ sensation_mma_write(uint16_t addr, uint8_t val, void *priv)
                     break;
 
                 case 0xc:
-                    dev->sensation_mma_intpos[1] = (7 - ((val >> 2) & 7)) * 8;
+                    dev->sensation_mma_intpos[1] = mma_rec_fifo_level(val); /* (7 - level) * 16, as the SDTK */
                     break;
 
                 default:
                     break;
             }
             dev->sensation_mma_regs[1][dev->sensation_mma_addr] = val;
+            if ((dev->sensation_mma_addr == 0x9) || (dev->sensation_mma_addr == 0xc))
+                sensation_mma_rec_update(dev);
             break;
 
         default:
@@ -824,13 +1017,13 @@ sensation_visdac_read(uint16_t port, void *priv)
             ret = visdac->visdac_iregs0[visdac->visdac_regs[0x03] & 0x0f];
             break;
         case 0x03:
-            ret = visdac->visdac_regs[0x03];
+            ret = sensation_visdac_iindex_read(visdac, 0, visdac->visdac_regs[0x03]);
             break;
         case 0x04:
             ret = visdac->visdac_iregs1[visdac->visdac_regs[0x05] & 0x0f];
             break;
         case 0x05:
-            ret = visdac->visdac_regs[0x05];
+            ret = sensation_visdac_iindex_read(visdac, 1, visdac->visdac_regs[0x05]);
             break;
         case 0x06:
             ret = visdac->visdac_regs[0x06];
@@ -901,6 +1094,10 @@ sensation_mma_read(uint16_t addr, void *priv)
                     temp = dev->sensation_mma.timer2_read >> 8;
                     break;
 
+                case 0xb: /* PCM data (the record FIFO) */
+                    temp = sensation_mma_fifo_read(dev, 0);
+                    break;
+
                 case 0xe:
                     temp = 0;
                     if (dev->uart_in) {
@@ -908,6 +1105,8 @@ sensation_mma_read(uint16_t addr, void *priv)
                         if (dev->midi_r != dev->midi_w) {
                             dev->midi_r++;
                             dev->midi_r &= 0x0f;
+                            if (dev->midi_used > 0)
+                                dev->midi_used--;
                         }
                         dev->sensation_mma_status &= ~0x04;
                         sensation_update_mma_irq_status(dev);
@@ -922,6 +1121,8 @@ sensation_mma_read(uint16_t addr, void *priv)
         case 7:
             if (dev->sensation_mma_addr >= 0xf)
                 temp = 0xff;
+            else if (dev->sensation_mma_addr == 0xb) /* PCM data (the record FIFO) */
+                temp = sensation_mma_fifo_read(dev, 1);
             else
                 temp = dev->sensation_mma_regs[1][dev->sensation_mma_addr];
             break;
@@ -950,48 +1151,64 @@ sensation_mma_update(sensation_t *dev)
     }
 }
 
-void
-sensation_mma_poll(sensation_t *dev, int channel)
+static void
+sensation_mma_play_sample(sensation_t *dev, int channel, uint8_t reg9)
 {
-    int16_t dat;
+    const uint8_t regc  = dev->sensation_mma_regs[channel][0xc];
+    const int     start = dev->sensation_mma_fifo_start[channel];
+    int           bytes = mma_play_bytes(reg9, regc);
+
+    /* Hold the last sample while waiting for more FIFO data. */
+    if (sensation_mma_fifo_fill(dev, channel) < bytes)
+        return;
+
+    const uint8_t b0 = dev->sensation_mma_fifo[channel][start];
+
+    if (reg9 & MMA_R9_PCM) {
+        const uint8_t b1 = dev->sensation_mma_fifo[channel][(start + 1) & 255];
+
+        dev->sensation_mma_out[channel] = mma_play_decode(regc, dev->rec.offset8, b0, b1);
+    } else {
+        bytes = mma_play_adpcm_decode(&dev->play_adpcm[channel], b0, &dev->sensation_mma_out[channel]);
+    }
+
+    dev->sensation_mma_fifo_start[channel] = (start + bytes) & 255;
+}
+
+static void
+sensation_mma_poll(sensation_t *dev, int channel, int interleaved)
+{
+    const uint8_t reg9_ch0 = dev->sensation_mma_regs[0][9];
+    const int     control  = ((dev->sensation_mma_regs[0][0xc] & MMA_RC_ILV) &&
+                              ((reg9_ch0 & (MMA_R9_GO | MMA_R9_PLAY)) == (MMA_R9_GO | MMA_R9_PLAY))) ? 0 : channel;
+    const uint8_t reg9     = dev->sensation_mma_regs[control][9];
+    const uint8_t regc     = dev->sensation_mma_regs[channel][0xc];
 
     sensation_mma_update(dev);
 
-    if (dev->sensation_mma_fifo_start[channel] != dev->sensation_mma_fifo_end[channel]) {
-        switch (dev->sensation_mma_regs[channel][0xc] & 0x60) {
-            case 0x00: /*8-bit*/
-                dat                                    = dev->sensation_mma_fifo[channel][dev->sensation_mma_fifo_start[channel]] * 128;
-                dev->sensation_mma_out[channel]        = dat;
-                dev->sensation_mma_fifo_start[channel] = (dev->sensation_mma_fifo_start[channel] + 1) & 255;
-                break;
-
-            case 0x40: /*12-bit sensible format*/
-                if (((dev->sensation_mma_fifo_end[channel] - dev->sensation_mma_fifo_start[channel]) & 255) < 2)
-                    return;
-
-                dat                                    = dev->sensation_mma_fifo[channel][dev->sensation_mma_fifo_start[channel]] & 0xf0;
-                dev->sensation_mma_fifo_start[channel] = (dev->sensation_mma_fifo_start[channel] + 1) & 255;
-                dat |= (dev->sensation_mma_fifo[channel][dev->sensation_mma_fifo_start[channel]] << 8);
-                dev->sensation_mma_fifo_start[channel] = (dev->sensation_mma_fifo_start[channel] + 1) & 255;
-                dev->sensation_mma_out[channel]        = dat;
-                break;
-
-            default:
-                break;
+    if (interleaved) {
+        /* A short DMA block can leave only one channel with a new byte. */
+        if (sensation_mma_fifo_fill(dev, 0) && sensation_mma_fifo_fill(dev, 1)) {
+            sensation_mma_play_sample(dev, 0, reg9);
+            sensation_mma_play_sample(dev, 1, reg9);
         }
-
-        if (dev->sensation_mma_regs[channel][0xc] & 1) {
-            sensation_getsamp_dma(dev, channel);
-            if (dev->finish_dma)
-                return;
-        }
-        if (((dev->sensation_mma_fifo_end[channel] - dev->sensation_mma_fifo_start[channel]) & 255) < dev->sensation_mma_intpos[channel] && !(dev->sensation_mma_status & 0x01)) {
-            dev->sensation_mma_status |= (1 << channel);
-            sensation_update_mma_irq_status(dev);
+        sensation_mma_adpcm_dma(dev, reg9);
+    } else {
+        sensation_mma_play_sample(dev, channel, reg9);
+        if (regc & MMA_RC_ENB) {
+            for (int i = 0; i < 128; i++) {
+                sensation_getsamp_dma(dev, channel, reg9);
+                if (dev->finish_dma)
+                    break;
+            }
         }
     }
-    if (dev->sensation_mma_fifo_start[channel] == dev->sensation_mma_fifo_end[channel]) {
-        dev->sensation_mma_enable[channel] = 0;
+
+    for (int ch = channel; ch <= (interleaved ? 1 : channel); ch++) {
+        if ((sensation_mma_fifo_fill(dev, ch) < dev->sensation_mma_intpos[ch]) && !(dev->sensation_mma_status & (1 << ch))) {
+            dev->sensation_mma_status |= (1 << ch);
+            sensation_update_mma_irq_status(dev);
+        }
     }
 }
 
@@ -1048,18 +1265,32 @@ sensation_mma_timer_poll(void *priv)
         }
     }
 
-    if (dev->sensation_mma_enable[0]) {
+    /* a recording channel samples instead (an interleaved pair on
+       channel 0's clock). */
+    const int adpcm_interleaved = sensation_mma_adpcm_interleaved(dev, dev->sensation_mma_regs[0][9]);
+
+    if (dev->rec_on[0]) {
+        if (--dev->rec_count[0] <= 0) {
+            dev->rec_count[0] = mma_sample_period(dev->sensation_mma_regs[0][9]);
+            sensation_mma_rec_tick(dev, 0);
+        }
+    } else if (dev->sensation_mma_enable[0]) {
         dev->sensation_mma.voice_count[0]--;
         if (!dev->sensation_mma.voice_count[0]) {
             dev->sensation_mma.voice_count[0] = dev->sensation_mma.voice_latch[0];
-            sensation_mma_poll(dev, 0);
+            sensation_mma_poll(dev, 0, adpcm_interleaved);
         }
     }
-    if (dev->sensation_mma_enable[1]) {
+    if (dev->rec_on[1]) {
+        if (!(dev->rec_on[0] && (dev->sensation_mma_regs[0][0xc] & MMA_RC_ILV)) && (--dev->rec_count[1] <= 0)) {
+            dev->rec_count[1] = mma_sample_period(dev->sensation_mma_regs[1][9]);
+            sensation_mma_rec_tick(dev, 1);
+        }
+    } else if (!adpcm_interleaved && dev->sensation_mma_enable[1]) {
         dev->sensation_mma.voice_count[1]--;
         if (!dev->sensation_mma.voice_count[1]) {
             dev->sensation_mma.voice_count[1] = dev->sensation_mma.voice_latch[1];
-            sensation_mma_poll(dev, 1);
+            sensation_mma_poll(dev, 1, 0);
         }
     }
 }
@@ -1119,6 +1350,7 @@ sensation_input_msg(void *priv, uint8_t *msg, uint32_t len)
         for (uint32_t i = 0; i < len; i++) {
             dev->midi_queue[dev->midi_w++] = msg[i];
             dev->midi_w &= 0x0f;
+            dev->midi_used++;
         }
 
         sensation_update_mma_irq_status(dev);
@@ -1136,44 +1368,58 @@ sensation_input_sysex(void *priv, uint8_t *buffer, uint32_t len, int abort)
     }
     dev->sysex = 1;
     for (uint32_t i = 0; i < len; i++) {
-        if (dev->midi_r == dev->midi_w)
+        if (dev->midi_used >= 15)
             return (len - i);
         dev->midi_queue[dev->midi_w++] = buffer[i];
         dev->midi_w &= 0x0f;
+        dev->midi_used++;
     }
     dev->sysex = 0;
     return 0;
 }
 
+static int
+sensation_input_remain(void *priv)
+{
+    sensation_t *dev = (sensation_t *) priv;
+
+    return (16 - dev->midi_used);
+}
+
 void *
-sensation_init(UNUSED(const device_t *info))
+sensation_init(const device_t *info)
 {
     sensation_t *dev = calloc(1, sizeof(sensation_t));
 
     dev->mma_irq = 5;
     dev->mma_dma = 3;
-    dev->visdac_irq = 5;
+    /* The VIS firmware unmasks and services IRQ 7 for the DAC. */
+    dev->visdac_irq = (info->local & SENSATION_TANDY_VIS) ? 7 : 5;
     dev->visdac_dma = 7;
 
     dev->log = log_open("SensationAud");
 
     /* Set up VIS DAC registers at 0x220-0x22F */
-    io_sethandler(0x0220, 0x000F, sensation_visdac_read, NULL, NULL, sensation_visdac_write, NULL, NULL, dev);
+    io_sethandler(0x0220, 0x0010, sensation_visdac_read, NULL, NULL, sensation_visdac_write, NULL, NULL, dev);
 
     /* Set up MMA registers at 0x38C-0x38F */
     io_sethandler(0x388, 0x08, sensation_mma_read, NULL, NULL, sensation_mma_write, NULL, NULL, dev);
     dev->sensation_mma_enable[0] = 0;
     dev->sensation_mma_fifo_start[0] = dev->sensation_mma_fifo_end[0] = 0;
 
-    fm_driver_get_ex(FM_YMF262, &dev->opl, 1);
+    fm_driver_get_ex(FM_YMF262, &dev->opl, 3);
 
+    dev->visdac_freq = 44100;
+    dev->visdac_timer_latch = (uint64_t) ((double) TIMER_USEC * (1000000.0 / (double) dev->visdac_freq));
     timer_add(&dev->sensation_mma_timer_count, sensation_mma_timer_poll, dev, 1);
     timer_add(&dev->visdac_timer_count, sensation_visdac_poll, dev, 1);
 
     sound_add_handler(sensation_get_buffer, dev);
+    dev->rec.offset8 = 1;
+    sound_in_add_handler(mma_rec_put_buffer, &dev->rec);
 
     if (device_get_config_int("receive_input"))
-        midi_in_handler(1, sensation_input_msg, sensation_input_sysex, dev);
+        midi_in_handler(1, sensation_input_msg, sensation_input_sysex, sensation_input_remain, dev);
 
     /* Calculate attenuation values for the 6-bit volume control */
     double attenuation;
@@ -1192,14 +1438,25 @@ sensation_init(UNUSED(const device_t *info))
         if (c & 0x20)
             attenuation += 16.0;
 
-        attenuation = pow(10, attenuation / 10);
+        attenuation = pow(10, attenuation / 20);
 
         visdac_vols_6bits[c] = (int) (attenuation * 65536);
     }
 
+    /* The MB87077s reset every channel to 0 dB (code 3Fh), enabled. Tandy's
+       Windows driver only reads a channel's volume and writes it back to
+       unmute it. */
+    for (uint8_t c = 0; c < 8; c++)
+        dev->visdac_iregs0[c] = dev->visdac_iregs1[c] = 0x3f;
+    dev->visdac_imute[0] = dev->visdac_imute[1] = 0x00;
+    sensation_visdac_update_mixer(dev);
+
     /* Set up audio filters */
     sound_set_cd_audio_filter(NULL, NULL);
     sound_set_cd_audio_filter(sensation_filter_cd_audio, dev);
+
+    mma_play_adpcm_reset(&dev->play_adpcm[0]);
+    mma_play_adpcm_reset(&dev->play_adpcm[1]);
 
     return dev;
 }
@@ -1216,6 +1473,8 @@ void
 sensation_close(void *priv)
 {
     sensation_t *dev = (sensation_t *) priv;
+
+    mma_rec_input(&dev->rec, 0); /* */
 
     if (dev->log != NULL) {
         log_close(dev->log);
@@ -1245,7 +1504,7 @@ static const device_config_t sensation_config[] = {
 const device_t sensationaud_device = {
     .name          = "Tandy Sensation/VIS audio",
     .internal_name = "sensationaud",
-    .flags         = DEVICE_ISA,
+    .flags         = DEVICE_ISA | DEVICE_AUDIO_IN, /* MMA recording */
     .local         = 0,
     .init          = sensation_init,
     .close         = sensation_close,

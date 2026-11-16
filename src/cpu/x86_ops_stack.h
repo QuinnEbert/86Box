@@ -19,7 +19,10 @@
 #define POP_W_OP(reg)                          \
     static int opPOP_##reg(UNUSED(uint32_t fetchdat)) \
     {                                          \
-        reg = POP_W();                         \
+        uint16_t popped_val = POP_W();         \
+        /* A faulting POP must not modify its destination register. */ \
+        if (!cpu_state.abrt)                   \
+            reg = popped_val;                  \
         CLOCK_CYCLES((is486) ? 1 : 4);         \
         PREFETCH_RUN(4, 1, -1, 1, 0, 0, 0, 0); \
         return cpu_state.abrt;                 \
@@ -28,7 +31,10 @@
 #define POP_L_OP(reg)                          \
     static int opPOP_##reg(UNUSED(uint32_t fetchdat)) \
     {                                          \
-        reg = POP_L();                         \
+        uint32_t popped_val = POP_L();         \
+        /* A faulting POP must not modify its destination register. */ \
+        if (!cpu_state.abrt)                   \
+            reg = popped_val;                  \
         CLOCK_CYCLES((is486) ? 1 : 4);         \
         PREFETCH_RUN(4, 1, -1, 0, 1, 0, 0, 0); \
         return cpu_state.abrt;                 \
@@ -291,21 +297,26 @@ opPUSH_imm_bl(uint32_t fetchdat)
 static int
 opPOPW_a16(uint32_t fetchdat)
 {
+    uint32_t temp_esp = ESP;
+    uint32_t new_esp;
     uint16_t temp;
+
+    ILLEGAL_ON(fetchdat & 0x38); /*8F /1-/7*/
 
     temp = POP_W();
     if (cpu_state.abrt)
         return 1;
 
     fetch_ea_16(fetchdat);
-    if (cpu_mod != 3)
+    if (cpu_mod == 3) {
+        seteaw(temp);
+    } else {
+        new_esp = ESP;
+        ESP     = temp_esp;
         SEG_CHECK_WRITE(cpu_state.ea_seg);
-    seteaw(temp);
-    if (cpu_state.abrt) {
-        if (stack32)
-            ESP -= 2;
-        else
-            SP -= 2;
+        seteaw(temp);
+        if (!cpu_state.abrt)
+            ESP = new_esp;
     }
 
     if (is486) {
@@ -319,21 +330,26 @@ opPOPW_a16(uint32_t fetchdat)
 static int
 opPOPW_a32(uint32_t fetchdat)
 {
+    uint32_t temp_esp = ESP;
+    uint32_t new_esp;
     uint16_t temp;
+
+    ILLEGAL_ON(fetchdat & 0x38); /*8F /1-/7*/
 
     temp = POP_W();
     if (cpu_state.abrt)
         return 1;
 
     fetch_ea_32(fetchdat);
-    if (cpu_mod != 3)
+    if (cpu_mod == 3) {
+        seteaw(temp);
+    } else {
+        new_esp = ESP;
+        ESP     = temp_esp;
         SEG_CHECK_WRITE(cpu_state.ea_seg);
-    seteaw(temp);
-    if (cpu_state.abrt) {
-        if (stack32)
-            ESP -= 2;
-        else
-            SP -= 2;
+        seteaw(temp);
+        if (!cpu_state.abrt)
+            ESP = new_esp;
     }
 
     if (is486) {
@@ -348,21 +364,26 @@ opPOPW_a32(uint32_t fetchdat)
 static int
 opPOPL_a16(uint32_t fetchdat)
 {
+    uint32_t temp_esp = ESP;
+    uint32_t new_esp;
     uint32_t temp;
+
+    ILLEGAL_ON(fetchdat & 0x38); /*8F /1-/7*/
 
     temp = POP_L();
     if (cpu_state.abrt)
         return 1;
 
     fetch_ea_16(fetchdat);
-    if (cpu_mod != 3)
+    if (cpu_mod == 3) {
+        seteal(temp);
+    } else {
+        new_esp = ESP;
+        ESP     = temp_esp;
         SEG_CHECK_WRITE(cpu_state.ea_seg);
-    seteal(temp);
-    if (cpu_state.abrt) {
-        if (stack32)
-            ESP -= 4;
-        else
-            SP -= 4;
+        seteal(temp);
+        if (!cpu_state.abrt)
+            ESP = new_esp;
     }
 
     if (is486) {
@@ -376,21 +397,26 @@ opPOPL_a16(uint32_t fetchdat)
 static int
 opPOPL_a32(uint32_t fetchdat)
 {
+    uint32_t temp_esp = ESP;
+    uint32_t new_esp;
     uint32_t temp;
+
+    ILLEGAL_ON(fetchdat & 0x38); /*8F /1-/7*/
 
     temp = POP_L();
     if (cpu_state.abrt)
         return 1;
 
     fetch_ea_32(fetchdat);
-    if (cpu_mod != 3)
+    if (cpu_mod == 3) {
+        seteal(temp);
+    } else {
+        new_esp = ESP;
+        ESP     = temp_esp;
         SEG_CHECK_WRITE(cpu_state.ea_seg);
-    seteal(temp);
-    if (cpu_state.abrt) {
-        if (stack32)
-            ESP -= 4;
-        else
-            SP -= 4;
+        seteal(temp);
+        if (!cpu_state.abrt)
+            ESP = new_esp;
     }
 
     if (is486) {
@@ -418,7 +444,7 @@ opENTER_w(uint32_t fetchdat)
     uint16_t tempw;
 
     offset = getwordf();
-    count  = (fetchdat >> 16) & 0xff;
+    count  = (fetchdat >> 16) & 0x1f; /* The level, mod 32 */
     cpu_state.pc++;
     tempEBP = EBP;
     tempESP = ESP;
@@ -426,12 +452,16 @@ opENTER_w(uint32_t fetchdat)
     PUSH_W(BP);
     if (cpu_state.abrt)
         return 1;
-    frame_ptr = ESP;
+    /* The stack size picks SP or ESP, BP or EBP; the operand size the pushes */
+    frame_ptr = stack32 ? ESP : SP;
 
     if (count > 0) {
         while (--count) {
-            BP -= 2;
-            tempw = readmemw(ss, BP);
+            if (stack32)
+                EBP -= 2;
+            else
+                BP -= 2;
+            tempw = readmemw(ss, stack32 ? EBP : BP);
             if (cpu_state.abrt) {
                 ESP = tempESP;
                 EBP = tempEBP;
@@ -462,6 +492,8 @@ opENTER_w(uint32_t fetchdat)
         instr_cycles += (is486) ? 3 : 5;
 #endif
     }
+    /* The operand size picks BP or EBP for the frame (the current SDM's
+       ENTER, and Bochs; the 1999 book had the stack size pick it) */
     BP = frame_ptr;
 
     if (stack32)
@@ -491,7 +523,7 @@ opENTER_l(uint32_t fetchdat)
     uint32_t templ;
 
     offset = getwordf();
-    count  = (fetchdat >> 16) & 0xff;
+    count  = (fetchdat >> 16) & 0x1f; /* The level, mod 32 */
     cpu_state.pc++;
     tempEBP = EBP;
     tempESP = ESP;
@@ -499,12 +531,16 @@ opENTER_l(uint32_t fetchdat)
     PUSH_L(EBP);
     if (cpu_state.abrt)
         return 1;
-    frame_ptr = ESP;
+    /* The stack size picks SP or ESP, BP or EBP; the operand size the pushes */
+    frame_ptr = stack32 ? ESP : SP;
 
     if (count > 0) {
         while (--count) {
-            EBP -= 4;
-            templ = readmeml(ss, EBP);
+            if (stack32)
+                EBP -= 4;
+            else
+                BP -= 4;
+            templ = readmeml(ss, stack32 ? EBP : BP);
             if (cpu_state.abrt) {
                 ESP = tempESP;
                 EBP = tempEBP;
@@ -535,6 +571,8 @@ opENTER_l(uint32_t fetchdat)
         instr_cycles += (is486) ? 3 : 5;
 #endif
     }
+    /* The operand size picks BP or EBP for the frame (the current SDM's
+       ENTER, and Bochs; the 1999 book had the stack size pick it) */
     EBP = frame_ptr;
 
     if (stack32)
@@ -555,7 +593,11 @@ opLEAVE_w(UNUSED(uint32_t fetchdat))
     uint32_t tempESP = ESP;
     uint16_t temp;
 
-    SP   = BP;
+    /* The stack size picks SP or ESP, the operand size the pop */
+    if (stack32)
+        ESP = EBP;
+    else
+        SP = BP;
     temp = POP_W();
     if (cpu_state.abrt) {
         ESP = tempESP;
@@ -573,7 +615,11 @@ opLEAVE_l(UNUSED(uint32_t fetchdat))
     uint32_t tempESP = ESP;
     uint32_t temp;
 
-    ESP  = EBP;
+    /* The stack size picks SP or ESP, the operand size the pop */
+    if (stack32)
+        ESP = EBP;
+    else
+        SP = BP;
     temp = POP_L();
     if (cpu_state.abrt) {
         ESP = tempESP;

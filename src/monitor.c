@@ -38,6 +38,7 @@
 #include <86box/plat.h>
 #include <86box/thread.h>
 #include <86box/monitor.h>
+#include <86box/runctl.h>
 #include <86box/timer.h>
 #include <86box/fdd.h>
 #include <86box/cdrom.h>
@@ -63,7 +64,7 @@ monitor_log(const char *fmt, ...)
 /* External declarations for emulator control */
 extern void pc_reset_hard(void);
 extern void pc_send_cad(void);
-extern void do_pause(int p);
+
 extern volatile int is_quit;
 extern int dopause;
 
@@ -103,15 +104,15 @@ monitor_process_command(int client_socket, char *cmd)
         strcpy(response, "OK\n");
     } else if (!strcasecmp(cmd, "stop")) {
         /* Pause emulation */
-        do_pause(1);
+        runctl_pause(RUN_PAUSE_USER);
         strcpy(response, "OK\n");
     } else if (!strcasecmp(cmd, "cont")) {
         /* Resume emulation */
-        do_pause(0);
+        runctl_resume(RUN_PAUSE_USER_RESUMABLE);
         strcpy(response, "OK\n");
     } else if (!strcasecmp(cmd, "info status")) {
         /* Return running/paused status */
-        if (dopause)
+        if (runctl_paused())
             strcpy(response, "paused\n");
         else
             strcpy(response, "running\n");
@@ -137,7 +138,7 @@ monitor_process_command(int client_socket, char *cmd)
                     FILE *f = fopen(path, "rb");
                     if (f) {
                         fclose(f);
-                        fdd_load(drive, path);
+                        fdd_load(&drives[drive], path);
                         strcpy(response, "OK\n");
                     } else {
                         snprintf(response, sizeof(response), "ERROR: File not found '%s'\n", path);
@@ -155,7 +156,7 @@ monitor_process_command(int client_socket, char *cmd)
         /* Eject floppy drive: eject floppy<N> */
         int drive = -1;
         if (sscanf(cmd + 12, "%d", &drive) == 1 && drive >= 0 && drive < FDD_NUM) {
-            fdd_close(drive);
+            fdd_close(&drives[drive]);
             strcpy(response, "OK\n");
         } else {
             snprintf(response, sizeof(response), "ERROR: Invalid floppy drive number\n");
@@ -202,10 +203,10 @@ monitor_process_command(int client_socket, char *cmd)
         /* Query floppy status: info floppy<N> */
         int drive = -1;
         if (sscanf(cmd + 11, "%d", &drive) == 1 && drive >= 0 && drive < FDD_NUM) {
-            if (drive_empty[drive] || strlen(floppyfns[drive]) == 0) {
+            if (drives[drive].empty || strlen(drives[drive].image_path) == 0) {
                 snprintf(response, sizeof(response), "floppy%d: [empty]\n", drive);
             } else {
-                snprintf(response, sizeof(response), "floppy%d: %s\n", drive, floppyfns[drive]);
+                snprintf(response, sizeof(response), "floppy%d: %s\n", drive, drives[drive].image_path);
             }
         } else {
             snprintf(response, sizeof(response), "ERROR: Invalid floppy drive number\n");
@@ -230,6 +231,18 @@ monitor_process_command(int client_socket, char *cmd)
     send(client_socket, response, strlen(response), 0);
 }
 
+typedef struct monitor_request_t {
+    int socket;
+    char *command;
+} monitor_request_t;
+
+static void
+monitor_dispatch(void *priv)
+{
+    monitor_request_t *request = (monitor_request_t *) priv;
+    monitor_process_command(request->socket, request->command);
+}
+
 /* Client handler thread */
 static void
 monitor_client_thread(void *priv)
@@ -251,7 +264,8 @@ monitor_client_thread(void *priv)
             if (buf[i] == '\n' || buf[i] == '\r') {
                 if (cmd_pos > 0) {
                     cmd[cmd_pos] = '\0';
-                    monitor_process_command(client_socket, cmd);
+                    monitor_request_t request = {client_socket, cmd};
+                    runctl_call_wait(monitor_dispatch, &request);
                     cmd_pos = 0;
                 }
             } else if (cmd_pos < (int)(sizeof(cmd) - 1)) {

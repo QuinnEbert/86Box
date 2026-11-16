@@ -12,6 +12,7 @@
  *
  *          Copyright 2016-2025 Miran Grca.
  */
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -38,6 +39,9 @@
 #include <86box/fdd.h>
 #include <86box/fdc.h>
 #include <86box/nvr.h>
+#include <86box/nvr_ps2.h>
+#include <86box/nmc93cxx.h>
+#include <86box/crc.h>
 #include <86box/plat_unused.h>
 #include <86box/sound.h>
 
@@ -55,7 +59,7 @@ static const device_config_t p54tp4xe_config[] = {
         .selection      = { { 0 } },
         .bios           = {
             {
-                .name          = "Award Modular BIOS v4.51PG - Revision 0302",
+                .name          = "AwardBIOS v4.51PG - Revision 0302",
                 .internal_name = "p54tp4xe",
                 .bios_type     = BIOS_NORMAL,
                 .files_no      = 1,
@@ -197,9 +201,8 @@ machine_at_holly_init(const machine_t *model) /* HP Pavilion Holly, 7070/7090/51
 {
     int ret;
 
-    ret = bios_load_linear_combined("roms/machines/holly/1005CA2L.BIO",
-                                    "roms/machines/holly/1005CA2L.BI1",
-                                    0x20000, 128);
+    ret = bios_load_intel("roms/machines/holly/1005CA2L.BIO", NULL,
+                          131072, 1);
 
     if (bios_only || !ret)
         return ret;
@@ -299,7 +302,7 @@ static const device_config_t vectra52_config[] = {
         .selection      = { { 0 } },
         .bios           = {
             {
-                .name          = "GU.07.02 (01/25/96)",
+                .name          = "PhoenixBIOS 4.05.K.00 - Revision GU.07.02 (01/25/96)",
                 .internal_name = "vectra52_0702",
                 .bios_type     = BIOS_NORMAL,
                 .files_no      = 1,
@@ -308,7 +311,7 @@ static const device_config_t vectra52_config[] = {
                 .files         = { "roms/machines/vectra52/d3653.bin", "" }
             },
             {
-                .name          = "GU.07.05 (08/06/96)",
+                .name          = "PhoenixBIOS 4.05.Z - Revision GU.07.05 (08/06/96)",
                 .internal_name = "vectra52_0705",
                 .bios_type     = BIOS_NORMAL,
                 .files_no      = 1,
@@ -405,6 +408,160 @@ machine_at_vectra54_init(const machine_t *model)
     return ret;
 }
 
+/*
+ * IBM PC 730 (type 6877) and PC 750 (type 6887). The I/O map is from the
+ * Technical Information Manual (52H3381, page 9); the bit layouts it leaves
+ * out are taken from the LQKT47A BIOS.
+ */
+static nmc93cxx_eeprom_t *ibm_pc700_eeprom;
+static uint16_t           ibm_pc700_eeprom_default[64];
+static void              *ibm_pc700_flash;
+static uint8_t            ibm_pc700_a17;
+
+/*
+ * The 256 KB flash shows 128 KB at a time: GPIO 78h bit 4 drives its A17.
+ * The code that switches halves is the same in both.
+ */
+static void
+machine_at_ibm_pc700_set_a17(uint8_t a17)
+{
+    ibm_pc700_a17 = a17;
+    catalyst_flash_bios_set_addr_lines(ibm_pc700_flash, 0x20000, a17 ? 0x20000 : 0x00000);
+}
+
+/*
+ * GPIO 78h bits 3-0 are SW1, read as the index into the BIOS's speed table:
+ * bits 1-0 select 50, 66 or 60 MHz, bits 3-2 select 2.5x, 3x, 2x or 1.5x.
+ */
+static void
+machine_at_ibm_pc700_gpio_init(void)
+{
+    uint32_t gpio = 0xfffffff0;
+
+    if (cpu_busspeed > 60000000)
+        gpio |= 0x01;
+    else if (cpu_busspeed > 50000000)
+        gpio |= 0x02;
+
+    if (cpu_dmulti <= 1.5)
+        gpio |= 0x0c;
+    else if (cpu_dmulti <= 2.0)
+        gpio |= 0x08;
+    else if (cpu_dmulti > 2.5)
+        gpio |= 0x04;
+
+    machine_set_gpio_default(gpio);
+}
+
+uint32_t
+machine_at_ibm_pc700_gpio_handler(uint8_t write, uint32_t val)
+{
+    uint32_t ret = machine_get_gpio_default();
+
+    if (write) {
+        ret &= val;
+        machine_set_gpio(ret);
+
+        /* GPIO 79h bits 4-2 are the security EEPROM's DI, SK and CS. */
+        if (ibm_pc700_eeprom != NULL)
+            nmc93cxx_eeprom_write(ibm_pc700_eeprom, !!(ret & 0x0400), !!(ret & 0x0800), !!(ret & 0x1000));
+
+        if ((ibm_pc700_flash != NULL) && (!!(ret & 0x0010) != ibm_pc700_a17))
+            machine_at_ibm_pc700_set_a17(!!(ret & 0x0010));
+    } else {
+        ret = machine_get_gpio();
+
+        /* GPIO 79h bit 1 is the security EEPROM's DO. */
+        if ((ibm_pc700_eeprom != NULL) && !nmc93cxx_eeprom_read(ibm_pc700_eeprom))
+            ret &= ~0x0200;
+    }
+
+    return ret;
+}
+
+/*
+ * A new board's security EEPROM: no passwords, an empty VPD record in words
+ * 08h-28h with its CRC in word 07h, and in word 24h the CRC of the empty CMOS
+ * record at 42h, which the BIOS compares it with. Both are CRC-16/CCITT over
+ * the low then the high byte of each word.
+ */
+static void
+machine_at_ibm_pc700_eeprom_default(void)
+{
+    uint16_t crc_table[256];
+    crc_t    crc = { .word = 0xffff };
+
+    memset(ibm_pc700_eeprom_default, 0xff, sizeof(ibm_pc700_eeprom_default));
+    memset(&ibm_pc700_eeprom_default[0x08], 0x00, 0x21 * sizeof(uint16_t));
+
+    crc16_setup(crc_table, 0x1021);
+    crc16_calc(crc_table, 0x00, &crc);
+    ibm_pc700_eeprom_default[0x24] = crc.word;
+
+    crc.word = 0xffff;
+    for (uint8_t i = 0x08; i <= 0x28; i++) {
+        crc16_calc(crc_table, ibm_pc700_eeprom_default[i] & 0xff, &crc);
+        crc16_calc(crc_table, ibm_pc700_eeprom_default[i] >> 8, &crc);
+    }
+    ibm_pc700_eeprom_default[0x07] = crc.word;
+}
+
+int
+machine_at_ibm_pc700_init(const machine_t *model)
+{
+    nmc93cxx_eeprom_params_t params = { 0 };
+    int                      ret;
+
+    ret = bios_load_linear("roms/machines/ibm_pc700/LQKT47A.BIN",
+                           0x000c0000, 262144, 0);
+
+    if (bios_only || !ret)
+        return ret;
+
+    machine_at_common_init(model);
+    machine_at_ibm_pc700_gpio_init();
+
+    /*
+     * IBM's flash utility (FLASH2.EXE) programs the Intel, AMD and Catalyst
+     * 28F020 and the SGS-Thomson M28F201 at this size; it gained the Catalyst
+     * part in update LQJT40A, for later boards.
+     */
+    ibm_pc700_flash = device_add(&catalyst_28f020_flash_device);
+    machine_at_ibm_pc700_set_a17(!!(machine_get_gpio() & 0x0010));
+
+    machine_at_ibm_pc700_eeprom_default();
+    params.type            = NMC_93C46_x16_64;
+    params.filename        = "ibm_pc700_93c46.nvr";
+    params.default_content = ibm_pc700_eeprom_default;
+    ibm_pc700_eeprom       = device_add_params(&nmc93cxx_device, &params);
+
+    /*
+     * The BIOS routes INTA of device 06h to PIRQ C, of 07h to PIRQ B and of
+     * any other device to PIRQ A, and a card at 0Ch makes it crash. The riser
+     * has three slots; the third one's device number is not documented.
+     */
+    pci_init(PCI_CONFIG_TYPE_1);
+    pci_register_slot(0x00, PCI_CARD_NORTHBRIDGE, 0, 0, 0, 0);
+    pci_register_slot(0x01, PCI_CARD_SOUTHBRIDGE, 0, 0, 0, 0);
+    pci_register_slot(0x06, PCI_CARD_NORMAL,      3, 4, 1, 2);
+    pci_register_slot(0x07, PCI_CARD_NORMAL,      2, 3, 4, 1);
+    pci_register_slot(0x09, PCI_CARD_NORMAL,      1, 2, 3, 4);
+    pci_register_slot(0x08, PCI_CARD_VIDEO,       1, 0, 0, 0);
+
+    if (gfxcard[0] == VID_INTERNAL)
+        device_add(machine_get_vid_device(machine));
+
+    device_add(&i430fx_device);
+    device_add(&piix_rev02_device);
+    device_add_params(&pc87306_device, (void *) PCX730X_AMI);
+    /* The riser's battery-backed 8 KB NVRAM at 74h-76h. */
+    device_add(&ps2_nvr_8kb_device);
+    device_add(&ibm_pc700_readout_device);
+    device_add(&ibm_pc700_power_device);
+
+    return ret;
+}
+
 static void
 machine_at_atlantis_gpio_init(void)
 {
@@ -446,9 +603,8 @@ machine_at_atlantis_init(const machine_t *model)
 {
     int ret;
 
-    ret = bios_load_linear_combined("roms/machines/atlantis/1007CL0_.BIO",
-                                    "roms/machines/atlantis/1007CL0_.BI1",
-                                    0x20000, 128);
+    ret = bios_load_intel("roms/machines/atlantis/1007CL0_.BIO", NULL,
+                          131072, 1);
 
     if (bios_only || !ret)
         return ret;
@@ -592,7 +748,6 @@ machine_at_thor_init(const machine_t *model)
 {
     int         ret = 0;
     const char *fn;
-    const char *fn2;
 
     /* No ROMs available */
     if (!device_available(model->device))
@@ -604,10 +759,8 @@ machine_at_thor_init(const machine_t *model)
     fn            = device_get_bios_file(machine_get_device(machine), device_get_config_bios("bios"), 0);
     if (is_mr)
         ret = bios_load_linear(fn, 0x000e0000, 131072, 0);
-    else {
-        fn2 = device_get_bios_file(machine_get_device(machine), device_get_config_bios("bios"), 1);
-        ret = bios_load_linear_combined(fn, fn2, 0x20000, 128);
-    }
+    else
+        ret = bios_load_intel(fn, NULL, 131072, 1);
     device_context_restore();
 
     machine_at_common_init(model);
@@ -639,58 +792,60 @@ machine_at_thor_init(const machine_t *model)
 static void
 machine_at_endeavor_gpio_init(void)
 {
-    uint32_t gpio = 0xffffe0cf;
-    uint16_t addr;
+    if (!dump_missing) {
+        uint32_t gpio = 0xffffe0cf;
+        uint16_t addr;
 
-    /* Register 0x0078 (Undocumented): */
-    /* Bit 5,4: Vibra 16S base address: 0 = 220h, 1 = 260h, 2 = 240h, 3 = 280h. */
-    device_context(machine_get_snd_device(machine));
-    addr = device_get_config_hex16("base");
-    switch (addr) {
-        case 0x0220:
-            gpio |= 0xffff00cf;
-            break;
-        case 0x0240:
-            gpio |= 0xffff00ef;
-            break;
-        case 0x0260:
-            gpio |= 0xffff00df;
-            break;
-        case 0x0280:
-            gpio |= 0xffff00ff;
-            break;
+        /* Register 0x0078 (Undocumented): */
+        /* Bit 5,4: Vibra 16S base address: 0 = 220h, 1 = 260h, 2 = 240h, 3 = 280h. */
+        device_context(machine_get_snd_device(machine));
+        addr = device_get_config_hex16("base");
+        switch (addr) {
+            case 0x0220:
+                gpio |= 0xffff00cf;
+                break;
+            case 0x0240:
+                gpio |= 0xffff00ef;
+                break;
+            case 0x0260:
+                gpio |= 0xffff00df;
+                break;
+            case 0x0280:
+                gpio |= 0xffff00ff;
+                break;
+        }
+        device_context_restore();
+
+        /* Register 0x0079: */
+        /* Bit 7: 0 = Clear password, 1 = Keep password. */
+        /* Bit 6: 0 = NVRAM cleared by jumper, 1 = NVRAM normal. */
+        /* Bit 5: 0 = CMOS Setup disabled, 1 = CMOS Setup enabled. */
+        /* Bit 4: External CPU clock (Switch 8). */
+        /* Bit 3: External CPU clock (Switch 7). */
+        /*        50 MHz: Switch 7 = Off, Switch 8 = Off. */
+        /*        60 MHz: Switch 7 = On, Switch 8 = Off. */
+        /*        66 MHz: Switch 7 = Off, Switch 8 = On. */
+        /* Bit 2: 0 = On-board audio absent, 1 = On-board audio present. */
+        /* Bit 1: 0 = Soft-off capable power supply present, 1 = Soft-off capable power supply absent. */
+        /* Bit 0: 0 = 2x multiplier, 1 = 1.5x multiplier (Switch 6). */
+        /* NOTE: A bit is read as 1 if switch is off, and as 0 if switch is on. */
+        if (cpu_busspeed <= 50000000)
+            gpio |= 0xffff0000;
+        else if ((cpu_busspeed > 50000000) && (cpu_busspeed <= 60000000))
+            gpio |= 0xffff0800;
+        else if (cpu_busspeed > 60000000)
+            gpio |= 0xffff1000;
+
+        if (sound_card_current[0] == SOUND_INTERNAL)
+            gpio |= 0xffff0400;
+
+        if (cpu_dmulti <= 1.5)
+            gpio |= 0xffff0100;
+        else
+            gpio |= 0xffff0000;
+
+        machine_set_gpio_default(gpio);
     }
-    device_context_restore();
-
-    /* Register 0x0079: */
-    /* Bit 7: 0 = Clear password, 1 = Keep password. */
-    /* Bit 6: 0 = NVRAM cleared by jumper, 1 = NVRAM normal. */
-    /* Bit 5: 0 = CMOS Setup disabled, 1 = CMOS Setup enabled. */
-    /* Bit 4: External CPU clock (Switch 8). */
-    /* Bit 3: External CPU clock (Switch 7). */
-    /*        50 MHz: Switch 7 = Off, Switch 8 = Off. */
-    /*        60 MHz: Switch 7 = On, Switch 8 = Off. */
-    /*        66 MHz: Switch 7 = Off, Switch 8 = On. */
-    /* Bit 2: 0 = On-board audio absent, 1 = On-board audio present. */
-    /* Bit 1: 0 = Soft-off capable power supply present, 1 = Soft-off capable power supply absent. */
-    /* Bit 0: 0 = 2x multiplier, 1 = 1.5x multiplier (Switch 6). */
-    /* NOTE: A bit is read as 1 if switch is off, and as 0 if switch is on. */
-    if (cpu_busspeed <= 50000000)
-        gpio |= 0xffff0000;
-    else if ((cpu_busspeed > 50000000) && (cpu_busspeed <= 60000000))
-        gpio |= 0xffff0800;
-    else if (cpu_busspeed > 60000000)
-        gpio |= 0xffff1000;
-
-    if (sound_card_current[0] == SOUND_INTERNAL)
-        gpio |= 0xffff0400;
-
-    if (cpu_dmulti <= 1.5)
-        gpio |= 0xffff0100;
-    else
-        gpio |= 0xffff0000;
-
-    machine_set_gpio_default(gpio);
 }
 
 uint32_t
@@ -728,9 +883,8 @@ machine_at_endeavor_init(const machine_t *model)
 {
     int ret;
 
-    ret = bios_load_linear_combined("roms/machines/endeavor/1006cb0_.bio",
-                                    "roms/machines/endeavor/1006cb0_.bi1",
-                                    0x1d000, 128);
+    ret = bios_load_intel("roms/machines/endeavor/1006cb0_.bio", NULL,
+                          131072, 1);
 
     if (bios_only || !ret)
         return ret;
@@ -836,7 +990,6 @@ machine_at_monaco_init(const machine_t *model)
 {
     int         ret = 0;
     const char *fn;
-    const char *fn2;
 
     /* No ROMs available */
     if (!device_available(model->device))
@@ -844,8 +997,7 @@ machine_at_monaco_init(const machine_t *model)
 
     device_context(model->device);
     fn  = device_get_bios_file(machine_get_device(machine), device_get_config_bios("bios"), 0);
-    fn2 = device_get_bios_file(machine_get_device(machine), device_get_config_bios("bios"), 1);
-    ret = bios_load_linear_combined(fn, fn2, 0x20000, 128);
+    ret = bios_load_intel(fn, NULL, 131072, 1);
     device_context_restore();
 
     machine_at_common_init(model);
@@ -894,7 +1046,7 @@ static const device_config_t ms5119_config[] = {
                 .files         = { "roms/machines/ms5119/A37EB.ROM", "" }
             },
             {
-                .name          = "Award Modular BIOS v4.51PG - Release 2.3 (by Rainbow)",
+                .name          = "AwardBIOS v4.51PG - Release 2.3 (by Rainbow)",
                 .internal_name = "ms5119_451pg",
                 .bios_type     = BIOS_NORMAL,
                 .files_no      = 1,
@@ -994,8 +1146,8 @@ machine_at_pb640_init(const machine_t *model)
 {
     int ret;
 
-    ret = bios_load_linear_combined("roms/machines/pb640/1007CP0R.BIO",
-                                    "roms/machines/pb640/1007CP0R.BI1", 0x1d000, 128);
+    ret = bios_load_intel("roms/machines/pb640/1007CP0R.BIO", NULL,
+                          131072, 1);
 
     if (bios_only || !ret)
         return ret;
@@ -1075,7 +1227,7 @@ static const device_config_t fmb_config[] = {
                 .files         = { "roms/machines/fmb/P5IV183.ROM", "" }
             },
             {
-                .name          = "Award Modular BIOS v4.51PG - 2001 Release (by Rainbow)",
+                .name          = "AwardBIOS v4.51PG - 2001 Release (by Rainbow)",
                 .internal_name = "fmb_451pg",
                 .bios_type     = BIOS_NORMAL,
                 .files_no      = 1,
@@ -1133,6 +1285,35 @@ machine_at_fmb_init(const machine_t *model)
     device_add(&piix_no_mirq_device);
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
     device_add_params(&w837x7_device, (void *) (W83787F | W837X7_KEY_89));
+    device_add(&intel_flash_bxt_device);
+
+    return ret;
+}
+
+int
+machine_at_sjptm_init(const machine_t *model)
+{
+    int ret;
+
+    ret = bios_load_linear("roms/machines/sjptm/p28f001bx-t-at-dip32-sj-pentium-fx-intel-p28f001bx-t-6a283cfb3cbff518008684.BIN",
+                           0x000e0000, 131072, 0);
+
+    if (bios_only || !ret)
+        return ret;
+
+    machine_at_common_init(model);
+
+    pci_init(PCI_CONFIG_TYPE_1);
+    pci_register_slot(0x00, PCI_CARD_NORTHBRIDGE, 0, 0, 0, 0);
+    pci_register_slot(0x07, PCI_CARD_SOUTHBRIDGE, 0, 0, 0, 0);
+    pci_register_slot(0x08, PCI_CARD_NORMAL,      2, 3, 4, 1);
+    pci_register_slot(0x09, PCI_CARD_NORMAL,      3, 4, 1, 2);
+    pci_register_slot(0x0A, PCI_CARD_NORMAL,      4, 1, 2, 3);
+
+    device_add(&i430fx_device);
+    device_add(&piix_device);
+    device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
+    device_add_params(&um866x_device, (void *) UM8663AF);
     device_add(&intel_flash_bxt_device);
 
     return ret;
@@ -1380,12 +1561,9 @@ machine_at_gw2kma_init(const machine_t *model)
 {
     int ret;
 
-    ret = bios_load_linear_combined2("roms/machines/gw2kma/1007DQ0T.BIO",
-                                     "roms/machines/gw2kma/1007DQ0T.BI1",
-                                     "roms/machines/gw2kma/1007DQ0T.BI2",
-                                     "roms/machines/gw2kma/1007DQ0T.BI3",
-                                     "roms/machines/gw2kma/1007DQ0T.RCV",
-                                     0x3a000, 128);
+    ret = bios_load_intel("roms/machines/gw2kma/1007DQ0T.BIO",
+                          "roms/machines/gw2kma/1007DQ0T.RCV",
+                          262144, 1);
 
     if (bios_only || !ret)
         return ret;
@@ -1411,6 +1589,35 @@ machine_at_gw2kma_init(const machine_t *model)
     return ret;
 }
 
+/* OPTi Viper */
+int
+machine_at_rhino8_init(const machine_t *model)
+{
+    int ret;
+
+    ret = bios_load_linear("roms/machines/rhino8/R8V9704.BIN",
+                           0x000e0000, 131072, 0);
+
+    if (bios_only || !ret)
+        return ret;
+
+    machine_at_common_init(model);
+
+    pci_init(PCI_CONFIG_TYPE_1);
+    pci_register_slot(0x00, PCI_CARD_NORTHBRIDGE, 0, 0, 0, 0);
+    pci_register_slot(0x01, PCI_CARD_SOUTHBRIDGE, 0, 0, 0, 0);
+    pci_register_slot(0x10, PCI_CARD_NORMAL,      2, 3, 4, 1);
+    pci_register_slot(0x11, PCI_CARD_NORMAL,      3, 4, 1, 2);
+    pci_register_slot(0x12, PCI_CARD_NORMAL,      4, 1, 2, 3);
+    pci_register_slot(0x14, PCI_CARD_IDE,         4, 0, 0, 0);
+    device_add(&opti55x_device);
+    device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
+    device_add_params(&fdc37c6xx_device, (void *) FDC37C665);
+    device_add(&intel_flash_bxt_device);
+
+    return ret;
+}
+
 /* SiS 5501 */
 static const device_config_t c5sbm2_config[] = {
     // clang-format off
@@ -1425,7 +1632,7 @@ static const device_config_t c5sbm2_config[] = {
         .selection      = { { 0 } },
         .bios           = {
             {
-                .name          = "Award Modular BIOS v4.50GP - Revision 07/17/1995",
+                .name          = "AwardBIOS v4.50GP - Revision 07/17/1995",
                 .internal_name = "5sbm2_v450gp",
                 .bios_type     = BIOS_NORMAL,
                 .files_no      = 1,
@@ -1434,7 +1641,7 @@ static const device_config_t c5sbm2_config[] = {
                 .files         = { "roms/machines/5sbm2/5SBM0717.BIN", "" }
             },
             {
-                .name          = "Award Modular BIOS v4.50PG - Revision 03/26/1996",
+                .name          = "AwardBIOS v4.50PG - Revision 03/26/1996",
                 .internal_name = "5sbm2",
                 .bios_type     = BIOS_NORMAL,
                 .files_no      = 1,
@@ -1443,7 +1650,7 @@ static const device_config_t c5sbm2_config[] = {
                 .files         = { "roms/machines/5sbm2/5SBM0326.BIN", "" }
             },
             {
-                .name          = "Award Modular BIOS v4.51PG - Revision 2.2 (by Unicore Software)",
+                .name          = "AwardBIOS v4.51PG - Revision 2.2 (by Unicore Software)",
                 .internal_name = "5sbm2_451pg",
                 .bios_type     = BIOS_NORMAL,
                 .files_no      = 1,
@@ -1550,7 +1757,7 @@ static const device_config_t ap5s_config[] = {
         .selection      = { { 0 } },
         .bios           = {
             {
-                .name          = "Award Modular BIOS v4.50PG - Revision R1.20",
+                .name          = "AwardBIOS v4.50PG - Revision R1.20",
                 .internal_name = "ap5s_450pg",
                 .bios_type     = BIOS_NORMAL,
                 .files_no      = 1,
@@ -1559,7 +1766,7 @@ static const device_config_t ap5s_config[] = {
                 .files         = { "roms/machines/ap5s/ap5s120.bin", "" }
             },
             {
-                .name          = "Award Modular BIOS v4.51PG - Revision R1.50",
+                .name          = "AwardBIOS v4.51PG - Revision R1.50",
                 .internal_name = "ap5s_r150",
                 .bios_type     = BIOS_NORMAL,
                 .files_no      = 1,
@@ -1568,7 +1775,7 @@ static const device_config_t ap5s_config[] = {
                 .files         = { "roms/machines/ap5s/AP5S150.BIN", "" }
             },
             {
-                .name          = "Award Modular BIOS v4.51PG - Revision R1.60",
+                .name          = "AwardBIOS v4.51PG - Revision R1.60",
                 .internal_name = "ap5s",
                 .bios_type     = BIOS_NORMAL,
                 .files_no      = 1,
@@ -1714,7 +1921,7 @@ static const device_config_t ms5124_config[] = {
                 .files         = { "roms/machines/ms5124/AG77.ROM", "" }
             },
             {
-                .name          = "Award Modular BIOS v4.51PG - Revision WG72P",
+                .name          = "AwardBIOS v4.51PG - Revision WG72P",
                 .internal_name = "ms5124_451pg",
                 .bios_type     = BIOS_NORMAL,
                 .files_no      = 1,
@@ -1805,7 +2012,7 @@ machine_at_zeoswildcat_init(const machine_t *model)
     device_add(&intel_flash_bxt_device);
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
     device_add_params(&fdc37c6xx_device, (void *) FDC37C665);
-    device_add(&ide_rz1001_pci_device);
+    device_add(machine_get_ide_device(machine));
 
     return ret;
 }

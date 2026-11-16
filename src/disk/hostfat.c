@@ -248,7 +248,8 @@ static void build_dir_blob_for_node(hostfat_t *hf, hostfat_entry_t *dir)
         entries += lfn_cnt + 1;
     }
     uint32_t bytes = entries * 32;
-    dir->dir_blob_bytes = ((bytes + 31) / 32) * 32;
+    free(dir->dir_blob);
+    dir->dir_blob_bytes = ((bytes + 511) / 512) * 512;
     dir->dir_blob = (uint8_t *)calloc(dir->dir_blob_bytes, 1);
     uint8_t *p = dir->dir_blob;
     /* . */
@@ -330,9 +331,14 @@ static void rebuild_cluster_map(hostfat_t *hf)
     }
 }
 
-/* TODO: recursive scan, FAT allocation, cluster_map creation, dir blob creation, and parsing writes. */
-
-/* For now: stub mount that prepares a minimal structure so compilation succeeds while we continue implementing. */
+/* Build the on-disk directory records after every child has a cluster. */
+static void refresh_directory_blobs(hostfat_t *hf, hostfat_entry_t *dir)
+{
+    build_dir_blob_for_node(hf, dir);
+    for (hostfat_entry_t *child = dir->children; child; child = child->next)
+        if (child->attr & 0x10)
+            refresh_directory_blobs(hf, child);
+}
 
 int hostfat_mount(hard_disk_t *hd, hostfat_t **out)
 {
@@ -390,6 +396,7 @@ int hostfat_mount(hard_disk_t *hd, hostfat_t **out)
     /* Allocate directories recursively, then files recursively */
     allocate_dirs_recursive(hf, hf->root, &next_free);
     allocate_files_recursive(hf, hf->root, &next_free);
+    refresh_directory_blobs(hf, hf->root);
     *out = hf;
     return 0;
 }

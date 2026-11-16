@@ -27,6 +27,7 @@
 #include <86box/keyboard.h>
 #include <86box/mouse.h>
 #include <86box/plat.h>
+#include <86box/runctl.h>
 #include <86box/ui.h>
 #include <86box/vnc.h>
 #include <86box/version.h>
@@ -128,7 +129,7 @@ vnc_clientgone(UNUSED(rfbClientPtr cl))
         else
             plat_mouse_capture(0);
 
-        plat_pause(1);
+        runctl_pause(RUN_PAUSE_REMOTE);
     }
 }
 
@@ -155,7 +156,7 @@ vnc_newclient(rfbClientPtr cl)
         else
             plat_mouse_capture(1);
 
-        plat_pause(0);
+        runctl_resume(RUN_PAUSE_REMOTE);
     }
 
     /* For now, we always accept clients. */
@@ -214,10 +215,7 @@ vnc_init(UNUSED(void *arg))
         32, 32, 0, 1, 255, 255, 255, 16, 8, 0, 0, 0
     };
 
-    /* Skip plat_pause in headless mode - the emulation thread handshake doesn't work without SDL */
-    if (!headless_mode) {
-        plat_pause(1);
-    }
+    runctl_pause(RUN_PAUSE_REMOTE);
     cgapal_rebuild_monitor(0);
 
     if (rfb == NULL) {
@@ -282,6 +280,10 @@ vnc_close(void)
 
         rfb = NULL;
     }
+
+    /* With the VNC renderer gone, nothing waits for a client any more.
+       Done after the cleanup, whose client-gone hooks pause again. */
+    runctl_resume(RUN_PAUSE_REMOTE);
 }
 
 void

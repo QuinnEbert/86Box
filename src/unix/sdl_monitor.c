@@ -8,6 +8,7 @@
 
 #include <86box/86box.h>
 #include <86box/plat.h>
+#include <86box/runctl.h>
 #include <86box/plat_dynld.h>
 #include <86box/cdrom.h>
 #include <86box/version.h>
@@ -32,7 +33,6 @@ static dllimp_t libedit_imports[] = {
 #endif
 
 extern int exit_event, fullscreen_pending;
-extern bool fast_forward;
 
 void
 sdl_monitor_init(void)
@@ -182,11 +182,7 @@ monitor_execute_line(char *line)
 #endif
 
 #ifdef USE_DYNAREC
-#    ifdef USE_NEW_DYNAREC
-#        define DYNAREC_STR "new dynarec"
-#    else
-#        define DYNAREC_STR "old dynarec"
-#    endif
+#    define DYNAREC_STR "dynarec"
 #else
 #    define DYNAREC_STR "no dynarec"
 #endif
@@ -209,11 +205,11 @@ monitor_execute_line(char *line)
             endblit();
             device_force_redraw();
         } else if (strncasecmp(xargv[0], "pause", 5) == 0) {
-            plat_pause(dopause ^ 1);
+            runctl_pause_user_toggle();
             printf("%s", dopause ? "Paused.\n" : "Unpaused.\n");
         } else if (strncasecmp(xargv[0], "fastfwd", 7) == 0) {
-            fast_forward ^= 1;
-            printf("%s", fast_forward ? "Fast forward on.\n" : "Fast forward off.\n");
+            runctl_fast_forward_toggle();
+            printf("%s", (runctl_mode() == RUN_MODE_FAST) ? "Fast forward on.\n" : "Fast forward off.\n");
         } else if (strncasecmp(xargv[0], "hardreset", 9) == 0) {
             pc_reset_hard();
         } else if (strncasecmp(xargv[0], "cdload", 6) == 0 && cmdargc >= 3) {

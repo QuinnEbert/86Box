@@ -44,6 +44,7 @@
 #endif
 #define HAVE_STDARG_H
 #include <86box/86box.h>
+#include <86box/version.h>
 #include <86box/device.h>
 #include <86box/char.h>
 #include <86box/log.h>
@@ -75,10 +76,10 @@ typedef struct {
     void        *log;
     char_port_t *port;
 
-    FILE *prev_log;
 #ifdef _WIN32
     HANDLE       fd_in;
     HANDLE       fd_out;
+    unsigned int stdout_redirected   : 1;
     unsigned int prev_in_mode_valid  : 1;
     unsigned int prev_out_mode_valid : 1;
     DWORD        prev_in_mode;
@@ -91,6 +92,8 @@ typedef struct {
 #else
     int            fd_in;
     int            fd_out;
+    int            fd_err;
+    unsigned int   stdout_redirected : 1;
     unsigned int   prev_config_valid : 1;
     unsigned int   prev_flags_valid  : 1;
     struct termios prev_config;
@@ -206,19 +209,30 @@ char_stdio_control(uint32_t flags, void *priv)
     }
 }
 
-#ifdef USE_NEW_DYNAREC
-extern FILE *stdlog;
-#endif
-
 static void
 char_stdio_close(void *priv)
 {
     char_stdio_t *dev = (char_stdio_t *) priv;
 
-    /* Resume logging to stdout if it had been stopped. */
-    if (dev->prev_log) {
-        fclose(stdlog);
-        stdlog = dev->prev_log;
+    /* Restore original stdout/stderr. */
+    if (dev->stdout_redirected) {
+#ifdef _WIN32
+        freopen("CONOUT$", "w", stdout);
+        freopen("CONOUT$", "w", stderr);
+        CloseHandle(dev->fd_out);
+#else
+        if (dev->fd_out != STDOUT_FILENO) {
+            fflush(stdout);
+            if (CHAR_FD_VALID(dup2(dev->fd_out, STDOUT_FILENO)))
+                close(dev->fd_out);
+            dev->fd_out = STDOUT_FILENO; /* for claim release later on */
+        }
+        if (CHAR_FD_VALID(dev->fd_err)) {
+            fflush(stderr);
+            if (CHAR_FD_VALID(dup2(dev->fd_err, STDERR_FILENO)))
+                close(dev->fd_err);
+        }
+#endif
     }
 
     char_stdio_log(dev->log, "close()\n");
@@ -251,7 +265,7 @@ char_stdio_close(void *priv)
 #else
     if (dev->prev_config_valid && CHAR_FD_VALID(dev->fd_in) && tcsetattr(dev->fd_in, TCSAFLUSH, &dev->prev_config))
         char_stdio_log(dev->log, "Restore TCSAFLUSH failed (%d)\n", errno);
-    if (dev->prev_flags_valid && CHAR_FD_VALID(dev->fd_out) && (fcntl(dev->fd_out, F_SETFL, dev->prev_flags) < 0))
+    if (dev->prev_flags_valid && CHAR_FD_VALID(dev->fd_in) && (fcntl(dev->fd_in, F_SETFL, dev->prev_flags) < 0))
         char_stdio_log(dev->log, "Restore F_SETFL failed (%d)\n", errno);
 
     /* Release console. */
@@ -286,7 +300,7 @@ char_stdio_init(const device_t *info)
         if (stdio_claimed_by) {
             char_stdio_log(dev->log, "Standard input/output already claimed by %s\n", stdio_claimed_by);
 
-            snprintf(msg, sizeof(msg), "%s: Virtual console already in use by %s", dev->port->name, stdio_claimed_by);
+            snprintf(msg, sizeof(msg), plat_get_string(STRING_CHARDEV_VCON_IN_USE), dev->port->name, stdio_claimed_by);
             ui_msgbox(MBX_INFO, msg);
 
             dev->fd_in = dev->fd_out =
@@ -366,7 +380,7 @@ char_stdio_init(const device_t *info)
 #    endif
 
                         if (mode == CHAR_STDIO_MODE_PTY) {
-                            snprintf(msg, sizeof(msg), "%s: Attached to %s", dev->port->name, pty);
+                            snprintf(msg, sizeof(msg), plat_get_string(STRING_CHARDEV_ATTACHED), dev->port->name, pty);
                             ui_msgbox(MBX_INFO, msg);
                         } else {
                             /* Build environment variables. */
@@ -378,6 +392,9 @@ char_stdio_init(const device_t *info)
                                                           "exec kill $$)"     /* (stop script once the read connection is broken) */
                                                           "<\"$PTY\"&"        /* ...from pty in the background */
                                                           "clear;"            /* suppress background task indicator (zsh prints it to stdout) */
+#    ifdef __APPLE__
+                                                          "ARGV0='" EMU_NAME "' " /* override title bar command on macOS Terminal + zsh */
+#    endif
                                                           "cat>\"$PTY\";"     /* pipe from stdin to pty */
                                                           "exec kill $!";     /* stop script once the write connection is broken */
                             char               env[3][2048];
@@ -388,7 +405,13 @@ char_stdio_init(const device_t *info)
                             /* Determine command to execute. */
                             const char *cmd;
                             if (mode == CHAR_STDIO_MODE_TERM) {
-                                cmd = "eval $PIPECMD";
+                                cmd =
+#    ifdef __APPLE__
+                                      "$(which zsh || echo sh)"
+#    else
+                                      "sh"
+#    endif
+                                      " -c \"$PIPECMD\";reset;clear";
                             } else {
                                 cmd = device_get_config_string("command");
                                 if (!cmd || !cmd[0]) {
@@ -404,7 +427,7 @@ char_stdio_init(const device_t *info)
                                 msg[0] = '\0';
 
                             /* Execute command. */
-                            if (!plat_run_command(cmd, (const char *[]) { pipe_cmd, env[0], env[1], env[2], NULL }, msg[0] ? msg : NULL))
+                            if (!plat_run_command(cmd, (const char *[]) { pipe_cmd, env[0], env[1], env[2], "ARGV0=" EMU_NAME, NULL }, msg[0] ? msg : NULL))
                                 char_stdio_log(dev->log, "plat_run_command(%s) failed\n", cmd);
                         }
                     } else {
@@ -426,7 +449,7 @@ char_stdio_init(const device_t *info)
             err = errno;
             char_stdio_log(dev->log, "posix_openpt failed (%d)\n", err);
 errmsg:
-            snprintf(msg, sizeof(msg), "%s: Could not create pseudoterminal: %s", dev->port->name, strerror(err));
+            snprintf(msg, sizeof(msg), plat_get_string(STRING_CHARDEV_TERMINAL_ERROR), dev->port->name, strerror(err));
             ui_msgbox(MBX_ERROR, msg);
             close(dev->fd_out);
             dev->fd_out = -1;
@@ -442,12 +465,12 @@ errmsg:
     dev->fd_out = STDOUT_FILENO;
 
     /* Save current stdout flags for restoring on close. */
-    dev->prev_flags = fcntl(dev->fd_out, F_GETFL);
+    dev->prev_flags = fcntl(dev->fd_in, F_GETFL);
     if (dev->prev_flags >= 0) {
         dev->prev_flags_valid = 1;
 
         /* Enable non-blocking input. */
-        if (fcntl(dev->fd_out, F_SETFL, dev->prev_flags | O_NONBLOCK))
+        if (fcntl(dev->fd_in, F_SETFL, dev->prev_flags | O_NONBLOCK))
             char_stdio_log(dev->log, "F_SETFL failed (%d)\n", errno);
     } else {
         char_stdio_log(dev->log, "F_GETFL failed (%d)\n", errno);
@@ -467,16 +490,39 @@ errmsg:
         char_stdio_log(dev->log, "Raw mode tcsetattr failed (%d)\n", errno);
 #endif
 
-    /* Stop logging to stdout. */
-    if (stdlog == stdout) {
-        char_stdio_log(dev->log, "Disconnecting logging from stdout\n");
-        dev->prev_log = stdlog;
+    /* Redirect logging and other external output away from stdout/stderr. */
 #ifdef _WIN32
-        stdlog = plat_fopen("NUL", "w");
-#else
-        stdlog = plat_fopen("/dev/null", "w");
-#endif
+    HANDLE new_stdout = CreateFileA("CONOUT$", GENERIC_WRITE, FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (CHAR_FD_VALID(new_stdout)) {
+        dev->fd_out            = new_stdout;
+        dev->stdout_redirected = 1;
+        freopen("NUL", "w", stdout);
+        freopen("NUL", "w", stderr);
     }
+#else
+    int devnull = open("/dev/null", O_WRONLY);
+    if (CHAR_FD_VALID(devnull)) {
+        int new_stdout = dup(STDOUT_FILENO);
+        if (CHAR_FD_VALID(new_stdout)) {
+            if (CHAR_FD_VALID(dup2(devnull, STDOUT_FILENO))) {
+                dev->fd_out            = new_stdout;
+                dev->stdout_redirected = 1;
+            } else {
+                close(new_stdout);
+            }
+        }
+        int new_stderr = dup(STDERR_FILENO);
+        if (CHAR_FD_VALID(new_stderr)) {
+            if (CHAR_FD_VALID(dup2(devnull, STDERR_FILENO))) {
+                dev->fd_err            = new_stderr;
+                dev->stdout_redirected = 1;
+            } else {
+                close(new_stderr);
+            }
+        }
+        close(devnull);
+    }
+#endif
 
     char_update_status(dev->port);
     return dev;

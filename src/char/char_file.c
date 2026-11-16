@@ -59,6 +59,7 @@ typedef struct {
     FILE        *file_in;
     FILE        *file_out;
     unsigned int loop_in : 1;
+    unsigned int flush   : 1;
 } char_file_t;
 
 static size_t
@@ -111,6 +112,8 @@ char_file_write(uint8_t *buf, size_t len, void *priv)
         buf += write_count;
         len -= write_count;
     }
+    if (dev->flush)
+        fflush(dev->file_out);
     return ret;
 }
 
@@ -149,6 +152,7 @@ char_file_init(const device_t *info)
     const char *path = device_get_config_string("path");
     char_file_log(dev->log, "init(%s)\n", path);
     dev->loop_in = !!device_get_config_int("input_loop");
+    dev->flush   = !!device_get_config_int("flush");
 
     /* Open files. */
     char msg[2048];
@@ -165,7 +169,7 @@ char_file_init(const device_t *info)
 #endif
         char_file_log(dev->log, "%s output file [%s]\n", dev->file_out ? "Opened" : "Could not open", path);
         if (!dev->file_out) {
-            snprintf(msg, sizeof(msg), "%s: Could not connect to %s: %s", dev->port->name, path, fmt);
+            snprintf(msg, sizeof(msg), plat_get_string(STRING_CHARDEV_CONNECT_ERROR), dev->port->name, path, fmt);
             ui_msgbox(MBX_ERROR, msg);
         }
     } else {
@@ -185,7 +189,7 @@ char_file_init(const device_t *info)
 #endif
         char_file_log(dev->log, "%s input file [%s]\n", dev->file_in ? "Opened" : "Could not open", path);
         if (!dev->file_in) {
-            snprintf(msg, sizeof(msg), "%s: Could not connect to %s: %s", dev->port->name, path, fmt);
+            snprintf(msg, sizeof(msg), plat_get_string(STRING_CHARDEV_CONNECT_ERROR), dev->port->name, path, fmt);
             ui_msgbox(MBX_ERROR, msg);
         }
     } else {
@@ -213,6 +217,17 @@ static const device_config_t char_file_com_config[] = {
     {
         .name           = "append",
         .description    = "Append to file if it exists",
+        .type           = CONFIG_BINARY,
+        .default_string = NULL,
+        .default_int    = 0,
+        .file_filter    = NULL,
+        .spinner        = { 0 },
+        .selection      = { { 0 } },
+        .bios           = { { 0 } }
+    },
+    {
+        .name           = "flush",
+        .description    = "Write to the file immediately",
         .type           = CONFIG_BINARY,
         .default_string = NULL,
         .default_int    = 0,
@@ -288,6 +303,17 @@ static const device_config_t char_file_lpt_config[] = {
     {
         .name           = "append",
         .description    = "Append to file if it exists",
+        .type           = CONFIG_BINARY,
+        .default_string = NULL,
+        .default_int    = 0,
+        .file_filter    = NULL,
+        .spinner        = { 0 },
+        .selection      = { { 0 } },
+        .bios           = { { 0 } }
+    },
+    {
+        .name           = "flush",
+        .description    = "Write to the file immediately",
         .type           = CONFIG_BINARY,
         .default_string = NULL,
         .default_int    = 0,

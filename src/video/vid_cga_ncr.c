@@ -164,10 +164,16 @@ nga_poll(void *priv)
     int      col;
     int      scanline_old;
 
+    /* Bind the monitor macros to this card's own display. */
+    const int prev_monitor_index = monitor_index_global;
+
+    monitor_index_global = nga->cga.monitor_used;
+
     /* graphic mode and not high-res modes */
     if ((nga->cga.cgamode & CGA_MODE_FLAG_GRAPHICS) && !(nga->cga.cgamode & 0x40)) {
         /* standard cga mode */
         cga_poll(&nga->cga);
+        monitor_index_global = prev_monitor_index;
         return;
     } else {
         /* high-res or text mode */
@@ -364,6 +370,7 @@ nga_poll(void *priv)
                 x = (nga->cga.crtc[CGA_CRTC_HDISP] << 4) + 16;
 
             video_process_8(x, nga->cga.displine);
+            video_lightpen_check_trigger_strobe(8, nga->cga.displine * (nga->cga.double_type ? 2 : 1), 0, nga->cga.firstline + 8, 16. * (1. / (CGACONST / (cpuclock * (double) (1ULL << 32)))), nga->cga.monitor_used);
 
             nga->cga.scanline = scanline_old;
             /* vertical sync */
@@ -374,6 +381,7 @@ nga_poll(void *priv)
                 nga->cga.displine = 0;
         } else {
             timer_advance_u64(&nga->cga.timer, nga->cga.dispontime);
+            video_lightpen_hsync();
             if (nga->cga.cgadispon)
                 nga->cga.cgastat &= ~1;
             nga->cga.linepos = 0;
@@ -451,6 +459,7 @@ nga_poll(void *priv)
                         nga->cga.displine  = 0;
                         /* nga specific */
                         nga->cga.vsynctime = 16;
+                        video_lightpen_vsync();
                         /* vsync pos */
                         if (nga->cga.crtc[CGA_CRTC_VSYNC]) {
                             if (nga->cga.cgamode & CGA_MODE_FLAG_HIGHRES)
@@ -535,6 +544,8 @@ nga_poll(void *priv)
             }
         }
     }
+
+    monitor_index_global = prev_monitor_index;
 }
 
 void
@@ -562,6 +573,8 @@ nga_init(UNUSED(const device_t *info))
     nga_t  *nga = (nga_t *) calloc(1, sizeof(nga_t));
 
     video_inform(VIDEO_FLAG_TYPE_CGA, &timing_nga);
+
+    nga->cga.monitor_used = monitor_index_global;
 
     charset = device_get_config_int("charset");
 
@@ -652,7 +665,7 @@ const device_config_t nga_config[] = {
         .file_filter    = NULL,
         .spinner        = { 0 },
         .selection      = {
-            { .description = "U.S. English",    .value = 0 },
+            { .description = "English (US)",    .value = 0 },
             { .description = "Scandinavian",    .value = 1 },
             { .description = "Other languages", .value = 2 },
             { .description = "E.F. Hutton",     .value = 3 },

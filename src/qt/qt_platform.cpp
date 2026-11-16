@@ -11,10 +11,12 @@
  * Authors: Joakim L. Gilje <jgilje@jgilje.net>
  *          Cacodemon345
  *          Teemu Korhonen
+ *          gdwnldsKSC
  *
  *          Copyright 2021 Joakim L. Gilje
  *          Copyright 2021-2022 Cacodemon345
  *          Copyright 2021-2022 Teemu Korhonen
+ *          Copyright 2026 gdwnldsKSC
  */
 #ifdef __HAIKU__
 #    include <OS.h>
@@ -23,6 +25,7 @@
 #include <cstdio>
 
 #include <mutex>
+#include <chrono>
 #include <thread>
 #include <memory>
 #include <algorithm>
@@ -31,7 +34,6 @@
 #include <QDebug>
 
 #include <QApplication>
-#include <QClipboard>
 #include <QDir>
 #include <QFileInfo>
 #include <QMimeData>
@@ -67,6 +69,7 @@
 #    include <sys/ioctl.h>
 #    ifdef Q_OS_LINUX
 #        include <linux/fs.h>
+#        include "../unix/gamemode/gamemode_client.h"
 #    endif
 #    ifdef Q_OS_MACOS
 #        include <sys/disk.h>
@@ -127,6 +130,11 @@ private:
     int   s;
 };
 
+#ifdef Q_OS_MACOS
+extern void exit_pause(void);
+extern void enter_pause(void);
+#endif
+
 extern "C" {
 #ifdef Q_OS_WINDOWS
 #    include <86box/win.h>
@@ -143,11 +151,10 @@ extern "C" {
 #include <86box/mem.h>
 #include <86box/rom.h>
 #include <86box/config.h>
+#include <86box/hdc_ide.h>
 #include <86box/hdd.h>
 #include <86box/ui.h>
-#ifdef DISCORD
-#    include <86box/discord.h>
-#endif
+#include <86box/runctl.h>
 
 #include "../cpu/cpu.h"
 #include <86box/plat.h>
@@ -191,7 +198,7 @@ do_start(void)
 void
 do_stop(void)
 {
-    cpu_thread_run = 0;
+    runctl_request_stop();
 #if 0
     main_window->close();
 #endif
@@ -225,6 +232,12 @@ uint32_t
 plat_get_ticks(void)
 {
     return elapsed_timer.elapsed();
+}
+
+uint64_t
+plat_get_ns(void)
+{
+    return elapsed_timer.nsecsElapsed();
 }
 
 uint64_t
@@ -282,6 +295,74 @@ plat_file_check(const char *path)
     if (stat(path, &stats) < 0)
         return 0;
     return !S_ISDIR(stats.st_mode);
+#endif
+}
+
+void
+plat_unlock_volumes(plat_device_vol_locked_t* vol)
+{
+#ifdef _WIN32
+    DWORD bytesRet = 0;
+    for (uintptr_t i = 0; i < vol->vol_nums; i++) {
+        if (vol->handles_vols[i] != ((uintptr_t) (intptr_t) -1)) {
+            DeviceIoControl((HANDLE)vol->handles_vols[i], FSCTL_DISMOUNT_VOLUME, 0, 0, 0, 0, &bytesRet, nullptr);
+            DeviceIoControl((HANDLE)vol->handles_vols[i], FSCTL_UNLOCK_VOLUME, 0, 0, 0, 0, &bytesRet, nullptr);
+        }
+    }
+    DeviceIoControl((HANDLE)vol->handle_disk, IOCTL_DISK_UPDATE_PROPERTIES, 0, 0, 0, 0, &bytesRet, nullptr);
+    (void)GetLogicalDrives();
+    for (uintptr_t i = 0; i < vol->vol_nums; i++) {
+        if (vol->handles_vols[i] != ((uintptr_t) (intptr_t) -1)) {
+            CloseHandle((HANDLE)vol->handles_vols[i]);
+        }
+    }
+    free(vol);
+#endif
+}
+
+plat_device_vol_locked_t*
+plat_lock_volumes(FILE* file)
+{
+#ifndef _WIN32
+    return NULL;
+#else
+    HANDLE filehandle = (HANDLE)_get_osfhandle(fileno(file));
+    if (filehandle == INVALID_HANDLE_VALUE) {
+        return nullptr;
+    }
+    DWORD bytesRet = 0;
+
+    STORAGE_DEVICE_NUMBER storage_num;
+    if (!DeviceIoControl(filehandle, IOCTL_STORAGE_GET_DEVICE_NUMBER, nullptr, 0, &storage_num, sizeof(STORAGE_DEVICE_NUMBER), &bytesRet, nullptr)) {
+        return 0;
+    }
+
+    // Excessive, but needed.
+    DRIVE_LAYOUT_INFORMATION* layout_info = (DRIVE_LAYOUT_INFORMATION*)calloc(81920, 1);
+    if (DeviceIoControl(filehandle, IOCTL_DISK_GET_DRIVE_LAYOUT, nullptr, 0, layout_info, 81920, &bytesRet, nullptr)) {
+        //auto partCount = layout_info->PartitionCount;
+        //layout_info = (DRIVE_LAYOUT_INFORMATION_EX*)realloc(layout_info, sizeof(PARTITION_INFORMATION_EX) * (partCount + 1) + sizeof(DRIVE_LAYOUT_INFORMATION_EX));
+        plat_device_vol_locked_t* locked_list = (plat_device_vol_locked_t*)calloc(1, sizeof(plat_device_vol_locked_t) + layout_info->PartitionCount * sizeof(uintptr_t));
+        if (locked_list) {
+            locked_list->handle_disk = (uintptr_t)filehandle;
+            locked_list->vol_nums = layout_info->PartitionCount;
+            for (DWORD i = 0; i < layout_info->PartitionCount; i++) {
+                char path_name[256] = { 0 };
+                snprintf(path_name, sizeof(path_name) - 1, "\\\\?\\Harddisk%uPartition%lu", (unsigned int) storage_num.DeviceNumber, i);
+                locked_list->handles_vols[i] = (uintptr_t)CreateFileA(path_name, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, 0);
+                if (locked_list->handles_vols[i] != ((uintptr_t) (intptr_t) -1)) {
+                    if (DeviceIoControl((HANDLE)locked_list->handles_vols[i], FSCTL_LOCK_VOLUME, 0, 0, 0, 0, &bytesRet, nullptr)) {
+                    } else {
+                        warning("Failed to lock partition %lu on disk %d.", i, (int) storage_num.DeviceNumber);
+                    }
+                }
+            }
+        }
+    } else {
+        pclog("Failed to get drive layout information (%ld).\n", GetLastError());
+    }
+    free(layout_info);
+    return nullptr;
 #endif
 }
 
@@ -548,9 +629,35 @@ plat_remove(char *path)
 }
 
 void *
-plat_mmap(size_t size, uint8_t executable)
+plat_mmap(size_t size, uint8_t executable, uint8_t* large)
 {
+    if (large)
+        *large = 0;
 #if defined Q_OS_WINDOWS
+    static bool priv_tried = false;
+    if (!priv_tried) {
+        priv_tried = true;
+        HANDLE tok;
+        if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &tok)) {
+            TOKEN_PRIVILEGES tp = { };
+            tp.PrivilegeCount   = 1;
+            if (LookupPrivilegeValueW(nullptr, L"SeLockMemoryPrivilege", &tp.Privileges[0].Luid)) {
+                tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+                AdjustTokenPrivileges(tok, FALSE, &tp, 0, nullptr, nullptr);
+            }
+            CloseHandle(tok);
+        }
+    }
+    const size_t lp = GetLargePageMinimum();
+    if (lp) {
+        const size_t rounded = (size + lp - 1) & ~(lp - 1);
+        void* p = VirtualAlloc(nullptr, rounded, MEM_RESERVE | MEM_COMMIT | MEM_LARGE_PAGES, executable ? PAGE_EXECUTE_READWRITE : PAGE_READWRITE);
+        if (p) {
+            if (large)
+                *large = 1;
+            return p;
+        }
+    }
     return VirtualAlloc(NULL, size, MEM_COMMIT, executable ? PAGE_EXECUTE_READWRITE : PAGE_READWRITE);
 #elif defined Q_OS_UNIX
 #    if defined Q_OS_DARWIN && defined MAP_JIT
@@ -561,6 +668,13 @@ plat_mmap(size_t size, uint8_t executable)
         mprotect(ret, size, PROT_READ | PROT_WRITE | (executable ? PROT_EXEC : 0));
 #    else
     void *ret = mmap(0, size, PROT_READ | PROT_WRITE | (executable ? PROT_EXEC : 0), MAP_ANON | MAP_PRIVATE, -1, 0);
+#       ifdef MADV_HUGEPAGE
+    if (ret && ret != MAP_FAILED) {
+        if (large) {
+            *large = !madvise(ret, size, MADV_HUGEPAGE);
+        }
+    }
+#       endif
 #    endif
     return (ret == MAP_FAILED) ? nullptr : ret;
 #endif
@@ -636,60 +750,118 @@ exit_pause(void)
 }
 #endif
 
-void
-plat_pause(int p)
+#ifdef Q_OS_LINUX
+/* libgamemode up to 1.8.1 aborts the process (dbus_connection_unref(NULL) is
+   fatal in libdbus) if it cannot connect to the session bus, which is the case
+   under sudo, so only use it if a session bus can be found like libdbus would. */
+static bool
+gamemode_session_bus_available(void)
 {
-    if (!cpu_thread_running && p == 1) {
-        p = 2;
+    struct stat st;
+    char        path[4096];
+
+    /* sudo/su: the session bus belongs to another user */
+    if ((geteuid() == 0) || (geteuid() != getuid()))
+        return false;
+
+    const char *addr = getenv("DBUS_SESSION_BUS_ADDRESS");
+    if (addr && addr[0]) {
+        /* A unix:path= address must point to an existing socket. Other
+           transports (abstract sockets, TCP) cannot be checked cheaply. */
+        const char *addr_path = strstr(addr, "unix:path=");
+        if (!addr_path)
+            return true;
+        addr_path += 10;
+        size_t len = strcspn(addr_path, ",;");
+        if (len >= sizeof(path))
+            return false;
+        memcpy(path, addr_path, len);
+        path[len] = '\0';
+        return (stat(path, &st) == 0) && S_ISSOCK(st.st_mode);
     }
 
-    if ((!!p) == dopause) {
-        QTimer::singleShot(0, main_window, &MainWindow::updateUiPauseState);
-
-#ifdef Q_OS_WINDOWS
-        if (source_hwnd)
-            PostMessage((HWND) (uintptr_t) source_hwnd, WM_SENDSTATUS, (WPARAM) !!p, (LPARAM) (HWND) main_window->winId());
+    /* Without an address, libdbus looks for $XDG_RUNTIME_DIR/bus owned by us. */
+    const char *runtime_dir = getenv("XDG_RUNTIME_DIR");
+    if (!runtime_dir || !runtime_dir[0])
+        return false;
+    snprintf(path, sizeof(path), "%s/bus", runtime_dir);
+    return (lstat(path, &st) == 0) && S_ISSOCK(st.st_mode) && (st.st_uid == getuid());
+}
 #endif
+
+/* Host-side reactions to a run state change (runctl.h), on the GUI thread. */
+static void
+run_state_changed(void)
+{
+    if (!main_window)
         return;
-    }
+    static bool was_paused = false;
+    const bool  paused     = (runctl_state() == RUN_PAUSED);
 
-    if ((p == 0) && (time_sync & TIME_SYNC_ENABLED))
-        nvr_time_sync();
+    if (paused != was_paused) {
+        was_paused = paused;
 
-#ifdef Q_OS_WINDOWS
-    if (p)
-        enter_pause();
-    else
-        exit_pause();
+#if defined(Q_OS_WINDOWS) || defined(Q_OS_MACOS)
+        if (paused)
+            enter_pause();
+        else
+            exit_pause();
 #endif
 
-    do_pause(p);
-    if (p) {
-        if (mouse_capture)
+#ifdef Q_OS_LINUX
+        static const bool gamemode_available = gamemode_session_bus_available();
+        if (gamemode_available) {
+            if (paused)
+                gamemode_request_end();
+            else
+                gamemode_request_start();
+        }
+#endif
+
+        if (paused && mouse_capture)
             plat_mouse_capture(0);
+
+        QString title      = main_window->getTitle();
+        QString pausedText = QObject::tr(" - PAUSED");
+        if (title.contains(pausedText))
+            title = title.left(title.indexOf(pausedText));
+        emit main_window->setTitle(paused ? title.append(pausedText) : title);
     }
 
-    QString title      = main_window->getTitle();
-    QString pausedText = QObject::tr(" - PAUSED");
-    emit main_window->setTitle(p ? title.append(pausedText) : title.left(title.indexOf(pausedText)));
-
-#ifdef DISCORD
-    discord_update_activity(dopause);
-#endif
-
-    QTimer::singleShot(0, main_window, &MainWindow::updateUiPauseState);
+    main_window->updateUiPauseState();
+    main_window->updateUiFastForwardState();
 
 #ifdef Q_OS_WINDOWS
     if (source_hwnd)
-        PostMessage((HWND) (uintptr_t) source_hwnd, WM_SENDSTATUS, (WPARAM) !!p, (LPARAM) (HWND) main_window->winId());
+        PostMessage((HWND) (uintptr_t) source_hwnd, WM_SENDSTATUS, (WPARAM) paused, (LPARAM) (HWND) main_window->winId());
 #endif
+}
+
+void
+ui_notify(int what)
+{
+    if (!main_window)
+        return;
+
+    switch (what) {
+        case UI_NOTIFY_RUN_STATE:
+            QMetaObject::invokeMethod(main_window, [] { run_state_changed(); }, Qt::QueuedConnection);
+            break;
+        case UI_NOTIFY_SPEED:
+            QMetaObject::invokeMethod(main_window, [] { ui_emu_status(runctl_speed()); }, Qt::QueuedConnection);
+            break;
+        default:
+            break;
+    }
 }
 
 void
 plat_power_off(void)
 {
     plat_mouse_capture(0);
+    plat_clean_up();
     confirm_exit_cmdl = 0;
+    ide_wait_for_async_reads();
     hdd_image_sync_all();
     nvr_save();
 
@@ -697,7 +869,7 @@ plat_power_off(void)
        run before the main thread is terminated */
     cycles -= 99999999;
 
-    cpu_thread_run = 0;
+    runctl_request_stop();
     QTimer::singleShot(0, (const QWidget *) main_window, &QMainWindow::close);
 }
 
@@ -762,6 +934,25 @@ startblit()
     blitmx.lock();
 }
 
+/* startblit(), but giving up after timeout_ms; nonzero if the lock is held.
+   For the UI thread, which must not wait on an emulation thread that may
+   itself be waiting on the UI thread. */
+int
+startblit_timeout(int timeout_ms)
+{
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
+
+    blitmx_contention++;
+    do {
+        if (blitmx.try_lock())
+            return 1;
+        std::this_thread::yield();
+    } while (std::chrono::steady_clock::now() < deadline);
+    blitmx_contention--;
+
+    return 0;
+}
+
 void
 endblit()
 {
@@ -817,10 +1008,19 @@ c16stombs(char dst[], const uint16_t src[], int len)
 #    define LIB_NAME_GS   "gsdll64.dll"
 #    define LIB_NAME_GPCL "gpcl6dll64.dll"
 #    define LIB_NAME_PCAP "Npcap"
+#    define LIB_NAME_MDSX "mdsx.dll"
+#    define LIB_NAME_AARU "libaaruformat.dll"
 #else
 #    define LIB_NAME_GS   "libgs"
 #    define LIB_NAME_GPCL "libgpcl6"
 #    define LIB_NAME_PCAP "libpcap"
+#    ifdef __APPLE__
+#        define LIB_NAME_MDSX "mdsx.dylib"
+#        define LIB_NAME_AARU "libaaruformat.dylib"
+#    else
+#        define LIB_NAME_MDSX "mdsx.so"
+#        define LIB_NAME_AARU "libaaruformat.so"
+#    endif
 #endif
 
 QMap<int, QByteArray> Preferences::translatedstrings;
@@ -829,33 +1029,89 @@ void
 Preferences::reloadStrings()
 {
     translatedstrings.clear();
-    translatedstrings[STRING_MOUSE_CAPTURE]             = QCoreApplication::translate("", "Click to capture mouse").toUtf8();
-    translatedstrings[STRING_MOUSE_RELEASE]             = QCoreApplication::translate("", "Press %1 to release mouse").arg(QKeySequence(acc_keys[FindAccelerator("release_mouse")].seq, QKeySequence::PortableText).toString(QKeySequence::NativeText)).toUtf8();
-    translatedstrings[STRING_MOUSE_RELEASE_MMB]         = QCoreApplication::translate("", "Press %1 or middle button to release mouse").arg(QKeySequence(acc_keys[FindAccelerator("release_mouse")].seq, QKeySequence::PortableText).toString(QKeySequence::NativeText)).toUtf8();
-    translatedstrings[STRING_PCAP_ERROR_NO_DEVICES]     = QCoreApplication::translate("", "No PCap devices found").toUtf8();
-    translatedstrings[STRING_PCAP_ERROR_INVALID_DEVICE] = QCoreApplication::translate("", "Invalid PCap device").toUtf8();
-    translatedstrings[STRING_PCAP_ERROR_DESC]           = QCoreApplication::translate("", "Make sure %1 is installed and that you are on a %1-compatible network connection.").arg(LIB_NAME_PCAP).toUtf8();
-    translatedstrings[STRING_GHOSTSCRIPT_ERROR_TITLE]   = QCoreApplication::translate("", "Unable to initialize Ghostscript").toUtf8();
-    translatedstrings[STRING_GHOSTSCRIPT_ERROR_DESC]    = QCoreApplication::translate("", "%1 is required for automatic conversion of PostScript files to PDF.\n\nAny documents sent to the generic PostScript printer will be saved as PostScript (.ps) files.").arg(LIB_NAME_GS).toUtf8();
-    translatedstrings[STRING_GHOSTPCL_ERROR_TITLE]      = QCoreApplication::translate("", "Unable to initialize GhostPCL").toUtf8();
-    translatedstrings[STRING_GHOSTPCL_ERROR_DESC]       = QCoreApplication::translate("", "%1 is required for automatic conversion of PCL files to PDF.\n\nAny documents sent to the generic PCL printer will be saved as Printer Command Language (.pcl) files.").arg(LIB_NAME_GPCL).toUtf8();
+    translatedstrings[STRING_PCAP_ERROR_NO_DEVICES]     = QCoreApplication::translate("", "No PCap devices found. Make sure %1 is installed and that you are on a %1-compatible network connection.").arg(LIB_NAME_PCAP).toUtf8();
+    translatedstrings[STRING_PCAP_ERROR_INVALID_DEVICE] = QCoreApplication::translate("", "Invalid PCap device. Make sure %1 is installed and that you are on a %1-compatible network connection.").arg(LIB_NAME_PCAP).toUtf8();
+    translatedstrings[STRING_GHOSTSCRIPT_ERROR]         = QCoreApplication::translate("", "Unable to initialize Ghostscript. %1 is required for automatic conversion of PostScript files to PDF.\n\nAny documents sent to the generic PostScript printer will be saved as PostScript (.ps) files.").arg(LIB_NAME_GS).toUtf8();
+    translatedstrings[STRING_GHOSTPCL_ERROR]       = QCoreApplication::translate("", "Unable to initialize GhostPCL. %1 is required for automatic conversion of PCL files to PDF.\n\nAny documents sent to the generic PCL printer will be saved as Printer Command Language (.pcl) files.").arg(LIB_NAME_GPCL).toUtf8();
     translatedstrings[STRING_HW_NOT_AVAILABLE_MACHINE]  = QCoreApplication::translate("", "Machine \"%s\" is not available due to missing ROMs in the roms/machines directory. Switching to an available machine.").toUtf8();
     translatedstrings[STRING_HW_NOT_AVAILABLE_VIDEO]    = QCoreApplication::translate("", "Video card \"%s\" is not available due to missing ROMs in the roms/video directory. Switching to an available video card.").toUtf8();
-    translatedstrings[STRING_HW_NOT_AVAILABLE_VIDEO2]   = QCoreApplication::translate("", "Video card #2 \"%s\" is not available due to missing ROMs in the roms/video directory. Disabling the second video card.").toUtf8();
     translatedstrings[STRING_HW_NOT_AVAILABLE_DEVICE]   = QCoreApplication::translate("", "Device \"%s\" is not available due to missing ROMs. Ignoring the device.").toUtf8();
     translatedstrings[STRING_HW_NOT_AVAILABLE_TITLE]    = QCoreApplication::translate("", "Hardware not available").toUtf8();
-    translatedstrings[STRING_NET_ERROR]                 = QCoreApplication::translate("", "Failed to initialize network driver").toUtf8();
-    translatedstrings[STRING_NET_ERROR_DESC]            = QCoreApplication::translate("", "The network configuration will be switched to the null driver").toUtf8();
-    translatedstrings[STRING_ESCP_ERROR_TITLE]          = QCoreApplication::translate("", "Unable to find Dot-Matrix fonts").toUtf8();
-    translatedstrings[STRING_ESCP_ERROR_DESC]           = QCoreApplication::translate("", "TrueType fonts in the \"roms/printer/fonts\" directory are required for the emulation of the Generic ESC/P 2 Dot-Matrix Printer.").toUtf8();
+    translatedstrings[STRING_UNSUPPORTED_TITLE] = QCoreApplication::translate("", "Unsupported Hardware").toUtf8();
+    translatedstrings[STRING_UNSUPPORTED_TEXT] = QCoreApplication::translate("", "Hardware in this machine profile is not supported by this current build of 86Box.").toUtf8();
+    translatedstrings[STRING_UNSUPPORTED_OTHERS] = QCoreApplication::translate("", "(and %i others)").toUtf8();
+    translatedstrings[STRING_UNSUPPORTED_REPLACE] = QCoreApplication::translate("", "Loading the configuration anyway will replace the machine and overwrite the existing configuration.").toUtf8();
+    translatedstrings[STRING_UNSUPPORTED_REMOVE] = QCoreApplication::translate("", "Loading the configuration anyway will remove these components and overwrite the existing configuration.").toUtf8();
+    translatedstrings[STRING_UNSUPPORTED_REPLACE_REMOVE] = QCoreApplication::translate("", "Loading the configuration anyway will replace the machine, remove the other components and overwrite the existing configuration.").toUtf8();
+    translatedstrings[STRING_UNSUPPORTED_CONTINUE] = QCoreApplication::translate("", "Do you want to continue?").toUtf8();
+    translatedstrings[STRING_UNSUPPORTED_MACHINE] = QCoreApplication::translate("", "Machine type \"%s\"").toUtf8();
+    translatedstrings[STRING_UNSUPPORTED_VIDEO] = QCoreApplication::translate("", "Video card \"%s\"").toUtf8();
+    translatedstrings[STRING_UNSUPPORTED_KEYBOARD] = QCoreApplication::translate("", "Keyboard \"%s\"").toUtf8();
+    translatedstrings[STRING_UNSUPPORTED_MOUSE] = QCoreApplication::translate("", "Mouse \"%s\"").toUtf8();
+    translatedstrings[STRING_UNSUPPORTED_TABLET] = QCoreApplication::translate("", "Tablet \"%s\"").toUtf8();
+    translatedstrings[STRING_UNSUPPORTED_JOYSTICK] = QCoreApplication::translate("", "Joystick \"%s\"").toUtf8();
+    translatedstrings[STRING_UNSUPPORTED_SOUND] = QCoreApplication::translate("", "Sound card \"%s\"").toUtf8();
+    translatedstrings[STRING_UNSUPPORTED_MIDI_OUT] = QCoreApplication::translate("", "MIDI output device \"%s\"").toUtf8();
+    translatedstrings[STRING_UNSUPPORTED_MIDI_IN] = QCoreApplication::translate("", "MIDI input device \"%s\"").toUtf8();
+    translatedstrings[STRING_UNSUPPORTED_NETWORK] = QCoreApplication::translate("", "Network card \"%s\"").toUtf8();
+    translatedstrings[STRING_UNSUPPORTED_SERIAL] = QCoreApplication::translate("", "Serial port device \"%s\"").toUtf8();
+    translatedstrings[STRING_UNSUPPORTED_PARALLEL] = QCoreApplication::translate("", "Parallel port device \"%s\"").toUtf8();
+    translatedstrings[STRING_UNSUPPORTED_GAMEPORT] = QCoreApplication::translate("", "Game port \"%s\"").toUtf8();
+    translatedstrings[STRING_UNSUPPORTED_SCSI] = QCoreApplication::translate("", "SCSI card \"%s\"").toUtf8();
+    translatedstrings[STRING_UNSUPPORTED_FDC] = QCoreApplication::translate("", "Floppy controller \"%s\"").toUtf8();
+    translatedstrings[STRING_UNSUPPORTED_HDC] = QCoreApplication::translate("", "Disk controller \"%s\"").toUtf8();
+    translatedstrings[STRING_UNSUPPORTED_CDROM_INTERFACE] = QCoreApplication::translate("", "CD-ROM interface \"%s\"").toUtf8();
+    translatedstrings[STRING_UNSUPPORTED_MEMORY] = QCoreApplication::translate("", "Memory expansion card \"%s\"").toUtf8();
+    translatedstrings[STRING_UNSUPPORTED_ROM] = QCoreApplication::translate("", "ROM expansion card \"%s\"").toUtf8();
+    translatedstrings[STRING_UNSUPPORTED_RTC] = QCoreApplication::translate("", "RTC card \"%s\"").toUtf8();
+    translatedstrings[STRING_NET_ERROR]                 = QCoreApplication::translate("", "Failed to initialize network driver:\n\n%s\n\nThe network configuration will be switched to the null driver.").toUtf8();
+    translatedstrings[STRING_ESCP_ERROR]                = QCoreApplication::translate("", "Unable to find Dot-Matrix fonts. TrueType fonts in the \"roms/printer/fonts\" directory are required for the emulation of the Generic ESC/P 2 Dot-Matrix Printer.").toUtf8();
+    translatedstrings[STRING_EDID_READ_ERROR]           = QCoreApplication::translate("", "EDID file \"%s\" is invalid.").toUtf8();
     translatedstrings[STRING_EDID_TOO_LARGE]            = QCoreApplication::translate("", "EDID file \"%s\" is too large.").toUtf8();
+    translatedstrings[STRING_CDROM_OPEN_ISO_ERROR]      = QCoreApplication::translate("", "Unable to open image or folder \"%s\".").toUtf8();
+    translatedstrings[STRING_CDROM_OPEN_CUE_ERROR]      = QCoreApplication::translate("", "Unable to open cue sheet \"%s\".").toUtf8();
+    translatedstrings[STRING_CDROM_OPEN_MDS_ERROR]      = QCoreApplication::translate("", "Unable to open MDS file \"%s\".").toUtf8();
+    translatedstrings[STRING_CDROM_LOAD_IMAGE_ERROR]    = QCoreApplication::translate("", "Unable to load CD-ROM image \"%s\".").toUtf8();
+    translatedstrings[STRING_CDROM_LOAD_MDSX_ERROR]     = QCoreApplication::translate("", "Unable to load image \"%s\": %1 is missing, which is required for Daemon Tools MDS v2 and MDX image support.").arg(LIB_NAME_MDSX).toUtf8();
+    translatedstrings[STRING_CDROM_LOAD_AARU_ERROR]     = QCoreApplication::translate("", "Unable to load image \"%s\": %1 is missing, which is required for Aaru format image support.").arg(LIB_NAME_AARU).toUtf8();
+    translatedstrings[STRING_CDROM_DVD_IN_CD_DRIVE]     = QCoreApplication::translate("", "The DVD image \"%s\" has been inserted into a drive that does not support DVD media and will be ignored.").toUtf8();
+    translatedstrings[STRING_CDROM_IMAGE_TOO_LARGE]     = QCoreApplication::translate("", "The image \"%s\" exceeds the maximum capacity of this drive and will be ignored.").toUtf8();
+    translatedstrings[STRING_CHARDEV_CONNECT_ERROR]     = QCoreApplication::translate("", "%s: Could not connect to %s: %s").toUtf8();
+    translatedstrings[STRING_CHARDEV_CREATE_ERROR]      = QCoreApplication::translate("", "%s: Could not create %s: %s").toUtf8();
+    translatedstrings[STRING_CHARDEV_ATTACHED]          = QCoreApplication::translate("", "%s: Attached to %s").toUtf8();
+    translatedstrings[STRING_CHARDEV_VCON_IN_USE]       = QCoreApplication::translate("", "%s: Virtual console already in use by %s").toUtf8();
+    translatedstrings[STRING_CHARDEV_TERMINAL_ERROR]    = QCoreApplication::translate("", "%s: Could not create terminal: %s").toUtf8();
+    translatedstrings[STRING_USB_NO_PORT]               = QCoreApplication::translate("", "%s was not connected: every USB port of this machine is in use.").toUtf8();
+    translatedstrings[STRING_USB_NO_CONTROLLER]         = QCoreApplication::translate("", "%s was not connected: this machine has no USB controller that can take devices.").toUtf8();
+#ifdef USE_VFIO
+    translatedstrings[STRING_VFIO_NO_CONTAINER]         = QCoreApplication::translate("", "VFIO: Could not open /dev/vfio/vfio: %s. Make sure the vfio-pci module is loaded.").toUtf8();
+    translatedstrings[STRING_VFIO_INVALID_LOCATION]     = QCoreApplication::translate("", "VFIO %s: Invalid device location.").toUtf8();
+    translatedstrings[STRING_VFIO_DEVICE_NOT_FOUND]     = QCoreApplication::translate("", "VFIO %s: Device not found.").toUtf8();
+    translatedstrings[STRING_VFIO_NO_IOMMU_GROUP]       = QCoreApplication::translate("", "VFIO %s: Device has no IOMMU group. Make sure VT-d or IOMMU is enabled on your system.").toUtf8();
+    translatedstrings[STRING_VFIO_NOT_BOUND]            = QCoreApplication::translate("", "VFIO %s: Device is not bound to vfio-pci.").toUtf8();
+    translatedstrings[STRING_VFIO_GROUP_OPEN_ERROR]     = QCoreApplication::translate("", "VFIO %s: Could not open IOMMU group %d: %s").toUtf8();
+    translatedstrings[STRING_VFIO_GROUP_NOT_VIABLE]     = QCoreApplication::translate("", "VFIO %s: IOMMU group %d is not viable. All devices in the group must be bound to vfio-pci.").toUtf8();
+    translatedstrings[STRING_VFIO_DMA_ERROR]            = QCoreApplication::translate("", "VFIO: Could not map guest memory for DMA: %s. The locked memory limit (ulimit -l) may be too low.").toUtf8();
+    translatedstrings[STRING_VFIO_ROM_FILE_FALLBACK]    = QCoreApplication::translate("", "VFIO %s: Could not read ROM file \"%s\"; using the device's own ROM.").toUtf8();
+    translatedstrings[STRING_VFIO_ROM_FILE_DISABLED]    = QCoreApplication::translate("", "VFIO %s: Could not read ROM file \"%s\"; the ROM is disabled.").toUtf8();
+    translatedstrings[STRING_VFIO_ROM_INVALID]          = QCoreApplication::translate("", "VFIO %s: The ROM looks invalid. A custom ROM can be loaded through the VFIO settings.").toUtf8();
+    translatedstrings[STRING_VFIO_SETUP_QUESTION]      = QCoreApplication::translate("", "VFIO: These devices must be bound to vfio-pci, which requires administrator rights:\n\n%s\nBind them now?").toUtf8();
+    translatedstrings[STRING_VFIO_SETUP_ACCESS]        = QCoreApplication::translate("", "VFIO: Administrator rights are required to give 86Box access to the passed-through devices. Continue?").toUtf8();
+    translatedstrings[STRING_VFIO_SETUP_GROUP]         = QCoreApplication::translate("", "These devices were not selected, but share an IOMMU group with a selected device, so they will be bound as well:").toUtf8();
+    translatedstrings[STRING_VFIO_SETUP_REFUSED]       = QCoreApplication::translate("", "VFIO %s: IOMMU group %d also contains %s, which the host needs. The group will not be bound to vfio-pci.").toUtf8();
+    translatedstrings[STRING_VFIO_SETUP_FAILED]        = QCoreApplication::translate("", "VFIO: Could not prepare the devices for passthrough:\n%s").toUtf8();
+    translatedstrings[STRING_VFIO_SETUP_MANUAL]        = QCoreApplication::translate("", "VFIO: Administrator rights could not be requested. To prepare the devices for passthrough, run this command, then hard reset:\n\n%s").toUtf8();
+#endif
 }
 
 char *
 plat_get_string(int i)
 {
-    if (Preferences::translatedstrings.empty())
+    if (Preferences::translatedstrings.empty()) {
+        if (!Preferences::translationsLoaded)
+            Preferences::loadTranslators(QCoreApplication::instance());
         Preferences::reloadStrings();
+    }
 
     return Preferences::translatedstrings[i].data();
 }
@@ -1029,7 +1285,7 @@ plat_get_cpu_string(char *outbuf, uint8_t len)
     auto command_result = QString(process->readAll());
     auto idx = command_result.indexOf(':');
     if (idx > -1)
-        cpu_string = command_result.remove(idx + 1).trimmed();
+        cpu_string = command_result.mid(idx + 1).trimmed();
 #endif
 
     qstrncpy(outbuf, cpu_string.toUtf8().constData(), len);
@@ -1090,40 +1346,6 @@ plat_break(void)
 #else
     raise(SIGTRAP);
 #endif
-}
-
-static unsigned char *rgb_    = NULL;
-static int            width_  = 0;
-static int            height_ = 0;
-static volatile int   waiting = 0;
-
-static void
-send_to_clipboard(void)
-{
-    unsigned char *rgb = (unsigned char *) calloc(1, height_ * width_ * 4);
-    memcpy(rgb, rgb_, height_ * width_ * 3);
-    QImage image(rgb, width_, height_, width_ * 3, QImage::Format_RGB888);
-    QClipboard *clipboard = QApplication::clipboard();
-    clipboard->setImage(image, QClipboard::Clipboard);
-    free(rgb);
-    waiting = 0;
-}
-
-void
-plat_send_to_clipboard(unsigned char *rgb, int width, int height)
-{
-    rgb_    = rgb;
-    width_  = width;
-    height_ = height;
-    waiting = 1;
-
-    QTimer::singleShot(0, main_window, &send_to_clipboard);
-    while (waiting)
-        ;
-
-    height_ = 0;
-    width_  = 0;
-    rgb_    = NULL;
 }
 
 #if !defined(Q_OS_WINDOWS) && !defined(Q_OS_MACOS)
@@ -1206,7 +1428,19 @@ plat_run_command(const char *cmd, const char **env, const char *title)
     if (!f.open(QIODevice::WriteOnly | QIODevice::Text))
         return 0;
     f.write("#!/bin/sh\nrm -f -- \"$0\"\n");
-    if (!titleq.isEmpty()) {
+#    ifdef Q_OS_MACOS
+    bool title_is_dir = (titleq == QDir(QDir::cleanPath(process->workingDirectory())).dirName());
+    if (title_is_dir)
+        titleq = QStringLiteral("");
+    f.write("cd '");
+    f.write(process->workingDirectory().replace(QStringLiteral("'"), QStringLiteral("'\\''")).toUtf8());
+    f.write("'\n. /etc/$([ -n \"$BASH\" ] && echo ba || ([ -n \"$ZSH_VERSION\" ] && echo z))shrc_$TERM_PROGRAM\nupdate_terminal_cwd\n");
+#    endif
+    if (
+#    ifdef Q_OS_MACOS
+        title_is_dir ||
+#    endif
+        !titleq.isEmpty()) {
         f.write("printf '\\e]0;%s\\a' '");
         f.write(titleq.replace(QStringLiteral("\a"), QStringLiteral("")).replace(QStringLiteral("'"), QStringLiteral("'\\''")).toUtf8());
         f.write("'\n");
@@ -1226,8 +1460,8 @@ plat_run_command(const char *cmd, const char **env, const char *title)
             }
             f.write("\n");
         }
-        f.write("clear\n");
     }
+    f.write("clear\n");
     f.write(cmd);
     f.write("\n");
     f.close();
@@ -1241,8 +1475,7 @@ plat_run_command(const char *cmd, const char **env, const char *title)
             return 1;
     } else {
 #    ifdef Q_OS_MACOS
-        /* This (and AppleScript which requires user consent) opens an interactive shell and types the path in, so
-           we can't control the working directory displayed in the title bar, nor the lack of auto-exit by default. */
+        /* We can't control the lack of auto-exit by default. */
         process->setProgram(QStringLiteral("open"));
         process->setArguments(QStringList() << QStringLiteral("-b") << QStringLiteral("com.apple.Terminal") << script);
         process->start();
@@ -1291,14 +1524,19 @@ plat_run_command(const char *cmd, const char **env, const char *title)
             if (terminal == QStringLiteral("xdg-terminal-exec")) {
                 args << QStringLiteral("--title=" EMU_NAME) << QStringLiteral("--dir=").append(process->workingDirectory()) << QStringLiteral("--");
             } else if (terminal == QStringLiteral("gnome-terminal")) {
-                args << QStringLiteral("--");
+                /* Really old versions will ignore -t and print a warning. */
+                args << QStringLiteral("-t") << QStringLiteral(EMU_NAME) << QStringLiteral("--");
             } else {
                 /* Hide script name in the Konsole title bar. */
                 bool is_konsole = (terminal == QStringLiteral("konsole"));
                 if (is_konsole && is_kde) /* KDE konsole */
                     args << QStringLiteral("-p") << QStringLiteral("tabtitle=%w");
-                else if (is_konsole || (terminal == QStringLiteral("x-terminal-emulator"))) /* Trinity Konsole (no effect on KDE Konsole) */
+                else if (is_konsole || /* Trinity Konsole (no effect on KDE Konsole) */
+                         (terminal == QStringLiteral("x-terminal-emulator")) ||
+                         (terminal == QStringLiteral("xterm")) || terminal.endsWith(QStringLiteral("rxvt")))
                     args << QStringLiteral("-T") << QStringLiteral(EMU_NAME);
+                else if (terminal == QStringLiteral("mate-terminal"))
+                    args << QStringLiteral("-t") << QStringLiteral(EMU_NAME);
                 args << QStringLiteral("-e");
             }
             process->setArguments(args << script);

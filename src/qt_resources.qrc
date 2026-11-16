@@ -1,9 +1,19 @@
 <RCC>
     <qresource prefix="/settings">
+        <file>qt/icons/bdrom.ico</file>
+        <file>qt/icons/bdrom_unmute.ico</file>
+        <file>qt/icons/bdrom_image.ico</file>
+        <file>qt/icons/bdrom_folder.ico</file>
+        <file>qt/icons/bdrom_host.ico</file>
         <file>qt/icons/cartridge.ico</file>
         <file>qt/icons/cartridge_image.ico</file>
         <file>qt/icons/cassette_image.ico</file>
         <file>qt/icons/cassette.ico</file>
+        <file>qt/icons/cdr.ico</file>
+        <file>qt/icons/cdr_unmute.ico</file>
+        <file>qt/icons/cdr_image.ico</file>
+        <file>qt/icons/cdr_folder.ico</file>
+        <file>qt/icons/cdr_host.ico</file>
         <file>qt/icons/cdrom.ico</file>
         <file>qt/icons/cdrom_disabled.ico</file>
         <file>qt/icons/cdrom_mute.ico</file>
@@ -11,6 +21,11 @@
         <file>qt/icons/cdrom_image.ico</file>
         <file>qt/icons/cdrom_folder.ico</file>
         <file>qt/icons/cdrom_host.ico</file>
+        <file>qt/icons/cdrw.ico</file>
+        <file>qt/icons/cdrw_unmute.ico</file>
+        <file>qt/icons/cdrw_image.ico</file>
+        <file>qt/icons/cdrw_folder.ico</file>
+        <file>qt/icons/cdrw_host.ico</file>
         <file>qt/icons/display.ico</file>
         <file>qt/icons/dvdrom.ico</file>
         <file>qt/icons/dvdrom_unmute.ico</file>
@@ -30,11 +45,17 @@
         <file>qt/icons/general_storage_controllers.ico</file>
         <file>qt/icons/general_other_peripherals.ico</file>
         <file>qt/icons/hard_disk.ico</file>
+        <file>qt/icons/hd_dvdrom.ico</file>
+        <file>qt/icons/hd_dvdrom_unmute.ico</file>
+        <file>qt/icons/hd_dvdrom_image.ico</file>
+        <file>qt/icons/hd_dvdrom_folder.ico</file>
+        <file>qt/icons/hd_dvdrom_host.ico</file>
         <file>qt/icons/input_devices.ico</file>
         <file>qt/icons/isa_memory.ico</file>
         <file>qt/icons/isa_rom.ico</file>
         <file>qt/icons/key_bindings.ico</file>
         <file>qt/icons/emulator.ico</file>
+        <file>qt/icons/settings.ico</file>
         <file>qt/icons/machine.ico</file>
         <file>qt/icons/machine_tab.ico</file>
         <file>qt/icons/midi.ico</file>
@@ -62,6 +83,14 @@
         <file>qt/icons/rewind.ico</file>
         <file>qt/icons/sound.ico</file>
         <file>qt/icons/storage_controllers.ico</file>
+        <file>qt/icons/usb_flash.ico</file>
+        <file>qt/icons/usb_hub_4port.ico</file>
+        <file>qt/icons/usb_keyboard.ico</file>
+        <file>qt/icons/usb_mouse.ico</file>
+        <file>qt/icons/usb_msd.ico</file>
+        <file>qt/icons/usb_port.ico</file>
+        <file>qt/icons/usb_speaker.ico</file>
+        <file>qt/icons/usb_tablet.ico</file>
         <file>qt/icons/zip.ico</file>
         <file>qt/icons/zip_image.ico</file>
         <file>qt/icons/active.ico</file>
@@ -84,6 +113,10 @@
         <file>qt/icons/num_lock_on.ico</file>
         <file>qt/icons/scroll_lock_off.ico</file>
         <file>qt/icons/scroll_lock_on.ico</file>
+        <file>qt/icons/jaz.ico</file>
+        <file>qt/icons/jaz_image.ico</file>
+        <file>qt/icons/syquest.ico</file>
+        <file>qt/icons/syquest_image.ico</file>
     </qresource>
     <qresource prefix="/menuicons">
         <file>qt/icons/acpi_shutdown.ico</file>
@@ -194,6 +227,5 @@
         <file alias="toshiba_t1000.png">qt/assets/systemicons/toshiba_t1000.png</file>
         <file alias="toshiba_t1200.png">qt/assets/systemicons/toshiba_t1200.png</file>
         <file alias="toshiba_t1200_hdd.png">qt/assets/systemicons/toshiba_t1200_hdd.png</file>
-
     </qresource>
 </RCC>

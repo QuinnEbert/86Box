@@ -74,3 +74,9 @@ CMakeLists.txt.user
 
 # Jetbrains CLion
 .idea
+
+# General debugging sessions
+86box.cfg
+*.patch
+*.*.orig
+*.*.rej

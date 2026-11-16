@@ -385,13 +385,15 @@ machine_at_tandy1000rsx_init(const machine_t *model)
 
     device_add(&headland_ht18c_device);
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
-    device_add(&pssj_1e0_device);
 
     if (fdc_current[0] == FDC_INTERNAL)
         device_add(&fdc_at_device);
 
     if (gfxcard[0] == VID_INTERNAL)
         device_add(machine_get_vid_device(machine));
+
+    if (sound_card_current[0] == SOUND_INTERNAL)
+        machine_snd = device_add(machine_get_snd_device(machine));
 
     return ret;
 }
@@ -484,6 +486,30 @@ machine_at_neat_init(const machine_t *model)
         return ret;
 
     machine_at_init(model);
+
+    device_add(&neat_device);
+
+    if (fdc_current[0] == FDC_INTERNAL)
+        device_add(&fdc_at_device);
+
+    return ret;
+}
+
+int
+machine_at_me386sx_init(const machine_t *model)
+{
+    int ret;
+
+    ret = bios_load_interleaved("roms/machines/me386sx/bios_low_N1.10.20_27C256.bin",
+                                "roms/machines/me386sx/bios_hi_N1.10.20_27C256.bin",
+                                0x000f0000, 65536, 0);
+
+    if (bios_only || !ret)
+        return ret;
+
+    machine_at_common_init(model);
+
+    device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
 
     device_add(&neat_device);
 
@@ -664,7 +690,7 @@ static const device_config_t dells333sl_config[] = {
         .spinner        = { 0 },
         .bios           = {
             {
-                .name          = "Phoenix ROM BIOS PLUS 1.10 - Revision J01 (Jostens Learning Corporation OEM)",
+                .name          = "Phoenix ROM BIOS PLUS 1.10 - Revision J01 (Jostens OEM)",
                 .internal_name = "dells333sl_j01",
                 .bios_type     = BIOS_NORMAL,
                 .files_no      = 1,

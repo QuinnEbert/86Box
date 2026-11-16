@@ -15,16 +15,16 @@
 
 #include "qt_vmmanager_protocol.hpp"
 
-extern QTimer discordupdate;
-
 class MediaMenu;
 class RendererStack;
+class QActionGroup;
 
 namespace Ui {
 class MainWindow;
 }
 
 class MachineStatus;
+class MidiLcdWindow;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -41,6 +41,11 @@ public:
     void         reloadAllRenderers();
     QShortcut   *windowedShortcut;
     QKeySequence FindAcceleratorSeq(const char *name);
+    bool         keyMatchesAccelerator(const QKeyEvent *ke, const char *name);
+
+    QString mouseStringUncaptured;
+    QString mouseStringCaptured;
+    void    updateMouseStrings();
 
     std::array<std::unique_ptr<RendererStack>, 8> renderers;
 signals:
@@ -72,6 +77,8 @@ signals:
     void vmmGlobalConfigurationChanged();
 public slots:
     void emitVmmSignal();
+    void setVmmSupervised(bool supervised);
+    void applyGlobalPreferences();
     void showSettings();
     void hardReset();
     void togglePause();
@@ -79,12 +86,12 @@ public slots:
     void destroyRendererMonitorSlot(int monitor_index);
     void updateStatusEmptyIcons();
     void updateUiPauseState();
+    void updateUiFastForwardState();
 private slots:
     void on_actionForce_interpretation_triggered();
     void on_actionFullscreen_triggered();
     void on_actionSettings_triggered();
     void on_actionExit_triggered();
-    void on_actionAuto_pause_triggered();
     void on_actionUpdate_mouse_every_CPU_frame_triggered();
     void on_actionPause_triggered();
     void on_actionTurbo_mode_triggered();
@@ -100,6 +107,7 @@ private slots:
     void on_actionTurbo_Batch_64ms_triggered();
     void on_actionTurbo_Batch_Unlimited_triggered();
     void on_actionVirtualized_CPU_triggered();
+    void on_actionToggle_OSD_triggered();
     void on_actionCtrl_Alt_Del_triggered();
     void on_actionSend_F1_triggered();
     void on_actionSend_F2_triggered();
@@ -114,6 +122,7 @@ private slots:
     void on_actionSend_F11_triggered();
     void on_actionSend_F12_triggered();
     void on_actionCtrl_Alt_Esc_triggered();
+    void on_actionNon_maskable_interrupt_triggered();
     void on_actionHard_Reset_triggered();
     void on_actionRight_CTRL_is_left_ALT_triggered();
     void on_actionKeyboard_requires_capture_triggered();
@@ -132,6 +141,9 @@ private slots:
     void on_actionNearest_triggered();
     void on_actionFullScreen_int_triggered();
     void on_actionFullScreen_int43_triggered();
+    void on_actionFullScreen_center_triggered();
+    void on_actionFullScreen_center43_triggered();
+    void on_actionFullScreen_int43_vert_triggered();
     void on_actionFullScreen_keepRatio_triggered();
     void on_actionFullScreen_43_triggered();
     void on_actionFullScreen_stretch_triggered();
@@ -139,6 +151,7 @@ private slots:
     void on_actionAbout_86Box_triggered();
     void on_actionAbout_Qt_triggered();
     void on_actionForce_4_3_display_ratio_triggered();
+    void on_actionForce_device_aspect_ratio_triggered();
     void on_actionRemember_size_and_position_triggered();
     void on_actionSpecify_dimensions_triggered();
     void on_actionHiDPI_scaling_triggered();
@@ -153,14 +166,15 @@ private slots:
     void on_actionMute_Unmute_triggered();
     void on_actionSound_gain_triggered();
     void on_actionPreferences_triggered();
-    void on_actionEnable_Discord_integration_triggered(bool checked);
     void on_actionRenderer_options_triggered();
     void on_actionFast_forward_triggered();
+    void on_actionFast_forward_on_start_triggered();
 
     void refreshMediaMenu();
     void showMessage_(int flags, const QString &header, const QString &message, bool richText, std::atomic_bool *done = nullptr);
 
     void on_actionMCA_devices_triggered();
+    void on_actionMemory_viewer_triggered();
 
 protected:
     void keyPressEvent(QKeyEvent *event) override;
@@ -175,6 +189,9 @@ protected:
 
 private slots:
     void on_actionPen_triggered();
+    void on_actionMouse_triggered();
+    void on_actionTablet_triggered();
+    void on_actionTablet_Crosshair_triggered();
 
 private slots:
     void on_actionCursor_Puck_triggered();
@@ -196,8 +213,18 @@ private:
     Ui::MainWindow                *ui;
     std::unique_ptr<MachineStatus> status;
     std::shared_ptr<MediaMenu>     mm;
+    QMenu                         *dynarecMenu  = nullptr;
+    QActionGroup                  *midiOutGroup = nullptr;
+    MidiLcdWindow                 *midiLcd      = nullptr;
 
+    bool hasKanaLock();
+    void refreshMidiOutMenu();
+    void switchMidiOut(int device, int port = -1);
+    void showMidiLcd(bool show);
     void updateShortcuts();
+    void updatePowerOffAction();
+    void refreshDisplayRatioActions();
+    bool isMainWindowOrRendererActive() const;
     void processKeyboardInput(bool down, uint32_t keycode);
 #ifdef Q_OS_MACOS
     uint32_t last_modifiers = 0;
@@ -220,9 +247,11 @@ private:
     /* Mouse capture state before showing fullscreen UI */
     bool mouse_was_captured = false;
 
+    /* Whether the built-in 86Box VM manager supervises this machine, as
+       opposed to another manager or none */
+    bool vmm_supervised = false;
+
     friend class SpecifyDimensions;
-    friend class Preferences;
-    friend class PreferencesEmulator;
     friend class RendererCommon;
     friend class RendererStack;         // For UI variable access by non-primary renderer windows.
     friend class WindowsRawInputFilter; // Needed to reload renderers on style sheet changes.
@@ -232,9 +261,10 @@ private:
     QIcon   caps_icon, scroll_icon, num_icon, kana_icon;
     QIcon   caps_icon_off, scroll_icon_off, num_icon_off, kana_icon_off;
 
-    bool isShowMessage  = false;
     bool isNonPause     = false;
     bool window_blocked = false;
+
+    bool skip_exit_confirmation = false;
 };
 
 #endif // QT_MAINWINDOW_HPP

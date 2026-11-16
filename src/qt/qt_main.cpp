@@ -39,13 +39,25 @@
 #include <QTemporaryFile>
 #include <QProcess>
 
+#ifdef Q_OS_MACOS
+#    include <pthread/qos.h>
+#endif
+
 #ifdef QT_STATIC
 /* Static builds need plugin imports */
 #    include <QtPlugin>
 Q_IMPORT_PLUGIN(QICOPlugin)
 #    ifdef Q_OS_WINDOWS
 Q_IMPORT_PLUGIN(QWindowsIntegrationPlugin)
+#        ifdef USE_AUTOMATION
+Q_IMPORT_PLUGIN(QOffscreenIntegrationPlugin)
+#        endif
+#        if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+/* Qt 6.7 renamed the windowsvista style plugin */
+Q_IMPORT_PLUGIN(QModernWindowsStylePlugin)
+#        else
 Q_IMPORT_PLUGIN(QWindowsVistaStylePlugin)
+#        endif
 #    endif
 #endif
 
@@ -54,16 +66,12 @@ extern "C" {
 #include <86box/config.h>
 #include <86box/plat.h>
 #include <86box/ui.h>
+#include <86box/runctl.h>
 #include <86box/video.h>
-#ifdef DISCORD
-#    include <86box/discord.h>
-#endif
-#include <86box/gdbstub.h>
 #include <86box/version.h>
 #include <86box/renderdefs.h>
-#ifdef Q_OS_LINUX
-#    define GAMEMODE_AUTO
-#    include "../unix/gamemode/gamemode_client.h"
+#ifdef USE_VNC
+#include <86box/vnc.h>
 #endif
 }
 
@@ -90,7 +98,10 @@ extern "C" {
 #include "qt_unixmanagerfilter.hpp"
 #include "qt_util.hpp"
 #include "qt_vmmanager_clientsocket.hpp"
+#include "qt_vmmanager_config.hpp"
 #include "qt_vmmanager_mainwindow.hpp"
+
+#include "qt_osd.hpp"
 
 // Void Cast
 #define VC(x) const_cast<wchar_t *>(x)
@@ -105,12 +116,16 @@ extern "C" {
 #include "cpu.h"
 #include <86box/timer.h>
 #include <86box/nvr.h>
-extern int  qt_nvr_save(void);
+#ifndef Q_OS_MACOS
 extern void exit_pause(void);
+#endif
 
 bool cpu_thread_running = false;
-bool fast_forward = false;
 }
+
+#ifdef Q_OS_MACOS
+extern void exit_pause(void);
+#endif
 
 #include <locale.h>
 #include <csignal>
@@ -218,9 +233,14 @@ win_keyboard_handle(uint32_t scancode, int up, int e0, int e1)
     }
 }
 
+extern int         main_window_blocked;
+
 static LRESULT CALLBACK
 emu_LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
+    if (is_quit)
+        return CallNextHookEx(NULL, nCode, wParam, lParam);
+
     LPKBDLLHOOKSTRUCT lpKdhs = (LPKBDLLHOOKSTRUCT) lParam;
     /* Checks if CTRL was pressed. */
     BOOL bCtrlDown      = GetAsyncKeyState(VK_CONTROL) >> ((sizeof(SHORT) * 8) - 1);
@@ -235,7 +255,7 @@ emu_LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
             is_over_window                = is_over_window || ((secondaryRenderer != nullptr) && (GetForegroundWindow() == ((HWND) secondaryRenderer->winId())));
         }
 
-    bool skip = ((nCode < 0) || (nCode != HC_ACTION) || !is_over_window || (kbd_req_capture && !mouse_capture));
+    bool skip = (main_window_blocked || (nCode < 0) || (nCode != HC_ACTION) || !is_over_window || (kbd_req_capture && !mouse_capture)) || qt_osd_is_visible();
 
     if (skip)
         return CallNextHookEx(NULL, nCode, wParam, lParam);
@@ -445,80 +465,17 @@ static HHOOK llhook = NULL;
 void
 main_thread_fn()
 {
-    int frames;
-
     QThread::currentThread()->setPriority(QThread::HighestPriority);
+#ifdef Q_OS_MACOS
+    /* QoS class, not just pthread priority: without it this thread is
+       E-core-eligible and its sleeps are coalescible, which measurably
+       destabilizes realtime pacing under render load. */
+    pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
+#endif
     plat_set_thread_name(nullptr, "main_thread");
-    framecountx = 0;
-    // title_update = 1;
-    qint64 old_ns = elapsed_timer.nsecsElapsed();
-    qint64 debt_ns;
-    const qint64 quantum_ns  = force_10ms ? 10000000LL : 1000000LL;
-    const qint64 max_debt_ns = 50000000LL;
-    frames                   = 0;
-    debt_ns                  = 0;
-    is_cpu_thread             = 1;
-    while (!is_quit && cpu_thread_run) {
-        /* See if it is time to run a frame of code. */
-        const qint64 new_ns = elapsed_timer.nsecsElapsed();
-        debt_ns += (new_ns - old_ns);
-        old_ns = new_ns;
-        if (debt_ns > max_debt_ns)
-            debt_ns = max_debt_ns;
-#ifdef USE_GDBSTUB
-        if (gdbstub_next_asap && (debt_ns < quantum_ns))
-            debt_ns = quantum_ns;
-#endif
-        if (((debt_ns >= quantum_ns) || fast_forward) && !dopause) {
-            /*
-             * Pace with one pc_run() per scheduler pass.
-             * We intentionally avoid burst catch-up (multi-frame loop) because it can
-             * overshoot after dips and amplify <100/>100 speed oscillation.
-             */
-#ifdef USE_INSTRUMENT
-            uint64_t start_time = elapsed_timer.nsecsElapsed();
-#endif
-            pc_run();
-
-#ifdef USE_INSTRUMENT
-            if (instru_enabled) {
-                uint64_t elapsed_us       = (elapsed_timer.nsecsElapsed() - start_time) / 1000;
-                uint64_t total_elapsed_ms = (uint64_t) ((double) tsc / cpu_s->rspeed * 1000);
-                printf("[instrument] %llu, %llu\n", total_elapsed_ms, elapsed_us);
-                if (instru_run_ms && total_elapsed_ms >= instru_run_ms)
-                    debt_ns = 0;
-            }
-#endif
-            /* Every 2 emulated seconds we save the machine status. */
-            if (++frames >= (force_10ms ? 200 : 2000) && nvr_dosave) {
-                qt_nvr_save();
-                nvr_dosave = 0;
-                frames     = 0;
-            }
-
-            if (!fast_forward && debt_ns >= quantum_ns)
-                debt_ns -= quantum_ns;
-            else
-                debt_ns = 0;
-        } else {
-            /* Just so we dont overload the host OS. */
-
-            /* Trigger a hard reset if one is pending. */
-            if (hard_reset_pending) {
-                hard_reset_pending = 0;
-                pc_reset_hard_close();
-                pc_reset_hard_init();
-            }
-
-            if (dopause)
-                ack_pause();
-
-            plat_delay_ms(1);
-        }
-    }
+    runctl_run_loop(nullptr);
 
     cpu_thread_running = false;
-    is_quit            = 1;
     for (uint8_t i = 1; i < GFXCARD_MAX; i++) {
         if (gfxcard[i]) {
             ui_deinit_monitor(i);
@@ -530,9 +487,7 @@ main_thread_fn()
 
 static std::thread *main_thread;
 
-QTimer discordupdate;
-
-#ifdef Q_OS_WINDOWS
+#ifdef USE_QDARKSTYLE
 WindowsDarkModeFilter *vmm_dark_mode_filter = nullptr;
 #endif
 
@@ -540,7 +495,9 @@ int
 main(int argc, char *argv[])
 {
 #ifdef Q_OS_WINDOWS
+#    ifdef USE_QDARKSTYLE
     bool wasDarkTheme = false;
+#    endif
     /* Check if Windows supports UTF-8 */
     if (GetACP() == CP_UTF8)
         acp_utf8 = 1;
@@ -573,21 +530,25 @@ main(int argc, char *argv[])
     setlocale(LC_NUMERIC, "C");
 
 #ifdef Q_OS_WINDOWS
-    Q_INIT_RESOURCE(darkstyle);
     if (QFile(QApplication::applicationDirPath() + "/opengl32.dll").exists()) {
         qputenv("QT_OPENGL_DLL", QFileInfo(QApplication::applicationDirPath() + "/opengl32.dll").absoluteFilePath().toUtf8());
     }
+#endif
 
+#ifdef USE_QDARKSTYLE
+    Q_INIT_RESOURCE(darkstyle);
     if (!util::isWindowsLightTheme()) {
         QFile f(":qdarkstyle/dark/darkstyle.qss");
 
-        if (!f.exists()) {
+        if (!f.exists())
             printf("Unable to set stylesheet, file not found\n");
-        } else {
-            f.open(QFile::ReadOnly | QFile::Text);
-            QTextStream ts(&f);
-            qApp->setStyleSheet(ts.readAll());
-            wasDarkTheme = true;
+        else {
+            if (f.open(QFile::ReadOnly | QFile::Text)) {
+                QTextStream ts(&f);
+                qApp->setStyleSheet(ts.readAll());
+                wasDarkTheme = true;
+            } else
+                printf("Unable to set stylesheet, unable to open file\n");
         }
         QPalette palette(qApp->palette());
         palette.setColor(QPalette::Link, Qt::white);
@@ -617,7 +578,7 @@ main(int argc, char *argv[])
         return 0;
     }
 
-#ifdef Q_OS_WINDOWS
+#ifdef USE_QDARKSTYLE
     if (util::isWindowsLightTheme() && wasDarkTheme) {
         qApp->setStyleSheet("");
         QPalette palette(qApp->palette());
@@ -625,6 +586,9 @@ main(int argc, char *argv[])
         palette.setColor(QPalette::LinkVisited, Qt::magenta);
         qApp->setPalette(palette);
     }
+#elif defined(Q_OS_WINDOWS)
+    /* The configuration is loaded now, so apply the color scheme from it */
+    util::applyColorScheme();
 #endif
 
     if (!start_vmm)
@@ -723,7 +687,8 @@ main(int argc, char *argv[])
         // QApplication::setApplicationDisplayName("86Box VM Manager");
         // vmm.show();
         // vmm.exec();
-#ifdef Q_OS_WINDOWS
+        VMManagerConfig::migratePreferences();
+#ifdef USE_QDARKSTYLE
         auto darkModeFilter = std::unique_ptr<WindowsDarkModeFilter>(new WindowsDarkModeFilter());
         if (darkModeFilter) {
             qApp->installNativeEventFilter(darkModeFilter.get());
@@ -733,18 +698,33 @@ main(int argc, char *argv[])
         QTimer::singleShot(0, [] {
 #endif
             const auto vmm_main_window = new VMManagerMainWindow();
-#ifdef Q_OS_WINDOWS
+#ifdef USE_QDARKSTYLE
             darkModeFilter.get()->setWindow(vmm_main_window);
             // HACK
             vmm_dark_mode_filter = darkModeFilter.get();
 #endif
             vmm_main_window->show();
+            QApplication::processEvents(); // let the window paint before loading the list
+            // Load cached list and start background discovery after the window is visible
+            vmm_main_window->startBackgroundDiscovery();
         });
         QApplication::exec();
         return 0;
     }
 
     pc_init_modules();
+
+    for (int i = 0; i < argc; i++) {
+        if (!strcasecmp(argv[i], "--assume_copied_vm")) {
+            util::storeCurrentUuid();
+            util::generateNewMacAdresses();
+            break;
+        }
+        if (!strcasecmp(argv[i], "--assume_moved_vm")) {
+            util::storeCurrentUuid();
+            break;
+        }
+    }
 
     // UUID / copy / move detection
     if (!util::compareUuid()) {
@@ -811,7 +791,10 @@ main(int argc, char *argv[])
         onesec.start(1000);
 
         pc_reset_hard_init();
-        plat_pause(1);  /* VNC starts paused until client connects */
+        vnc_init(nullptr);
+        runctl_pause(RUN_PAUSE_REMOTE);
+        runctl_resume(static_cast<run_pause_t>(RUN_PAUSE_USER_RESUMABLE));
+        runctl_thread_starting();
 
         cpu_thread_running = true;
         main_thread = new std::thread(main_thread_fn);
@@ -826,6 +809,7 @@ main(int argc, char *argv[])
         cpu_thread_run = 0;
         main_thread->join();
         pc_close(nullptr);
+        vnc_close();
         return ret;
     }
 #endif
@@ -842,8 +826,8 @@ main(int argc, char *argv[])
             return 0;
     }
 
-#ifdef DISCORD
-    discord_load();
+#ifdef Q_OS_MACOS
+    exit_pause();
 #endif
 
 #ifdef Q_OS_WINDOWS
@@ -948,6 +932,8 @@ main(int argc, char *argv[])
     VMManagerClientSocket manager_socket;
     if (qgetenv("VMM_86BOX_SOCKET").size()) {
         manager_socket.IPCConnect(qgetenv("VMM_86BOX_SOCKET"));
+        QObject::connect(&manager_socket, &VMManagerClientSocket::vmmSupervisedChanged, main_window, &MainWindow::setVmmSupervised);
+        QObject::connect(&manager_socket, &VMManagerClientSocket::globalConfigurationReloaded, main_window, &MainWindow::applyGlobalPreferences);
         QObject::connect(&manager_socket, &VMManagerClientSocket::pause, main_window, &MainWindow::togglePause);
         QObject::connect(&manager_socket, &VMManagerClientSocket::resetVM, main_window, &MainWindow::hardReset);
         QObject::connect(&manager_socket, &VMManagerClientSocket::showsettings, main_window, &MainWindow::showSettings);
@@ -961,6 +947,10 @@ main(int argc, char *argv[])
         QObject::connect(main_window, &MainWindow::vmmConfigurationChanged, &manager_socket, &VMManagerClientSocket::configurationChanged);
         QObject::connect(main_window, &MainWindow::vmmGlobalConfigurationChanged, &manager_socket, &VMManagerClientSocket::globalConfigurationChanged);
         main_window->installEventFilter(&manager_socket);
+        QObject::connect(&app, &QGuiApplication::applicationStateChanged, &manager_socket, [&manager_socket](Qt::ApplicationState state) {
+            if (state == Qt::ApplicationActive)
+                manager_socket.windowActivated();
+        });
 
         manager_socket.sendWinIdMessage(main_window->winId());
     }
@@ -974,52 +964,48 @@ main(int argc, char *argv[])
     onesec.setTimerType(Qt::PreciseTimer);
     onesec.start(1000);
 
-#ifdef DISCORD
-    if (discord_loaded) {
-        QTimer::singleShot(1000, &app, [] {
-            if (enable_discord) {
-                discord_init();
-                discord_update_activity(dopause);
-            } else
-                discord_close();
-        });
-        QObject::connect(&discordupdate, &QTimer::timeout, &app, [] {
-            discord_run_callbacks();
-        });
-        discordupdate.setInterval(1000);
-        if (enable_discord)
-            discordupdate.start(1000);
-    }
-#endif
-
     /* Initialize the rendering window, or fullscreen. */
     QTimer::singleShot(0, &app, [] {
         plat_set_thread_name(nullptr, "qt_thread");
 
-#ifdef Q_OS_WINDOWS
+#ifdef USE_QDARKSTYLE
         extern bool NewDarkMode;
         NewDarkMode = util::isWindowsLightTheme();
 #endif
         pc_reset_hard_init();
+        main_window->updateMouseStrings();
 
-        /* Set the PAUSE mode depending on the renderer. */
+        /* The VNC renderer starts paused until a client connects. */
 #ifdef USE_VNC
         if (vid_api == RENDERER_VNC)
-            plat_pause(1);
-        else
+            runctl_pause(RUN_PAUSE_REMOTE);
 #endif
-            plat_pause(0);
+
+        if (fast_forward_on_start)
+            runctl_set_mode(RUN_MODE_FAST);
 
         cpu_thread_running = true;
+        runctl_thread_starting();
         main_thread        = new std::thread(main_thread_fn);
     });
 
     const auto ret = app.exec();
-    cpu_thread_run = 0;
+    runctl_request_stop();
     main_thread->join();
     pc_close(nullptr);
     endblit();
 
     socket.close();
     return ret;
+}
+
+void
+plat_clean_up(void)
+{
+#ifdef Q_OS_WINDOWS
+    if (llhook) {
+        UnhookWindowsHookEx(llhook);
+        llhook = nullptr;
+    }
+#endif
 }

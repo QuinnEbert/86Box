@@ -68,12 +68,14 @@ enum {
     KBD_TYPE_PRAVETZ,
     KBD_TYPE_HYUNDAI,
     KBD_TYPE_FE2010,
+    KBD_TYPE_JUKOST,
     KBD_TYPE_XTCLONE
 };
 
 typedef struct xtkbd_t {
     int want_irq;
     int blocked;
+    int blocked_ticks;
     int tandy;
 
     uint8_t pa;
@@ -93,7 +95,6 @@ typedef struct xtkbd_t {
 static uint8_t key_queue[16];
 static int     key_queue_start = 0;
 static int     key_queue_end   = 0;
-static int     is_tandy = 0;
 static int     is_t1x00 = 0;
 static int     is_amstrad = 0;
 
@@ -122,8 +123,8 @@ get_fdd_switch_settings(void)
 {
     uint8_t fdd_count = 0;
 
-    for (uint8_t i = 0; i < FDD_NUM; i++) {
-        if (fdd_get_flags(i))
+    for (uint8_t i = 0; i < 4; i++) {
+        if (fdd_get_flags(&drives[i]))
             fdd_count++;
     }
 
@@ -153,6 +154,29 @@ kbd_poll(void *priv)
 
     if (!(kbd->pb & 0x40) && (kbd->type != KBD_TYPE_TANDY))
         return;
+
+    /* Bounded self-heal for a genuine XT keyboard interface's own acknowledgment protocol:
+       real XT keyboard ISRs (BIOS, DOS, and third-party ones alike - see e.g. FastDoom's
+       I_KeyboardISR_XT, github.com/viti95/FastDoom) read port 60h, then explicitly toggle
+       port 61h bit 7 (0x80) to acknowledge/clear the keyboard strobe, before EOI-ing the PIC.
+       kbd_write()'s port-0x61 handler below only clears `blocked` on exactly that
+       acknowledgment, so any guest keyboard handler that never performs this specific,
+       XT-only acknowledgment (plausible for anything written assuming AT-style hardware,
+       where this quirk doesn't exist) leaves `blocked` set forever after the very first key,
+       silently dropping every subsequent one even though queueing/IRQ delivery both keep
+       working correctly. If nothing acknowledges within ~50 poll ticks (~50ms, kbd_poll()
+       advances 1ms of emulated time per call), auto-clear `blocked` as if the guest had
+       acknowledged it itself. Real, correctly-acking software never notices - it always
+       clears `blocked` well within this window on its own. */
+    if (kbd->blocked) {
+        kbd->blocked_ticks++;
+        if (kbd->blocked_ticks > 50) {
+            kbd->blocked       = 0;
+            kbd->blocked_ticks = 0;
+        }
+    } else {
+        kbd->blocked_ticks = 0;
+    }
 
     if (kbd->want_irq) {
         kbd->want_irq = 0;
@@ -273,7 +297,7 @@ kbd_adddata_process_10x(uint16_t val, void (*adddata)(uint16_t val))
 
     switch (val) {
         case FAKE_LSHIFT_ON:
-            kbd_log("%s: Fake left shift on, scan code: ", dev->name);
+            kbd_log("Fake left shift on, scan code: ");
             if (num_lock) {
                 if (shift_states) {
                     kbd_log("N/A (one or both shifts on)\n");
@@ -308,7 +332,7 @@ kbd_adddata_process_10x(uint16_t val, void (*adddata)(uint16_t val))
             break;
 
         case FAKE_LSHIFT_OFF:
-            kbd_log("%s: Fake left shift on, scan code: ", dev->name);
+            kbd_log("Fake left shift on, scan code: ");
             if (num_lock) {
                 if (shift_states) {
                     kbd_log("N/A (one or both shifts on)\n");
@@ -356,17 +380,34 @@ kbd_adddata_ex(uint16_t val)
     kbd_adddata_process(val, kbd_adddata);
 }
 
+/* FE2010A configuration bits 7-6 pick a 9.54, 7.16 or 4.77 MHz clock; the
+   selected CPU speed stands in for the crystal and caps it. */
+static void
+kbd_fe2010_set_speed(const xtkbd_t *kbd)
+{
+    uint32_t speed   = (kbd->cfg & 0x80) ? 9545456 : ((kbd->cfg & 0x40) ? 7159092 : 4772728);
+    int      new_cpu = 0;
+
+    for (int i = 0; (i <= cpu) && cpu_f->cpus[i].cpu_type; i++) {
+        if (cpu_is_eligible(cpu_f, i, machine) && (cpu_f->cpus[i].rspeed <= speed))
+            new_cpu = i;
+    }
+
+    cpu_dynamic_switch(new_cpu);
+}
+
 static void
 kbd_write(uint16_t port, uint8_t val, void *priv)
 {
     xtkbd_t *kbd = (xtkbd_t *) priv;
     uint8_t  bit;
     uint8_t  set;
-    uint8_t  new_clock;
+    uint8_t  new_clock = 0;
 
     switch (port) {
         case 0x61: /* Keyboard Control Register (aka Port B) */
-            if (!(val & 0x80) || (kbd->type == KBD_TYPE_HYUNDAI)) {
+            if (!(val & 0x80) || (kbd->type == KBD_TYPE_HYUNDAI) ||
+                (kbd->type == KBD_TYPE_JUKOST)) {
                 new_clock = !!(val & 0x40);
                 if (!kbd->clock && new_clock) {
                     key_queue_start = key_queue_end = 0;
@@ -377,7 +418,8 @@ kbd_write(uint16_t port, uint8_t val, void *priv)
             }
 
             kbd->pb = val;
-            if (!(kbd->pb & 0x80) || (kbd->type == KBD_TYPE_HYUNDAI))
+            if (!(kbd->pb & 0x80) || (kbd->type == KBD_TYPE_HYUNDAI) ||
+                (kbd->type == KBD_TYPE_JUKOST))
                 kbd->clock = !!(kbd->pb & 0x40);
             ppi.pb = val;
 
@@ -423,8 +465,12 @@ kbd_write(uint16_t port, uint8_t val, void *priv)
         case 0x63:
             if (kbd->type == KBD_TYPE_FE2010) {
                 kbd_log("XTkbd: Configuration register in is %02X\n", val);
-                if (!(kbd->cfg & 0x08))
+                /* The lock bit only protects bits 0-4. */
+                if (kbd->cfg & 0x08)
+                    kbd->cfg = (kbd->cfg & 0x1f) | (val & 0xe0);
+                else
                     kbd->cfg = val;
+                kbd_fe2010_set_speed(kbd);
             }
             break;
 
@@ -765,7 +811,6 @@ kbd_init(const device_t *info)
 
     timer_add(&kbd->send_delay_timer, kbd_poll, kbd, 1);
 
-    is_tandy = (kbd->type == KBD_TYPE_TANDY);
     is_t1x00 = (kbd->type == KBD_TYPE_TOSHIBA);
 
     if (keyboard_type == KEYBOARD_TYPE_INTERNAL)
@@ -970,6 +1015,20 @@ const device_t kbc_xt_fe2010_device = {
     .internal_name = "kbc_xt_fe2010",
     .flags         = 0,
     .local         = KBD_TYPE_FE2010,
+    .init          = kbd_init,
+    .close         = kbd_close,
+    .reset         = kbd_reset,
+    .available     = NULL,
+    .speed_changed = NULL,
+    .force_redraw  = NULL,
+    .config        = NULL
+};
+
+const device_t kbc_xt_jukost_device = {
+    .name          = "Juko ST Keyboard",
+    .internal_name = "kbc_xt_jukost",
+    .flags         = DEVICE_ISA,
+    .local         = KBD_TYPE_JUKOST,
     .init          = kbd_init,
     .close         = kbd_close,
     .reset         = kbd_reset,

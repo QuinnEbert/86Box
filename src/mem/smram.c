@@ -89,13 +89,18 @@ smram_readl(uint32_t addr, void *priv)
         return *(uint32_t *) &(dev->mapping.exec[addr - dev->host_base]);
 }
 
+/* SMRAM above the RAM, whose pages are an alias of the RAM behind it, is
+   written through them: code compiled there is tracked at its own address,
+   which a write to the RAM's address would miss. */
 static void
 smram_write(uint32_t addr, uint8_t val, void *priv)
 {
     smram_t *dev      = (smram_t *) priv;
     uint32_t new_addr = addr - dev->host_base + dev->ram_base;
 
-    if (!use_separate_smram || (new_addr >= 0xa0000))
+    if (dev->alias_size && cpu_use_exec)
+        mem_write_ramb_page(addr, val, &pages[addr >> 12]);
+    else if (!use_separate_smram || (new_addr >= 0xa0000))
         mem_write_ram(new_addr, val, priv);
     else
         dev->mapping.exec[addr - dev->host_base] = val;
@@ -107,7 +112,9 @@ smram_writew(uint32_t addr, uint16_t val, void *priv)
     smram_t *dev      = (smram_t *) priv;
     uint32_t new_addr = addr - dev->host_base + dev->ram_base;
 
-    if (!use_separate_smram || (new_addr >= 0xa0000))
+    if (dev->alias_size && cpu_use_exec)
+        mem_write_ramw_page(addr, val, &pages[addr >> 12]);
+    else if (!use_separate_smram || (new_addr >= 0xa0000))
         mem_write_ramw(new_addr, val, priv);
     else
         *(uint16_t *) &(dev->mapping.exec[addr - dev->host_base]) = val;
@@ -119,7 +126,9 @@ smram_writel(uint32_t addr, uint32_t val, void *priv)
     smram_t *dev      = (smram_t *) priv;
     uint32_t new_addr = addr - dev->host_base + dev->ram_base;
 
-    if (!use_separate_smram || (new_addr >= 0xa0000))
+    if (dev->alias_size && cpu_use_exec)
+        mem_write_raml_page(addr, val, &pages[addr >> 12]);
+    else if (!use_separate_smram || (new_addr >= 0xa0000))
         mem_write_raml(new_addr, val, priv);
     else
         *(uint32_t *) &(dev->mapping.exec[addr - dev->host_base]) = val;
@@ -180,42 +189,44 @@ smram_recalc_all(int ret)
 void
 smram_del(smram_t *smr)
 {
-    /* Do a sanity check */
-    if ((base_smram == NULL) && (last_smram != NULL)) {
-        fatal("smram_del(): NULL base SMRAM with non-NULL last SMRAM\n");
-        return;
-    } else if ((base_smram != NULL) && (last_smram == NULL)) {
-        fatal("smram_del(): Non-NULL base SMRAM with NULL last SMRAM\n");
-        return;
-    } else if ((base_smram != NULL) && (base_smram->prev != NULL)) {
-        fatal("smram_del(): Base SMRAM with a preceding SMRAM\n");
-        return;
-    } else if ((last_smram != NULL) && (last_smram->next != NULL)) {
-        fatal("smram_del(): Last SMRAM with a following SMRAM\n");
-        return;
+    if (smr != NULL) {
+        /* Do a sanity check */
+        if ((base_smram == NULL) && (last_smram != NULL)) {
+            fatal("smram_del(): NULL base SMRAM with non-NULL last SMRAM\n");
+            return;
+        } else if ((base_smram != NULL) && (last_smram == NULL)) {
+            fatal("smram_del(): Non-NULL base SMRAM with NULL last SMRAM\n");
+            return;
+        } else if ((base_smram != NULL) && (base_smram->prev != NULL)) {
+            fatal("smram_del(): Base SMRAM with a preceding SMRAM\n");
+            return;
+        } else if ((last_smram != NULL) && (last_smram->next != NULL)) {
+            fatal("smram_del(): Last SMRAM with a following SMRAM\n");
+            return;
+        }
+
+        if (smr == NULL) {
+            fatal("smram_del(): Invalid SMRAM mapping\n");
+            return;
+        }
+
+        /* Disable the entry. */
+        smram_disable(smr);
+
+        /* Zap it from the list. */
+        if (smr->prev != NULL)
+            smr->prev->next = smr->next;
+        if (smr->next != NULL)
+            smr->next->prev = smr->prev;
+
+        /* Check if it's the first or the last mapping. */
+        if (base_smram == smr)
+            base_smram = smr->next;
+        if (last_smram == smr)
+            last_smram = smr->prev;
+
+        free(smr);
     }
-
-    if (smr == NULL) {
-        fatal("smram_del(): Invalid SMRAM mapping\n");
-        return;
-    }
-
-    /* Disable the entry. */
-    smram_disable(smr);
-
-    /* Zap it from the list. */
-    if (smr->prev != NULL)
-        smr->prev->next = smr->next;
-    if (smr->next != NULL)
-        smr->next->prev = smr->prev;
-
-    /* Check if it's the first or the last mapping. */
-    if (base_smram == smr)
-        base_smram = smr->next;
-    if (last_smram == smr)
-        last_smram = smr->prev;
-
-    free(smr);
 }
 
 /* Add a SMRAM mapping. */
@@ -223,6 +234,9 @@ smram_t *
 smram_add(void)
 {
     smram_t *temp_smram;
+
+    if (dump_missing)
+        return NULL;
 
     /* Do a sanity check */
     if ((base_smram == NULL) && (last_smram != NULL)) {
@@ -288,12 +302,22 @@ smram_map(int smm, uint32_t addr, uint32_t size, int is_smram)
     smram_map_ex(1, smm, addr, size, is_smram);
 }
 
+static void
+smram_unalias(smram_t *smr)
+{
+    if (smr->alias_size) {
+        mem_set_ram_alias(smr->alias_base, smr->alias_ram, smr->alias_size, 0);
+        smr->alias_base = smr->alias_ram = smr->alias_size = 0x00000000;
+    }
+}
+
 /* Disable a specific SMRAM mapping. */
 void
 smram_disable(smram_t *smr)
 {
     if (smr == NULL) {
-        fatal("smram_disable(): Invalid SMRAM mapping\n");
+        if (!dump_missing)
+            fatal("smram_disable(): Invalid SMRAM mapping\n");
         return;
     }
 
@@ -305,6 +329,7 @@ smram_disable(smram_t *smr)
         smr->size                      = 0x00000000;
 
         mem_mapping_disable(&(smr->mapping));
+        smram_unalias(smr);
     }
 }
 
@@ -330,7 +355,8 @@ smram_enable_ex(smram_t *smr, uint32_t host_base, uint32_t ram_base, uint32_t si
                 int flags_normal, int flags_normal_bus, int flags_smm, int flags_smm_bus)
 {
     if (smr == NULL) {
-        fatal("smram_add(): Invalid SMRAM mapping\n");
+        if (!dump_missing)
+            fatal("smram_add(): Invalid SMRAM mapping\n");
         return;
     }
 
@@ -339,12 +365,40 @@ smram_enable_ex(smram_t *smr, uint32_t host_base, uint32_t ram_base, uint32_t si
         smr->ram_base  = ram_base;
         smr->size      = size;
 
+        /* Code compiled in SMRAM is tracked at host_base, where the
+           processor runs it. Where that is the RAM's own address, the
+           processor's writes to SMRAM mark it there. Above the RAM, the
+           pages at host_base become an alias of the RAM and the writes go
+           through them. Elsewhere, over other RAM or with the separate
+           SMRAM, the code is interpreted. */
+        smr->mapping.flags &= ~MEM_MAPPING_NO_CODEGEN;
+        if (use_separate_smram && (ram_base < 0x000a0000)) {
+            smram_unalias(smr);
+            smr->mapping.flags |= MEM_MAPPING_NO_CODEGEN;
+        } else if (host_base != ram_base) {
+            const uint64_t ram_end = (uint64_t) mem_size << 10;
+
+            if (((uint64_t) host_base >= ram_end) && (((uint64_t) ram_base + size) <= ram_end) &&
+                !((host_base | ram_base | size) & 0xfff)) {
+                /* Set again unchanged, which chipsets do on every write to
+                   their SMRAM register, it keeps the code compiled there */
+                if ((smr->alias_base != host_base) || (smr->alias_ram != ram_base) || (smr->alias_size != size)) {
+                    smram_unalias(smr);
+                    mem_set_ram_alias(host_base, ram_base, size, 1);
+                    smr->alias_base = host_base;
+                    smr->alias_ram  = ram_base;
+                    smr->alias_size = size;
+                }
+            } else {
+                smram_unalias(smr);
+                smr->mapping.flags |= MEM_MAPPING_NO_CODEGEN;
+            }
+        } else
+            smram_unalias(smr);
+
         mem_mapping_set_addr(&(smr->mapping), smr->host_base, smr->size);
         if (!use_separate_smram || (smr->ram_base >= 0x000a0000)) {
-            if (smr->ram_base < (1 << 30))
-                mem_mapping_set_exec(&(smr->mapping), ram + smr->ram_base);
-            else
-                mem_mapping_set_exec(&(smr->mapping), ram2 + smr->ram_base - (1 << 30));
+            mem_mapping_set_exec(&(smr->mapping), ram + smr->ram_base);
         } else {
             if (smr->ram_base == 0x00030000)
                 mem_mapping_set_exec(&(smr->mapping), smram);

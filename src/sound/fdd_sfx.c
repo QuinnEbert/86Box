@@ -261,7 +261,12 @@ static void fdd_sfx_get_buffer(int32_t *buffer, uint16_t len, void *priv)
 
 void fdd_sfx_init(void)
 {
-    if (s_inited) return;
+    if (s_inited) {
+        sound_add_handler(fdd_sfx_get_buffer, NULL);
+        voice_stop_all();
+        memset(s_motor_active, 0, sizeof(s_motor_active));
+        return;
+    }
     memset(s_voices, 0, sizeof(s_voices));
     memset(s_motor_active, 0, sizeof(s_motor_active));
     memset(s_activity_countdown, 0, sizeof(s_activity_countdown));
@@ -297,7 +302,7 @@ void fdd_sfx_enable(int enabled)
                 if (s_spinloop.data)
                     voice_start(&s_spinloop, 1, 0.35f);
                 if (s_tick.data && s_tick.length > 0) {
-                    int rpm = fdd_getrpm(d);
+                    int rpm = fdd_getrpm(&drives[d]);
                     if (rpm <= 0) rpm = 300;
                     double period_sec      = 60.0 / (double)rpm;
                     int    period_samples  = (int)(period_sec * (double)SOUND_FREQ + 0.5);
@@ -333,7 +338,7 @@ void fdd_sfx_motor(int drive, int on)
             s_motor_active[drive] = 1;
             /* setup index tick period from current RPM */
             if (s_tick.data && s_tick.length > 0) {
-                int rpm = fdd_getrpm(drive);
+                int rpm = fdd_getrpm(&drives[drive]);
                 if (rpm <= 0) rpm = 300;
                 double period_sec     = 60.0 / (double)rpm;
                 int    period_samples = (int)(period_sec * (double)SOUND_FREQ + 0.5);

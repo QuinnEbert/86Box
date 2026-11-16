@@ -57,9 +57,10 @@ typedef struct hdd_image_t {
     uint8_t   loaded;
     hostfat_t *hostfat; /* Used for HDD_IMAGE_HOSTFAT */
     uint8_t   is_block_device; /* 1 if this is a raw block device (e.g., /dev/disk4s1) */
+    plat_device_vol_locked_t *locked_drives;
 } hdd_image_t;
 
-hdd_image_t hdd_images[HDD_NUM];
+hdd_image_t hdd_images[HDD_SLOTS];
 
 static char  empty_sector[512];
 #ifndef __unix__
@@ -204,9 +205,8 @@ prepare_new_hard_disk(uint8_t id, uint64_t full_size)
         return 1;
     }
 
-    uint64_t target_size = (full_size + hdd_images[id].base) - ftello64(hdd_images[id].file);
-
 #ifndef __unix__
+    uint64_t target_size = (full_size + hdd_images[id].base) - ftello64(hdd_images[id].file);
     uint32_t size;
     uint32_t t;
 
@@ -242,7 +242,7 @@ prepare_new_hard_disk(uint8_t id, uint64_t full_size)
     free(empty_sector_1mb);
 #else
     pclog("Creating hard disk image: ");
-    int ret = ftruncate(fileno(hdd_images[id].file), (size_t) target_size);
+    int ret = ftruncate(fileno(hdd_images[id].file), (off_t) (full_size + hdd_images[id].base));
 
     if (ret) {
         pclog("failed\n");
@@ -280,6 +280,15 @@ hdd_image_load(int id)
     int      is_hdx[2] = { 0, 0 };
     int      is_vhd[2] = { 0, 0 };
     int      vhd_error = 0;
+
+    if (id > 0) {
+        for (int i = 0; i < id; i++) {
+            if (strcmp(hdd[id].fn, hdd[i].fn) == 0) {
+                fatal("Image already loaded: %s\n", hdd[i].fn);
+                return 0;
+            }
+        }
+    }
 
     memset(empty_sector, 0, sizeof(empty_sector));
     if (fn) {
@@ -330,6 +339,8 @@ hdd_image_load(int id)
             /* Don't clear hdd[id].fn - preserve config even if device is unavailable */
             goto fail_raw;
         }
+
+        hdd_images[id].locked_drives = plat_lock_volumes(hdd_images[id].file);
 
         hdd_images[id].is_block_device = 1;
         hdd_images[id].type = HDD_IMAGE_RAW;
@@ -601,6 +612,11 @@ hdd_image_read(uint8_t id, uint32_t sector, uint32_t count, uint8_t *buffer)
     int    non_transferred_sectors;
     size_t num_read;
 
+#ifndef IS_TEST
+    if (HDD_IS_RDISK_SLOT(id))
+        return rdisk_ata_read(id - HDD_NUM, sector, count, buffer);
+#endif
+
     if (hdd_images[id].type == HDD_IMAGE_VHD) {
         hdd_images[id].vhd->error = 0;
         non_transferred_sectors   = mvhd_read_sectors(hdd_images[id].vhd, sector, count, buffer);
@@ -630,6 +646,11 @@ hdd_image_read(uint8_t id, uint32_t sector, uint32_t count, uint8_t *buffer)
 uint32_t
 hdd_image_get_last_sector(uint8_t id)
 {
+#ifndef IS_TEST
+    if (HDD_IS_RDISK_SLOT(id))
+        return rdisk_ata_last_sector(id - HDD_NUM);
+#endif
+
     return hdd_images[id].last_sector;
 }
 
@@ -661,6 +682,11 @@ hdd_image_write(uint8_t id, uint32_t sector, uint32_t count, uint8_t *buffer)
 {
     int    non_transferred_sectors;
     size_t num_write;
+
+#ifndef IS_TEST
+    if (HDD_IS_RDISK_SLOT(id))
+        return rdisk_ata_write(id - HDD_NUM, sector, count, buffer);
+#endif
 
     if (hdd_images[id].type == HDD_IMAGE_HOSTFAT) {
         for (uint32_t i = 0; i < count; i++) {
@@ -710,6 +736,11 @@ hdd_image_write_ex(uint8_t id, uint32_t sector, uint32_t count, uint8_t *buffer)
 int
 hdd_image_zero(uint8_t id, uint32_t sector, uint32_t count)
 {
+#ifndef IS_TEST
+    if (HDD_IS_RDISK_SLOT(id))
+        return rdisk_ata_zero(id - HDD_NUM, sector, count);
+#endif
+
     if (hdd_images[id].type == HDD_IMAGE_HOSTFAT) {
         return -1; /* zeroing not supported */
     } else if (hdd_images[id].type == HDD_IMAGE_VHD) {
@@ -801,6 +832,11 @@ hdd_image_close(uint8_t id)
 
     if (!hdd_images[id].loaded)
         return;
+
+    if (hdd_images[id].locked_drives) {
+        plat_unlock_volumes(hdd_images[id].locked_drives);
+        hdd_images[id].locked_drives = NULL;
+    }
 
     if (hdd_images[id].file != NULL) {
         fclose(hdd_images[id].file);

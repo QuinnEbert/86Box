@@ -47,7 +47,11 @@ typedef struct g_axis_t {
 
 typedef struct _gameport_ {
     uint16_t                    addr;
+    uint16_t                    alt_addr;
     uint8_t                     len;
+    uint8_t                     alt_len;
+    uint8_t                     read_enabled;
+    uint8_t                     write_enabled;
     struct _joystick_instance_ *joystick;
     struct _gameport_          *next;
 } gameport_t;
@@ -260,9 +264,12 @@ joystick_get_pov_name(int js, int id)
 static void
 gameport_time(joystick_instance_t *joystick, int nr, int axis)
 {
-    if (axis == AXIS_NOT_PRESENT)
+    if (axis == AXIS_NOT_PRESENT) {
+#if !defined(_WIN32) && !defined(__APPLE__)
+        joystick->state &= ~(1 << nr);
+#endif
         timer_disable(&joystick->axis[nr].timer);
-    else {
+    } else {
         /* Convert axis value to 555 timing. */
         axis += 32768;
         axis = (axis * 100) / 65; /* axis now in ohms */
@@ -290,7 +297,7 @@ gameport_write(UNUSED(uint16_t addr), UNUSED(uint8_t val), void *priv)
     /* Notify the interface. */
     joystick->intf->write(joystick->dat);
 
-    cycles -= ISA_CYCLES((8 << is_pcjr));
+    cycles -= ISA_CYCLES((8 << (is_pcjr || machine_is_pcjx(machine))));
 }
 
 static uint8_t
@@ -304,9 +311,20 @@ gameport_read(UNUSED(uint16_t addr), void *priv)
         return 0xff;
 
     /* Merge axis state with button state. */
+#if defined(_WIN32) || defined(__APPLE__)
     uint8_t ret = joystick->state | joystick->intf->read(joystick->dat);
+#else
+    uint8_t       buttons = joystick->intf->read(joystick->dat);
 
-    cycles -= ISA_CYCLES((8 << is_pcjr));
+    /* Keep button lines stable while axis timers are still discharging,
+       except on devices whose button lines carry a serial protocol. */
+    if ((joystick->state & 0x0f) && !joystick->intf->digital)
+        buttons = 0xf0;
+
+    const uint8_t ret     = joystick->state | buttons;
+#endif
+
+    cycles -= ISA_CYCLES((8 << (is_pcjr || machine_is_pcjx(machine))));
 
     return ret;
 }
@@ -338,16 +356,46 @@ gameport_update_joystick_type(uint8_t gp)
     }
 }
 
-void
-gameport_remap(void *priv, uint16_t address)
+static void
+gameport_handler(gameport_t *dev, int set)
 {
-    gameport_t *dev = (gameport_t *) priv;
-    gameport_t *other_dev;
-
-    if (dev == NULL)
+    if (!dev->read_enabled && !dev->write_enabled)
         return;
 
-    if (dev->addr) {
+    if (dev->addr)
+        io_handler(set, dev->addr, dev->len,
+                   dev->read_enabled ? gameport_read : NULL, NULL, NULL,
+                   dev->write_enabled ? gameport_write : NULL, NULL, NULL, dev);
+    if (dev->alt_addr)
+        io_handler(set, dev->alt_addr, dev->alt_len,
+                   dev->read_enabled ? gameport_read : NULL, NULL, NULL,
+                   dev->write_enabled ? gameport_write : NULL, NULL, NULL, dev);
+}
+
+void
+gameport_set_decode(void *priv, int read_enabled, int write_enabled)
+{
+    gameport_t *dev = (gameport_t *) priv;
+
+    if (!dev)
+        return;
+    read_enabled  = !!read_enabled;
+    write_enabled = !!write_enabled;
+    if ((dev->read_enabled == read_enabled) && (dev->write_enabled == write_enabled))
+        return;
+
+    gameport_handler(dev, 0);
+    dev->read_enabled  = read_enabled;
+    dev->write_enabled = write_enabled;
+    gameport_handler(dev, 1);
+}
+
+static void
+gameport_remap_common(gameport_t *dev, uint16_t address, uint16_t alt_address, uint8_t alt_len)
+{
+    gameport_t *other_dev;
+
+    if (dev->addr || dev->alt_addr) {
         /* Remove this port from the active ports list. */
         if (active_gameports == dev) {
             active_gameports = dev->next;
@@ -364,15 +412,16 @@ gameport_remap(void *priv, uint16_t address)
             }
         }
 
-        io_removehandler(dev->addr, dev->len,
-                         gameport_read, NULL, NULL, gameport_write, NULL, NULL, dev);
+        gameport_handler(dev, 0);
     }
 
-    dev->addr = address;
+    dev->addr     = address;
+    dev->alt_addr = alt_address;
+    dev->alt_len  = alt_len;
 
-    if (dev->addr) {
+    if (dev->addr || dev->alt_addr) {
         /* Add this port to the active ports list. */
-        if (!active_gameports || ((dev->addr & 0xfff8) == 0x200)) {
+        if (!active_gameports || ((dev->addr & 0xfff8) == 0x200) || ((dev->alt_addr & 0xfff8) == 0x200)) {
             /* No ports have been added yet, or port within 200-207h: add to top. */
             dev->next        = active_gameports;
             active_gameports = dev;
@@ -384,9 +433,32 @@ gameport_remap(void *priv, uint16_t address)
             other_dev->next = dev;
         }
 
-        io_sethandler(dev->addr, dev->len,
-                      gameport_read, NULL, NULL, gameport_write, NULL, NULL, dev);
+        gameport_handler(dev, 1);
     }
+}
+
+void
+gameport_remap(void *priv, uint16_t address)
+{
+    gameport_t *dev = (gameport_t *) priv;
+
+    if (dev == NULL)
+        return;
+
+    gameport_remap_common(dev, address, dev->alt_addr, dev->alt_len);
+}
+
+/* Map the same port at a second address, for chips that decode it at both a
+   fixed legacy address and a relocatable one (such as a PCI BAR). */
+void
+gameport_remap_alt(void *priv, uint16_t address, uint8_t len)
+{
+    gameport_t *dev = (gameport_t *) priv;
+
+    if (dev == NULL)
+        return;
+
+    gameport_remap_common(dev, dev->addr, address, len);
 }
 
 static void
@@ -439,6 +511,8 @@ gameport_init(const device_t *info)
     }
 
     dev->joystick = joystick_instance[joy_insn];
+    dev->read_enabled  = 1;
+    dev->write_enabled = 1;
 
     /* Map game port to the default address. Not applicable on PnP-only ports. */
     dev->len = (info->local >> 16) & 0xff;
@@ -507,7 +581,7 @@ gameport_close(void *priv)
     uint8_t joy_insn = 0;
 
     /* If this port was active, remove it from the active ports list. */
-    gameport_remap(dev, 0);
+    gameport_remap_common(dev, 0, 0, 0);
 
     /* Free the global instance here, if it wasn't already freed. */
     if (joystick_instance[joy_insn]) {

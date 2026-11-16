@@ -58,6 +58,7 @@ namespace Display {
         NIC,
         Keyboard,
         Mouse,
+        Tablet,
         IsaRtc,
         IsaMem,
         IsaRom,
@@ -95,6 +96,9 @@ public:
 
     ~VMManagerSystem() override;
 
+    // Load previously known VMs from vmm.ini cache (fast path, no recursive scan)
+    static QVector<VMManagerSystem *> loadFromCache();
+    static QStringList cachedConfigPaths();
     static QVector<VMManagerSystem *> scanForConfigs(QWidget *parent = nullptr, const QString &searchPath = {});
     static QString                    generateTemporaryFilename();
 
@@ -120,6 +124,8 @@ public:
     [[nodiscard]] bool   isValid() const;
     [[nodiscard]] bool   isProcessRunning() const;
     [[nodiscard]] qint64 processId() const;
+    // True while the process was launched only to show the settings dialog
+    [[nodiscard]] bool isSettingsOnly() const;
 public slots:
     void launch86Box(bool settings = false);
     void launchSettings();
@@ -160,6 +166,7 @@ signals:
     void clientProcessStatusChanged();
     void configurationChanged(VMManagerSystem *sysconfig);
     void globalConfigurationChanged();
+    void windowActivated();
 
 private:
     void loadSettings();
@@ -189,6 +196,7 @@ private:
     WId id;
 
     bool serverIsRunning;
+    bool settingsOnly;
     bool startServer();
 
     bool has86BoxBinary();

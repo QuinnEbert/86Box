@@ -20,22 +20,32 @@ add_library(mch OBJECT
     machine_table.c
     m_xt.c
     m_xt_t1000.c
+    m_xt_jukost.c
     m_xt_xi8088.c
     m_pcjr.c
+    m_pcjx.c
+    m_pcjx_scancodes.c
+    m_ibm5140.c
+    m_ibm5140_power.c
     m_amstrad.c
     m_europc.c
     m_elt.c
     m_xt_olivetti.c
     m_xt_ibm5550.c
-    m_tandy.c
+    m_tandy1k.c
+    m_tandy2k.c
     m_v86p.c
     m_at_t3100e.c
+    m_at_tandy_vis.c
+    m_at_tvis_memcard.c
+    m_at_vaxmate.c
     m_ps1.c
     m_ps2_isa.c
     m_ps2_mca.c
     m_at_common.c
     m_at_286.c
     m_at_386sx.c
+    m_at_386ex.c
     m_at_m6117.c
     m_at_386dx.c
     m_at_486slc.c
@@ -44,10 +54,12 @@ add_library(mch OBJECT
     m_at_socket2.c
     m_at_socket3.c
     m_at_socket3_pci.c
-    m_at_486_misc.c
+    m_at_stpc.c
+    m_at_socket3_4.c
     m_at_socket4.c
     m_at_socket4_5.c
     m_at_socket5.c
+    m_at_eisa_pci.c
     m_at_socket7_3v.c
     m_at_socket7.c
     m_at_sockets7.c
@@ -59,3 +71,7 @@ add_library(mch OBJECT
     m_at_socket370.c
     m_at_misc.c
 )
+
+if(AIC7890)
+    target_compile_definitions(mch PRIVATE USE_AIC7890)
+endif()

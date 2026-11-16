@@ -110,7 +110,7 @@ quadcolor_out(uint16_t addr, uint8_t val, void *priv)
                 // Recalc the timings if we are writing any invalid CRTC register or a valid CRTC register
                 // except the CURSOR and LIGHT PEN registers
                 if ((quadcolor->crtcreg < 0xe) || (quadcolor->crtcreg > 0x11)) {
-                    quadcolor->fullchange = changeframecount;
+                    quadcolor->fullchange = monitors[quadcolor->monitor_index].mon_changeframecount;
                     quadcolor_recalctimings(quadcolor);
 
                     if (quadcolor->crtcreg == 3)
@@ -575,6 +575,11 @@ quadcolor_poll(void *priv)
     int      ys_temp;
     int      old_ma;
 
+    /* Bind the monitor macros to this card's own display. */
+    const int prev_monitor_index = monitor_index_global;
+
+    monitor_index_global = quadcolor->monitor_index;
+
     if (!quadcolor->linepos) {
         timer_advance_u64(&quadcolor->timer, quadcolor->dispofftime);
         quadcolor->cgastat |= 1;
@@ -627,6 +632,7 @@ quadcolor_poll(void *priv)
                 quadcolor_render_process(quadcolor, quadcolor->displine);
                 break;
         }
+        video_lightpen_check_trigger_strobe(8, quadcolor->displine, 0, quadcolor->firstline + 8, 16. * (1. / (CGACONST / (cpuclock * (double) (1ULL << 32)))), 0);
 
         quadcolor->scanline = scanline_old;
         if (quadcolor->vc == quadcolor->crtc[CGA_CRTC_VSYNC] && !quadcolor->scanline)
@@ -636,6 +642,7 @@ quadcolor_poll(void *priv)
             quadcolor->displine = 0;
     } else {
         timer_advance_u64(&quadcolor->timer, quadcolor->dispontime);
+        video_lightpen_hsync();
         quadcolor->linepos = 0;
         if (quadcolor->vsynctime) {
             quadcolor->vsynctime--;
@@ -695,6 +702,7 @@ quadcolor_poll(void *priv)
                 quadcolor->cgadispon = 0;
                 quadcolor->displine  = 0;
                 quadcolor->vsynctime = 16;
+                video_lightpen_vsync();
                 if (quadcolor->crtc[CGA_CRTC_VSYNC]) {
                     if (quadcolor->cgamode & CGA_MODE_FLAG_HIGHRES)
                         x = (quadcolor->crtc[CGA_CRTC_HDISP] << 3) + 16;
@@ -783,6 +791,8 @@ quadcolor_poll(void *priv)
                 quadcolor->charbuffer[x] = quadcolor->vram[(quadcolor->page_offset ^ ((quadcolor->memaddr << 1) + x)) & DEVICE_VRAM_MASK];
         }
     }
+
+    monitor_index_global = prev_monitor_index;
 }
 
 void
@@ -848,6 +858,7 @@ quadcolor_standalone_init(UNUSED(const device_t *info))
     }
 
     monitors[monitor_index_global].mon_composite = !!quadcolor->composite;
+    quadcolor->monitor_index                     = monitor_index_global;
 
     return quadcolor;
 }

@@ -27,6 +27,7 @@
 #include <86box/hdc.h>
 #include <86box/hdc_ide.h>
 #include <86box/hdd.h>
+#include <86box/lpt.h>
 
 int hdc_current[HDC_MAX] = { 0, 0 };
 
@@ -50,29 +51,32 @@ hdc_log(const char *fmt, ...)
 #    define hdc_log(fmt, ...)
 #endif
 
+/* Each controller, with the bus of the drives it takes where that is not
+   IDE: IDE boards are claimed through device_t.ide_boards instead. */
 static const struct {
     const device_t *device;
+    int             bus;
 } controllers[] = {
     // clang-format off
     { &device_none                          },
     { &device_internal                      },
     /* ISA */
     { &xtide_acculogic_device               },
-    { &st506_xt_dtc5150x_device             },
-    { &st506_xt_xebec_device                },
+    { &st506_xt_dtc5150x_device,          HDD_BUS_MFM  },
+    { &st506_xt_xebec_device,             HDD_BUS_MFM  },
     { &xtide_device                         },
     { &jride_device                         },
-    { &st506_xt_st11_m_device               },
-    { &st506_xt_st11_r_device               },
-    { &xta_st50x_device                     },
-    { &st506_xt_victor_v86p_device          },
-    { &st506_xt_wd1002a_27x_device          },
-    { &st506_xt_wd1002a_wx1_device          },
-    { &st506_xt_wd1004_27x_device           },
-    { &st506_xt_wd1004a_27x_device          },
-    { &st506_xt_wd1004a_wx1_device          },
-    { &xta_wdxt150_device                   },
-    { &st506_xt_wdxt_gen_device             },
+    { &st506_xt_st11_m_device,            HDD_BUS_MFM  },
+    { &st506_xt_st11_r_device,            HDD_BUS_MFM  },
+    { &xta_st50x_device,                  HDD_BUS_XTA  },
+    { &st506_xt_victor_v86p_device,       HDD_BUS_MFM  },
+    { &st506_xt_wd1002a_27x_device,       HDD_BUS_MFM  },
+    { &st506_xt_wd1002a_wx1_device,       HDD_BUS_MFM  },
+    { &st506_xt_wd1004_27x_device,        HDD_BUS_MFM  },
+    { &st506_xt_wd1004a_27x_device,       HDD_BUS_MFM  },
+    { &st506_xt_wd1004a_wx1_device,       HDD_BUS_MFM  },
+    { &xta_wdxt150_device,                HDD_BUS_XTA  },
+    { &st506_xt_wdxt_gen_device,          HDD_BUS_MFM  },
     /* ISA16 */
     { &ide_isa_device                       },
     { &ide_isa_2ch_device                   },
@@ -82,12 +86,11 @@ static const struct {
     { &xtide_at_ps2_2ch_device              },
     { &ide_ter_device                       },
     { &ide_qua_device                       },
-    { &st506_at_wd1003_device               },
-    { &esdi_at_wd1007vse1_device            },
+    { &st506_at_wd1003_device,            HDD_BUS_MFM  },
+    { &esdi_at_wd1007vse1_device,         HDD_BUS_ESDI },
     /* MCA */
-    { &esdi_ps2_device                      },
-    { &st506_ps2_device                     },  
-    { &esdi_integrated_device               },
+    { &esdi_ps2_device,                   HDD_BUS_ESDI },
+    { &st506_ps2_device,                  HDD_BUS_MFM  },  
     { &mcide_device                         },
     /* VLB */
 #if 0
@@ -97,6 +100,8 @@ static const struct {
     { &ide_vlb_device                       },
     { &ide_vlb_2ch_device                   },
     { &ide_opti611_vlb_device               },
+    { &ide_qd6500_vlb_device                },
+    { &ide_w83769f_vlb_device               }, /* TODO: to add implement W83759 IDE controller */
     /* PCI */
     { &ide_cmd640_pci_device                },
     { &ide_cmd646_ter_qua_device            },
@@ -104,6 +109,8 @@ static const struct {
     { &ide_cmd649_ter_qua_device            },
     { &ide_pci_device                       },
     { &ide_pci_2ch_device                   },
+    { &pdc20269_device                      },
+    { &ide_w83769f_pci_device               }, /* PCI variant? TODO: to add implement W83759 IDE controller */
     { NULL                                  }
     // clang-format on
 };
@@ -131,6 +138,20 @@ hdc_reset(void)
         /* If we have a valid controller, add its device. */
         if (hdc_current[i] > HDC_INTERNAL)
             device_add_inst(controllers[hdc_current[i]].device, i + 1);
+    }
+
+    /* A hard disk on a parallel port is reached through a bridge, which is
+       not something the user picks: putting the disk on the port is the
+       whole configuration. The bridge claims the port with lpt_attach(),
+       first claim wins. */
+    for (int port = 0; port < PARALLEL_MAX; port++) {
+        for (int c = 0; c < HDD_NUM; c++) {
+            if (hdd_is_valid(c) && (hdd[c].bus_type == HDD_BUS_LPT) && (hdd[c].channel == port)) {
+                device_add_inst(hdd_lpt_bridge_device(hdd[c].lpt_bridge),
+                                port + 1);
+                break;
+            }
+        }
     }
 }
 
@@ -178,6 +199,48 @@ int
 hdc_get_flags(int hdc)
 {
     return (controllers[hdc].device->flags);
+}
+
+/* Who has the drives of an MFM/RLL, XTA or ESDI bus, for a machine and
+   the disk controllers selected: the machine's own controller, with the
+   Internal one selected, or else the first card that takes that bus.
+   Returns 0 when nothing does. */
+int
+hdc_plan(bus_owner_t *owner, int bus, int mach, const int hdc[])
+{
+    const machine_t *m    = &machines[mach];
+    uint64_t         flag = 0;
+
+    memset(owner, 0, sizeof(bus_owner_t));
+
+    switch (bus) {
+        case HDD_BUS_MFM:
+            flag = MACHINE_MFM;
+            break;
+        case HDD_BUS_XTA:
+            flag = MACHINE_XTA;
+            break;
+        case HDD_BUS_ESDI:
+            flag = MACHINE_ESDI;
+            break;
+        default:
+            return 0;
+    }
+
+    if ((m->flags & flag) && (hdc[0] == HDC_INTERNAL)) {
+        owner->onboard = 1;
+        return 1;
+    }
+
+    for (int i = 0; i < HDC_MAX; i++) {
+        if ((hdc[i] > HDC_INTERNAL) && (controllers[hdc[i]].bus == bus)) {
+            owner->device   = controllers[hdc[i]].device;
+            owner->instance = i + 1;
+            return 1;
+        }
+    }
+
+    return 0;
 }
 
 int

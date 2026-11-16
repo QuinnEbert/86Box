@@ -19,9 +19,13 @@ cmake_minimum_required(VERSION 3.16)
 cmake_policy(SET CMP0091 NEW)
 cmake_policy(SET CMP0079 NEW)
 
-if(HAIKU)
-    set(OPENAL ON)
-endif()
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_FIND_PACKAGE_PREFER_CONFIG ON)
+
+set(CMAKE_CONFIGURATION_TYPES "Debug;Release;UltraDebug;Optimized" CACHE STRING "")
 
 if(NOT DEFINED QT OR QT)
     list(APPEND VCPKG_MANIFEST_FEATURES "qt-ui")
@@ -36,7 +40,7 @@ if(MUNT_EXTERNAL)
 endif()
 
 project(86Box
-    VERSION 6.0
+    VERSION 7.0
     DESCRIPTION "Emulator of x86-based systems"
     HOMEPAGE_URL "https://86box.net"
     LANGUAGES C CXX)
@@ -49,8 +53,22 @@ if(APPLE)
     set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 endif()
 
+if (NOT (CMAKE_SIZEOF_VOID_P STREQUAL "8"))
+    message(FATAL_ERROR "Only 64-bit builds are supported.")
+endif()
+
+if (CMAKE_C_BYTE_ORDER STREQUAL "BIG_ENDIAN")
+    message(FATAL_ERROR "Big-endian builds are not supported.")
+endif()
+
+# Make the build directory ignore itself in git, regardless of its name
+if(NOT CMAKE_BINARY_DIR STREQUAL CMAKE_SOURCE_DIR AND NOT EXISTS "${CMAKE_BINARY_DIR}/.gitignore")
+    file(WRITE "${CMAKE_BINARY_DIR}/.gitignore" "*\n")
+endif()
+
 include(CPack)
 include(CMakeDependentOption)
+include(FetchContent)
 
 # Basic build options
 if(VCPKG_TOOLCHAIN)
@@ -65,7 +83,7 @@ if(VCPKG_TOOLCHAIN)
         # `-static-md` triplet, use static linking with dynamic CRT
         set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
         set(STATIC_BUILD ON)
-    elseif()
+    else()
         # Regular triplet, use dynamic linking
         set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
         set(STATIC_BUILD OFF)
@@ -99,35 +117,12 @@ if(NOT NO_STATIC_OPTION)
     endif()
 endif()
 
-# Detect the target architecture by trying to compile `src/arch_detect.c`
-try_compile(RESULT_VAR ${CMAKE_BINARY_DIR} "${CMAKE_CURRENT_SOURCE_DIR}/src/arch_detect.c" OUTPUT_VARIABLE ARCH)
-string(REGEX MATCH "ARCH ([a-zA-Z0-9_]+)" ARCH "${ARCH}")
-string(REPLACE "ARCH " "" ARCH "${ARCH}")
-if (NOT ARCH)
-    set(ARCH unknown)
+if(HAIKU)
+    set(OPENAL ON)
 endif()
 
-add_compile_definitions(CMAKE)
-add_compile_definitions("$<$<CONFIG:Debug>:DEBUG>")
-
-if(WIN32)
-    # Disables *_s function warnings
-    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
-
-    # Disables POSIX name warnings
-    add_compile_definitions(_CRT_NONSTDC_NO_WARNINGS)
-
-    # Disables WinSock deprecation warnings
-    add_compile_definitions(_WINSOCK_DEPRECATED_NO_WARNINGS)
-endif()
-
-if(NOT (WIN32 OR APPLE OR CMAKE_SYSTEM_NAME STREQUAL "Linux"))
-    set(DISCORD OFF)
-endif()
-
-set(CMAKE_C_STANDARD 11)
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_FIND_PACKAGE_PREFER_CONFIG ON)
+include(DetectTargetArch)
+include(CompilerFlags)
 
 # Optional features
 #
@@ -143,16 +138,45 @@ option(SOUNDCANVAS  "Sound Canvas (CLAP)"                                       
 option(VNC          "VNC renderer"                                               OFF)
 option(MINITRACE    "Enable Chrome tracing using the modified minitrace library" OFF)
 option(GDBSTUB      "Enable GDB stub server for debugging"                       OFF)
+option(AUTOMATION   "Enable the automation control socket"                       OFF)
+option(DISASM       "Disassembler in the memory viewer (Zydis)"                   ON)
 option(DEV_BRANCH   "Development branch"                                         OFF)
 option(DISCORD      "Discord Rich Presence support"                              ON)
-option(DEBUGREGS486 "Enable debug register opeartion on 486+ CPUs"               OFF)
+option(ENABLE_MODEM_LOG "Enable modem logging"                                   OFF)
+option(ENABLE_MODEM_DEBUG "Enable detailed modem logging (requires ENABLE_MODEM_LOG)" OFF)
+option(ENABLE_MODEM_ADVANCED_CONFIG "Show advanced modem configuration options" OFF)
+option(ENABLE_MODEM_IPV6 "Enable IPv6 over the emulated modem (incomplete)"         OFF)
+option(ENABLE_VSERVER_WINS "Enable WINS in the virtual network server" OFF)
+option(ENABLE_VSERVER_SMB "Enable SMB in the virtual network server (implies ENABLE_VSERVER_WINS)" OFF)
+option(ENABLE_VSERVER_NETBEUI "Enable NetBEUI access to the virtual server over PPP and Ethernet (implies ENABLE_VSERVER_SMB)" OFF)
+option(ENABLE_VSERVER_IPX "Enable IPX access to the virtual server over PPP and Ethernet (implies ENABLE_VSERVER_SMB)" OFF)
+option(ENABLE_VSERVER_PPTP "Enable the virtual server's PPTP VPN endpoint (implies ENABLE_VSERVER_SMB)" OFF)
+option(ENABLE_VSERVER_FTP "Enable the read-only FTP server in the virtual network server" OFF)
+option(ENABLE_VSERVER_TFTP "Enable the read-only TFTP server in the virtual network server" OFF)
+option(ENABLE_VSERVER_RARP "Enable RARP replies for the SLiRP guest network adapter" OFF)
+option(ENABLE_VSERVER_BOOTP "Enable legacy BOOTP client compatibility in SLiRP DHCP" OFF)
+option(ENABLE_MODEM_RAW_CAPTURE "Log raw modem serial traffic and probe state (requires ENABLE_MODEM_LOG)" OFF)
+if(ENABLE_MODEM_DEBUG AND NOT ENABLE_MODEM_LOG)
+    message(FATAL_ERROR "ENABLE_MODEM_DEBUG requires ENABLE_MODEM_LOG")
+endif()
+if(ENABLE_MODEM_RAW_CAPTURE AND NOT ENABLE_MODEM_LOG)
+    message(FATAL_ERROR "ENABLE_MODEM_RAW_CAPTURE requires ENABLE_MODEM_LOG")
+endif()
 option(LIBASAN      "Enable compilation with the addresss sanitizer"             OFF)
 option(QT           "Use the Qt-based user interface"                            ON)
+option(SDL2         "Use SDL2 instead of SDL3"                                   OFF)
+option(BUILD_TESTING "Build the unit test suite"                                  OFF)
+option(BUILD_BENCHMARKS "Build performance benchmarks"                            OFF)
 
-if((ARCH STREQUAL "arm64"))
-    set(NEW_DYNAREC ON)
-else()
-    option(NEW_DYNAREC "Use the PCem v15 (\"new\") dynamic recompiler" OFF)
+if(BUILD_TESTING)
+    enable_testing()
+    find_package(GTest CONFIG REQUIRED)
+endif()
+if(BUILD_BENCHMARKS)
+    find_package(benchmark CONFIG REQUIRED)
+endif()
+if(BUILD_TESTING OR BUILD_BENCHMARKS)
+    add_subdirectory(tests)
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "NetBSD")
@@ -176,9 +200,19 @@ endif()
 if(WIN32 AND NOT QT)
     # Force console subsystem when building the SDL frontend
     set(CMAKE_WIN32_EXECUTABLE OFF CACHE BOOL "Build a Windows GUI executable" FORCE)
+endif()
 
-    # FluidSynth pulls in SDL3 - disable for now
-    set(FLUIDSYNTH OFF CACHE BOOL "FluidSynth" FORCE)
+if(WIN32 AND GDBSTUB)
+    # Force console subsystem when building with GDBSTUB
+    set(CMAKE_WIN32_EXECUTABLE OFF CACHE BOOL "Build a Windows GUI executable" FORCE)
+endif()
+
+if(WIN32 AND NOT CMAKE_WIN32_EXECUTABLE)
+    add_compile_definitions(WIN_CONSOLE_LOG=1)
+endif()
+
+if(GDBSTUB)
+    set(DYNAREC OFF CACHE BOOL "Dynamic Recompiler" FORCE)
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "OpenBSD")
@@ -189,24 +223,48 @@ endif()
 #
 #                      Option         Description                                Def.  Condition     Otherwise
 #                      ------         -----------                                ----  ------------  ---------
+cmake_dependent_option(AIC7890        "Adaptec AIC-7890"                         ON    "DEV_BRANCH"  OFF)
 cmake_dependent_option(AMD_K5         "AMD K5"                                   ON    "DEV_BRANCH"  OFF)
-cmake_dependent_option(CDROM_MITSUMI  "Mitsumi CDROM"                            ON    "DEV_BRANCH"  OFF)
 cmake_dependent_option(G100           "Matrox Productiva G100"                   ON    "DEV_BRANCH"  OFF)
 cmake_dependent_option(ISAMEM_RAMPAGE "AST Rampage"                              ON    "DEV_BRANCH"  OFF)
 cmake_dependent_option(ISAMEM_IAB     "Intel Above Board"                        ON    "DEV_BRANCH"  OFF)
 cmake_dependent_option(ISAMEM_BRAT    "BocaRAM/AT"                               ON    "DEV_BRANCH"  OFF)
-cmake_dependent_option(OPL4ML         "OPL4-ML daughterboard"                    ON    "DEV_BRANCH"  OFF)
 cmake_dependent_option(SIO_DETECT     "Super I/O Detection Helper"               ON    "DEV_BRANCH"  OFF)
-cmake_dependent_option(WACOM          "Wacom Input Devices"                      ON    "DEV_BRANCH"  OFF)
-cmake_dependent_option(XL24           "ATI VGA Wonder XL24 (ATI-28800-6)"        ON    "DEV_BRANCH"  OFF)
 cmake_dependent_option(VFIO           "Virtual Function I/O"                     ON    "DEV_BRANCH"  OFF)
 cmake_dependent_option(SOFTMODEM      "AC'97 Softmodem"                          ON    "DEV_BRANCH"  OFF)
+
+# Defaults to DEV_BRANCH like the options above, but can also be enabled on its own
+option(RAGE128_MAXX "ATI Rage Fury MAXX" ${DEV_BRANCH})
+option(POWERVR_PCX_DEV "PowerVR PCX: developer/test settings in the device" OFF)
 
 # Ditto but for Qt
 if(QT)
     option(USE_QT6 "Use Qt6 instead of Qt5" OFF)
     if(APPLE)
         option(MOLTENVK "Use MoltenVK libraries for Vulkan support on macOS. Requires a Vulkan-enabled QT." OFF)
+    endif()
+
+    option(LIBRASHADER "Build with librashader support" ON)
+
+    if(LIBRASHADER)
+        option(LIBRASHADER_STATIC "Statically link with librashader" OFF)
+        if(LIBRASHADER_STATIC)
+            option(LIBRASHADER_STATIC_FIND_LIB "Find static librashader library instead of building." OFF)
+            if (NOT LIBRASHADER_STATIC_FIND_LIB)
+                set(FETCHCONTENT_QUIET 0)
+                FetchContent_Declare(librashader
+                                    GIT_REPOSITORY https://github.com/SnowflakePowered/librashader.git
+                                    GIT_TAG f810cdf6e856e5a5215b1e84a21c978bc3367f23 GIT_SUBMODULES "" GIT_PROGRESS 1)
+
+                FetchContent_Declare(corrosion
+                                    GIT_REPOSITORY https://github.com/corrosion-rs/corrosion.git
+                                    GIT_TAG c4786e7ae2d5ade784aca29448df362c874ed04e)
+
+                FetchContent_MakeAvailable(librashader corrosion)
+                FetchContent_GetProperties(librashader SOURCE_DIR LIBRASHADER_SOURCE_DIR)
+                corrosion_import_crate(MANIFEST_PATH ${LIBRASHADER_SOURCE_DIR}/librashader-capi/Cargo.toml NO_DEFAULT_FEATURES FEATURES runtime-vulkan CRATE_TYPES staticlib)
+            endif()
+        endif()
     endif()
 endif()
 

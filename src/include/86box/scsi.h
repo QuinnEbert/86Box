@@ -27,6 +27,12 @@
 #define SCSI_ID_MAX   16 /* 16 on wide buses */
 #define SCSI_LUN_MAX  8  /* always 8 */
 
+/* The card table starts with these two entries; real cards follow. */
+enum {
+    SCSI_CARD_NONE = 0,
+    SCSI_CARD_INTERNAL
+};
+
 extern int             scsi_card_current[SCSI_CARD_MAX];
 
 extern void            scsi_reset(void);
@@ -35,7 +41,13 @@ extern uint8_t         scsi_get_bus(void);
 extern int             scsi_card_available(int card);
 #ifdef EMU_DEVICE_H
 extern const device_t *scsi_card_getdevice(int card);
+
+/* The owner of each SCSI bus for a machine and its sound cards, SCSI
+   cards and USB mass storage device (msd, the usb_msd_type to plan for),
+   handed out as they start; the return is the number of buses. */
+extern int  scsi_plan(bus_owner_t owners[SCSI_BUS_MAX], int mach, const int snd[], const int net[], const int scsi[], int msd);
 #endif
+extern void scsi_plan_check(void);
 extern int             scsi_card_has_config(int card);
 extern const char     *scsi_card_get_internal_name(int card);
 extern int             scsi_card_get_from_internal_name(char *s);

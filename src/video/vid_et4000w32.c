@@ -40,6 +40,7 @@
 #define BIOS_ROM_PATH_W32_MACHSPEED_VGA_GUI_2400S   "roms/video/et4000w32/ET4000W32VLB_bios_MX27C512.BIN"
 #define BIOS_ROM_PATH_W32I_REVB_AXIS_MICRODEVICE    "roms/video/et4000w32/ET4KW32I.VBI"
 #define BIOS_ROM_PATH_W32I_REVB_HERCULES_DYNAMITE_VLB_PRO "roms/video/et4000w32/Hercules Dynamite VL Pro v8.00 c 1993 Hercules.bin"
+#define BIOS_ROM_PATH_W32P_REVB_STB                 "roms/video/et4000w32/STB Systems Lightspeed Rev. B (Tseng Labs ET4000-W32p VLB, STG1702J).bin"
 #define BIOS_ROM_PATH_W32P_REVB_VIDEOMAGIC          "roms/video/et4000w32/VideoMagic-BioS-HXIRTW32PWSRL.BIN"
 #define BIOS_ROM_PATH_W32P_REVC_CARDEX              "roms/video/et4000w32/et4000w32pcardex.BIN"
 #define BIOS_ROM_PATH_W32P_REVD                     "roms/video/et4000w32/ET4K_W32.BIN"
@@ -63,6 +64,7 @@ enum {
     MACHSPEED_VGA_GUI_2400S   = 0,
     AXIS_MICRODEVICE_ET4W32_5,
     HERCULES_DYNAMITE_PRO_VLB,
+    STB_LIGHTSPEED,
     VIDEOMAGIC_ETW32PVS,
     CARDEX_REVC,
     GENERIC_REVD,
@@ -86,7 +88,7 @@ typedef struct et4000w32p_t {
 
     svga_t svga;
 
-    uint8_t banking, banking2, adjust_cursor, rev, pci_slot;
+    uint8_t banking, banking2, adjust_cursor, rev, pci_slot, irq_state;
     uint8_t adjust_cursor_x;
 
     uint8_t regs[256], pci_regs[256];
@@ -144,8 +146,10 @@ typedef struct et4000w32p_t {
 
 static int et4000w32_vbus[4] = { 1, 2, 4, 4 };
 
-static int et4000w32_max_x[8]  = { 0, 0, 4, 8, 0x10, 0x20, 0x40, 0x70000000 };
-static int et4000w32_wrap_x[8] = { 0, 0, 3, 7, 0x0f, 0x1f, 0x3f, ~0 };
+/* Horizontal wrap 0 is documented as reserved, but at least on the W32 it
+   works like 1. */
+static int et4000w32_max_x[8]  = { 1, 1, 4, 8, 0x10, 0x20, 0x40, 0x70000000 };
+static int et4000w32_wrap_x[8] = { 1, 1, 3, 7, 0x0f, 0x1f, 0x3f, ~0 };
 static int et4000w32_wrap_y[8] = { 1, 2, 4, 8, ~0, ~0, ~0, ~0 };
 
 static video_timings_t timing_et4000w32_vlb = { .type = VIDEO_BUS, .write_b = 4, .write_w = 4, .write_l = 4, .read_b = 10, .read_w = 10, .read_l = 10 };
@@ -163,6 +167,17 @@ static void    et4000w32_blit(int count, int cpu_input, uint32_t src_dat, uint32
 static void    et4000w32p_blit(int count, uint32_t mix, uint32_t sdat, int cpu_input, et4000w32p_t *et4000);
 static void    et4000w32p_out(uint16_t addr, uint8_t val, void *priv);
 static uint8_t et4000w32p_in(uint16_t addr, void *priv);
+
+static void
+et4000w32p_vert_int_update(svga_t *svga)
+{
+    et4000w32p_t *et4000 = (et4000w32p_t *) svga->priv;
+
+    if (svga_vert_int_active(svga))
+        pci_set_irq(et4000->pci_slot, PCI_INTA, &et4000->irq_state);
+    else
+        pci_clear_irq(et4000->pci_slot, PCI_INTA, &et4000->irq_state);
+}
 
 #ifdef ENABLE_ET4000W32_LOG
 int et4000w32_do_log = ENABLE_ET4000W32_LOG;
@@ -262,6 +277,12 @@ et4000w32p_out(uint16_t addr, uint8_t val, void *priv)
                 val = (svga->crtc[7] & ~0x10) | (val & 0x10);
             old                       = svga->crtc[svga->crtcreg];
             svga->crtc[svga->crtcreg] = val;
+            if (svga->crtcreg == 0x11) {
+                svga_vert_int_crtc_write(svga);
+                /* The interrupt bits don't affect the timings */
+                if ((val & ~0x30) == (old & ~0x30))
+                    old = val;
+            }
             if (svga->crtcreg == 0x36) {
                 if (!(val & 0x10) && !(svga->gdcreg[6] & 0x08)) {
                     svga->write_bank = ((et4000->banking2 & 1) << 20) | ((et4000->banking & 0xf) * 65536);
@@ -538,6 +559,17 @@ et4000w32p_recalctimings(svga_t *svga)
         svga->dots_per_clock <<= 1;
     }
 
+    /* Interlace (CRTC 35 bit 7), the vertical registers count frame lines */
+    svga->interlace = svga->crtc[0x35] & 0x80;
+    if (svga->interlace) {
+        int shift = (svga->crtc[0x17] & 4) ? 2 : 1;
+
+        svga->vtotal >>= shift;
+        svga->vsyncstart >>= shift;
+        svga->vblankstart >>= shift;
+        svga->dispend >>= shift;
+    }
+
     et4000->adjust_cursor = 0;
     et4000->adjust_cursor_x = 0;
 
@@ -746,6 +778,31 @@ et4000w32p_recalcmapping(et4000w32p_t *et4000)
         mem_mapping_disable(&svga->mapping);
 }
 
+/* Start the operation set up in the queued registers. */
+static void
+et4000w32p_accel_start(et4000w32p_t *et4000)
+{
+    et4000->acl.internal = et4000->acl.queued;
+    if (et4000->rev >= ET4000W32P_REVB) {
+        et4000w32p_blit_start(et4000);
+        et4000w32_log("Destination Address write and start XY Block, xcnt = %i, ycnt = %i\n", et4000->acl.x_count + 1, et4000->acl.y_count + 1);
+        if (!(et4000->acl.queued.ctrl_routing & 0x43)) {
+            et4000w32p_blit(-1, 0xffffffff, 0, 0, et4000);
+        }
+        if ((et4000->acl.queued.ctrl_routing & 0x40) && !(et4000->acl.internal.ctrl_routing & 3)) {
+            et4000w32p_blit(4, 0xffffffff, 0, 0, et4000);
+        }
+    } else {
+        et4000w32_blit_start(et4000);
+        et4000->acl.cpu_input_num = 0;
+        if (!(et4000->acl.queued.ctrl_routing & 0x37)) {
+            et4000->acl.mmu_start = 1;
+            et4000w32_blit(-1, 0, 0, 0xffffffff, et4000);
+        } else
+            et4000->acl.mmu_start = 0;
+    }
+}
+
 static void
 et4000w32p_accel_write_fifo(et4000w32p_t *et4000, uint32_t addr, uint8_t val)
 {
@@ -849,25 +906,10 @@ et4000w32p_accel_write_fifo(et4000w32p_t *et4000, uint32_t addr, uint8_t val)
             break;
         case 0xa3:
             et4000->acl.queued.dest_addr = (et4000->acl.queued.dest_addr & 0x00ffffff) | (val << 24);
-            et4000->acl.internal = et4000->acl.queued;
-            if (et4000->rev >= ET4000W32P_REVB) {
-                et4000w32p_blit_start(et4000);
-                et4000w32_log("Destination Address write and start XY Block, xcnt = %i, ycnt = %i\n", et4000->acl.x_count + 1, et4000->acl.y_count + 1);
-                if (!(et4000->acl.queued.ctrl_routing & 0x43)) {
-                    et4000w32p_blit(-1, 0xffffffff, 0, 0, et4000);
-                }
-                if ((et4000->acl.queued.ctrl_routing & 0x40) && !(et4000->acl.internal.ctrl_routing & 3)) {
-                    et4000w32p_blit(4, 0xffffffff, 0, 0, et4000);
-                }
-            } else {
-                et4000w32_blit_start(et4000);
-                et4000->acl.cpu_input_num = 0;
-                if (!(et4000->acl.queued.ctrl_routing & 0x37)) {
-                    et4000->acl.mmu_start = 1;
-                    et4000w32_blit(-1, 0, 0, 0xffffffff, et4000);
-                } else
-                    et4000->acl.mmu_start = 0;
-            }
+            /* The W32 and W32i start from the operation state register, the
+               W32p here too when bit 4 of that is set. */
+            if ((et4000->rev >= ET4000W32P_REVB) && (et4000->acl.osr & 0x10))
+                et4000w32p_accel_start(et4000);
             break;
         case 0xa4:
             et4000->acl.queued.mix_addr = (et4000->acl.queued.mix_addr & 0xFFFFFF00) | val;
@@ -993,6 +1035,10 @@ et4000w32p_mmu_write(uint32_t addr, uint8_t val, void *priv)
             }
             break;
         case 0x6000:
+            /* The registers are only in the last 256 bytes */
+            if ((addr & 0xff00) != 0xff00)
+                break;
+
             if ((addr & 0xff) >= 0x80)
                 et4000w32p_accel_write_fifo(et4000, addr & 0x7fff, val);
             else {
@@ -1041,6 +1087,8 @@ et4000w32p_mmu_write(uint32_t addr, uint8_t val, void *priv)
                         break;
                     case 0x31:
                         et4000->acl.osr = val;
+                        if (val & 1)
+                            et4000w32p_accel_start(et4000);
                         break;
 
                     default:
@@ -1086,6 +1134,10 @@ et4000w32p_mmu_read(uint32_t addr, void *priv)
             return svga->vram[(addr & 0x1fff) + et4000->mmu.base[et4000->bank]];
 
         case 0x6000:
+            /* The registers are only in the last 256 bytes */
+            if ((addr & 0xff00) != 0xff00)
+                break;
+
             switch (addr & 0xff) {
                 case 0x00:
                     return et4000->mmu.base[0] & 0xff;
@@ -2625,7 +2677,7 @@ et4000w32p_hwcursor_draw(svga_t *svga, int displine)
 static void
 et4000w32p_io_remove(et4000w32p_t *et4000)
 {
-    io_removehandler(0x03c0, 0x0020, et4000w32p_in, NULL, NULL, et4000w32p_out, NULL, NULL, et4000);
+    io_removehandler(0x03a0, 0x0040, et4000w32p_in, NULL, NULL, et4000w32p_out, NULL, NULL, et4000);
 
     io_removehandler(0x210a, 0x0002, et4000w32p_in, NULL, NULL, et4000w32p_out, NULL, NULL, et4000);
     io_removehandler(0x211a, 0x0002, et4000w32p_in, NULL, NULL, et4000w32p_out, NULL, NULL, et4000);
@@ -2642,6 +2694,8 @@ et4000w32p_io_set(et4000w32p_t *et4000)
 {
     et4000w32p_io_remove(et4000);
 
+    if (!(et4000->svga.miscout & 0x01))
+        io_sethandler(0x03a0, 0x0020, et4000w32p_in, NULL, NULL, et4000w32p_out, NULL, NULL, et4000);
     io_sethandler(0x03c0, 0x0020, et4000w32p_in, NULL, NULL, et4000w32p_out, NULL, NULL, et4000);
 
     io_sethandler(0x210a, 0x0002, et4000w32p_in, NULL, NULL, et4000w32p_out, NULL, NULL, et4000);
@@ -2770,10 +2824,16 @@ et4000w32p_init(const device_t *info)
     if (local == USE_CONFIG_BIOS)
         local = device_get_bios_local(info, device_get_config_bios("bios"));
 
+    const uint64_t bios_flags = (info->local == USE_CONFIG_BIOS) ?
+                                device_get_bios_flags(info, device_get_config_bios("bios")) :
+                                0x0000000000000000ULL;
+
     et4000->card_type = local & 0xff;
     et4000->onboard_vid = (local >> 8) & 0xff;
 
     et4000->vram_size = device_get_config_int("memory");
+
+    video_clamp_vram(bios_flags, &et4000->vram_size);
 
     if (info->flags & DEVICE_PCI)
         video_inform(VIDEO_FLAG_TYPE_SPECIAL, &timing_et4000w32_pci);
@@ -2847,6 +2907,19 @@ et4000w32p_init(const device_t *info)
             et4000->svga.getclock  = ics2494_getclock;
             break;
 
+        case STB_LIGHTSPEED:
+            /* ET4000/W32p rev B */
+            et4000->rev = ET4000W32P_REVB;
+            et4000->ramdac_type = STG170X;
+
+            rom_init(&et4000->bios_rom, BIOS_ROM_PATH_W32P_REVB_STB, 0xc0000, 0x8000, 0x7fff, 0,
+                     MEM_MAPPING_EXTERNAL);
+
+            et4000->svga.ramdac    = device_add(&stg1702_ramdac_device);
+            et4000->svga.clock_gen = et4000->svga.ramdac;
+            et4000->svga.getclock  = stg_getclock;
+            break;
+
         case VIDEOMAGIC_ETW32PVS:
             /* ET4000/W32p rev B */
             et4000->rev = ET4000W32P_REVB;
@@ -2899,7 +2972,7 @@ et4000w32p_init(const device_t *info)
             et4000->svga.ramdac    = device_add(&stg1702_ramdac_device);
             et4000->svga.clock_gen = device_add(&icd2061_device);
             et4000->svga.getclock  = icd2061_getclock;
-            icd2061_set_ref_clock(et4000->svga.ramdac, 14318184.0f);
+            icd2061_set_clocks(et4000->svga.ramdac, 14318184.0f, 25175000.0f, 28322000.0f, 28322000.0f);
             svga_recalctimings(&et4000->svga);
             break;
 
@@ -2932,6 +3005,12 @@ et4000w32p_init(const device_t *info)
 
     et4000w32p_io_set(et4000);
 
+    if (info->flags & DEVICE_PCI) {
+        /* Disabled at reset */
+        et4000->svga.vert_int_update = et4000w32p_vert_int_update;
+        et4000->svga.crtc[0x11] |= 0x20;
+    }
+
     if (info->flags & DEVICE_PCI)
         pci_add_card(et4000->onboard_vid ? PCI_ADD_VIDEO : PCI_ADD_NORMAL, et4000w32p_pci_read, et4000w32p_pci_write, et4000, &et4000->pci_slot);
 
@@ -2951,7 +3030,7 @@ et4000w32p_init(const device_t *info)
     et4000->pci_regs[0x33] = 0xf0;
 
     et4000->svga.packed_chain4 = 1;
-    et4000->svga.adv_flags |= FLAG_PANNING_ATI;
+    et4000->svga.adv_flags |= (FLAG_PANNING_ATI | FLAG_EXT_AR);
 
     return et4000;
 }
@@ -3025,13 +3104,23 @@ static const device_config_t et4000w32p_vlb_config[] = {
   // clang-format off
     {
         .name           = "bios",
-        .description    = "BIOS",
+        .description    = "Variant",
         .type           = CONFIG_BIOS,
         .default_string = "et4000w32p_nc_vlb",
         .default_int    = 0,
         .file_filter    = NULL,
         .spinner        = { 0 },
         .bios           = {
+            {
+                .name          = "Rev. B (STB Systems Lightspeed)",
+                .internal_name = "et4000w32p_stb_revb_vlb",
+                .bios_type     = BIOS_NORMAL,
+                .files_no      = 1,
+                .local         = ('B' << 24) | STB_LIGHTSPEED,
+                .size          = 32768,
+                .flags         = 0,
+                .files         = { BIOS_ROM_PATH_W32P_REVB_STB, "" }
+            },
             {
                 .name          = "Rev. B (VideoMagic ETW32PVS)",
                 .internal_name = "et4000w32p_videomagic_revb_vlb",
@@ -3108,7 +3197,7 @@ static const device_config_t et4000w32p_pci_config[] = {
   // clang-format off
     {
         .name           = "bios",
-        .description    = "BIOS",
+        .description    = "Variant",
         .type           = CONFIG_BIOS,
         .default_string = "et4000w32p_nc_pci",
         .default_int    = 0,

@@ -1,0 +1,589 @@
+/*
+ * 86Box    A hypervisor and IBM PC system emulator that specializes in
+ *          running old operating systems and software designed for IBM
+ *          PC systems and compatibles from 1981 through fairly recent
+ *          system designs based on the PCI bus.
+ *
+ *          This file is part of the 86Box distribution.
+ *
+ *          Emulation run control: CPU thread lifecycle, pause reasons,
+ *          pacing loop, pacing mode and speed measurement.
+ *
+ * Authors: David Hrdlička, <hrdlickadavid@outlook.com>
+ *
+ *          Copyright 2026 David Hrdlička.
+ */
+#include <assert.h>
+#include <stdatomic.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <wchar.h>
+#include <86box/86box.h>
+#include "cpu.h"
+#include <86box/automation.h>
+#include <86box/debugger.h>
+#include <86box/gdbstub.h>
+#include <86box/io.h>
+#include <86box/timer.h>
+#include <86box/nvr.h>
+#include <86box/plat.h>
+#include <86box/thread.h>
+#include <86box/ui.h>
+#include <86box/runctl.h>
+
+/* Everything below is guarded by a spinlock; critical sections are a few
+   stores. The counters are published with a seqlock so readers never block
+   the CPU thread. */
+static atomic_flag lock = ATOMIC_FLAG_INIT;
+
+static run_state_t state = RUN_STOPPED; /* lifecycle, without RUN_PAUSED */
+static uint32_t    reasons;
+static uint32_t    epoch;
+static uint64_t    emu_us;
+static uint64_t    host_us;
+
+static atomic_int mode = RUN_MODE_REALTIME; /* written under the lock */
+
+/* Requests for the CPU thread, oldest first; guarded by the lock. */
+typedef struct request_t {
+    struct request_t *next;
+    void            (*fn)(void *arg);
+    void             *arg;
+    event_t          *done; /* runctl_call_wait(): set once fn has returned */
+} request_t;
+
+static request_t *req_head;
+static request_t *req_tail;
+static atomic_int req_pending; /* lets the CPU thread skip the lock when empty */
+static int        req_closed = 1; /* no CPU thread to drain the queue */
+
+static atomic_uint seq;   /* odd while the snapshot is being written */
+static atomic_int  acked; /* CPU thread passed a safe point since it last ran */
+
+static void
+lock_acquire(void)
+{
+    while (atomic_flag_test_and_set_explicit(&lock, memory_order_acquire))
+        ;
+}
+
+static void
+lock_release(void)
+{
+    atomic_flag_clear_explicit(&lock, memory_order_release);
+}
+
+/* Called with the lock held. */
+static request_t *
+queue_take_locked(void)
+{
+    request_t *list = req_head;
+
+    req_head = req_tail = NULL;
+    atomic_store_explicit(&req_pending, 0, memory_order_relaxed);
+    return list;
+}
+
+static void
+queue_run(request_t *list)
+{
+    while (list) {
+        request_t *next = list->next;
+
+        list->fn(list->arg);
+        if (list->done)
+            thread_set_event(list->done); /* the waiter owns the node */
+        else
+            free(list);
+        list = next;
+    }
+}
+
+/* Queue req, or return 0 if the caller should run it inline: on the CPU
+   thread, or when there is none. A request queued while the thread is
+   starting or stopping still runs, as the thread drains the queue on its way
+   out. */
+static int
+queue_add(request_t *req)
+{
+    if (is_cpu_thread)
+        return 0;
+
+    lock_acquire();
+    if (req_closed) {
+        lock_release();
+        return 0;
+    }
+
+    req->next = NULL;
+    if (req_tail)
+        req_tail->next = req;
+    else
+        req_head = req;
+    req_tail = req;
+    atomic_store_explicit(&req_pending, 1, memory_order_release);
+    lock_release();
+
+    return 1;
+}
+
+static uint64_t
+host_now_us(void)
+{
+    /* Millisecond ticks: plat_timer_read() has no known frequency on Qt
+       (timer_freq is only set by the SDL frontend). A millisecond is plenty
+       for one-second speed samples. */
+    return (uint64_t) plat_get_ticks() * 1000;
+}
+
+/* Called with the lock held. */
+static void
+write_begin(void)
+{
+    atomic_fetch_add_explicit(&seq, 1, memory_order_acq_rel);
+}
+
+static void
+write_end(void)
+{
+    atomic_fetch_add_explicit(&seq, 1, memory_order_release);
+}
+
+static int
+running_locked(void)
+{
+    return (state == RUN_RUNNING) && !reasons;
+}
+
+/* Apply a change to the lifecycle state or the pause reasons, keep the
+   compatibility globals in sync and announce the change. */
+static void
+change(uint32_t set, uint32_t clear, int new_state)
+{
+    lock_acquire();
+
+    const uint32_t old_reasons = reasons;
+    const int      old_state   = state;
+    const int      was_running = running_locked();
+
+    const uint32_t new_reasons = (reasons | set) & ~clear;
+    const int      next_state  = (new_state >= 0) ? new_state : old_state;
+    const int      will_run    = (next_state == RUN_RUNNING) && !new_reasons;
+
+    if ((new_reasons == old_reasons) && (next_state == old_state)) {
+        lock_release();
+        return;
+    }
+
+    /* Resync the guest clock before the CPU thread can run again. */
+    if (!was_running && will_run && (old_state == RUN_RUNNING) && (time_sync & TIME_SYNC_ENABLED))
+        nvr_time_sync();
+
+    write_begin();
+    reasons = new_reasons;
+    state   = next_state;
+    epoch++;
+    write_end();
+
+    if (was_running && !will_run)
+        atomic_store(&acked, 0);
+    dopause = !will_run;
+
+    lock_release();
+
+    ui_notify(UI_NOTIFY_RUN_STATE);
+}
+
+void
+runctl_pause(run_pause_t reason)
+{
+    change(reason, 0, -1);
+}
+
+void
+runctl_pause_wait(run_pause_t reason)
+{
+    change(reason, 0, -1);
+
+    if (is_cpu_thread)
+        return;
+
+    /* Wait for the CPU thread to finish its quantum and park. */
+    while (!atomic_load(&acked) && (runctl_state() == RUN_PAUSED))
+        plat_delay_ms(1);
+}
+
+void
+runctl_resume(run_pause_t reason)
+{
+    change(0, reason, -1);
+}
+
+void
+runctl_pause_user_toggle(void)
+{
+    if (runctl_paused())
+        runctl_resume(RUN_PAUSE_USER_RESUMABLE);
+    else
+        runctl_pause(RUN_PAUSE_USER);
+}
+
+void
+runctl_set_mode(run_mode_t new_mode)
+{
+    /* This is the user's mode. Unpaced will be a separate override owned by
+       automation, so a step never overwrites (or restores) the user's mode. */
+    assert((new_mode == RUN_MODE_REALTIME) || (new_mode == RUN_MODE_FAST));
+
+    lock_acquire();
+    if (atomic_load_explicit(&mode, memory_order_relaxed) == (int) new_mode) {
+        lock_release();
+        return;
+    }
+
+    /* A new epoch, so no speed sample spans two modes. */
+    write_begin();
+    atomic_store_explicit(&mode, new_mode, memory_order_relaxed);
+    epoch++;
+    write_end();
+    lock_release();
+
+    ui_notify(UI_NOTIFY_RUN_STATE);
+}
+
+run_mode_t
+runctl_mode(void)
+{
+    return (run_mode_t) atomic_load_explicit(&mode, memory_order_relaxed);
+}
+
+void
+runctl_fast_forward_toggle(void)
+{
+    runctl_set_mode((runctl_mode() == RUN_MODE_FAST) ? RUN_MODE_REALTIME : RUN_MODE_FAST);
+}
+
+uint32_t
+runctl_pause_reasons(void)
+{
+    lock_acquire();
+    const uint32_t ret = reasons;
+    lock_release();
+    return ret;
+}
+
+int
+runctl_paused(void)
+{
+    return runctl_pause_reasons() != 0;
+}
+
+run_state_t
+runctl_state(void)
+{
+    lock_acquire();
+    const run_state_t ret = ((state == RUN_RUNNING) && reasons) ? RUN_PAUSED : state;
+    lock_release();
+    return ret;
+}
+
+void
+runctl_request_stop(void)
+{
+    cpu_thread_run = 0;
+
+    lock_acquire();
+    const int active = (state == RUN_STARTING) || (state == RUN_RUNNING);
+    lock_release();
+
+    if (active)
+        change(0, 0, RUN_STOPPING);
+}
+
+void
+runctl_thread_starting(void)
+{
+    lock_acquire();
+    req_closed = 0;
+    lock_release();
+
+    change(0, 0, RUN_STARTING);
+}
+
+void
+runctl_thread_started(void)
+{
+    lock_acquire();
+    const int stopping = (state == RUN_STOPPING);
+    lock_release();
+
+    /* A stop may have been requested before the thread got going. */
+    if (!stopping)
+        change(0, 0, RUN_RUNNING);
+}
+
+void
+runctl_thread_exiting(void)
+{
+    /* Run what is still queued, and close the queue in the same critical
+       section that finds it empty, so no request is left behind. From then
+       on callers run their requests inline. */
+    request_t *list;
+
+    do {
+        lock_acquire();
+        list       = queue_take_locked();
+        req_closed = !list;
+        lock_release();
+
+        queue_run(list);
+    } while (list);
+
+    change(0, 0, RUN_STOPPED);
+}
+
+void
+runctl_safe_point(void)
+{
+    if (dopause && !atomic_load(&acked))
+        atomic_store(&acked, 1);
+
+    if (atomic_load_explicit(&req_pending, memory_order_acquire)) {
+        lock_acquire();
+        request_t *list = queue_take_locked();
+        lock_release();
+
+        queue_run(list);
+    }
+}
+
+void
+runctl_call(void (*fn)(void *arg), void *arg)
+{
+    request_t *req = malloc(sizeof(request_t));
+
+    req->fn   = fn;
+    req->arg  = arg;
+    req->done = NULL;
+
+    if (!queue_add(req)) {
+        free(req);
+        fn(arg);
+    }
+}
+
+void
+runctl_call_wait(void (*fn)(void *arg), void *arg)
+{
+    request_t req = { .fn = fn, .arg = arg };
+
+    req.done = thread_create_event();
+    if (queue_add(&req))
+        thread_wait_event(req.done, -1);
+    else
+        fn(arg);
+    thread_destroy_event(req.done);
+}
+
+void
+runctl_quantum_done(uint32_t us)
+{
+    lock_acquire();
+    write_begin();
+    emu_us += us;
+    host_us = host_now_us();
+    write_end();
+    lock_release();
+}
+
+/* Pacing: the CPU thread owes the guest the host time that has passed, and
+   pays it back one quantum (1 ms, or 10 ms with force_10ms) per pass. */
+#define QUANTUM_NS  (force_10ms ? 10000000LL : 1000000LL)
+#define MAX_DEBT_NS 50000000LL
+
+static void
+idle_hard_reset(void)
+{
+    /* Trigger a hard reset if one is pending. */
+    if (hard_reset_pending) {
+        hard_reset_pending = 0;
+        debugger_reset_begin();
+        pc_reset_hard_close();
+        pc_reset_hard_init();
+        debugger_reset_end();
+    }
+}
+
+void
+runctl_run_loop(void (*pass)(void))
+{
+    const int64_t quantum_ns = QUANTUM_NS;
+    int64_t       old_ns     = (int64_t) plat_get_ns();
+    int64_t       debt_ns    = 0;
+    int           turbo_ok_passes = 0;
+    int           frames          = 0;
+    int           skip_passes     = 0;
+
+    is_cpu_thread = 1;
+    framecountx   = 0;
+    runctl_thread_started();
+
+    while (!is_quit && cpu_thread_run) {
+        /* See if it is time to run a quantum. */
+        const int64_t new_ns = (int64_t) plat_get_ns();
+        debt_ns += (new_ns - old_ns);
+        old_ns = new_ns;
+        if (debt_ns > MAX_DEBT_NS)
+            debt_ns = MAX_DEBT_NS;
+        if (gdbstub_next_asap && (debt_ns < quantum_ns))
+            debt_ns = quantum_ns;
+
+        automation_poll();
+        const int automation = automation_run_state();
+        if (((debt_ns >= quantum_ns) || (runctl_mode() == RUN_MODE_FAST) || turbo_mode || turbo_slow_cycles > 0 || (automation == AUTOMATION_RUN)) && !dopause && (automation != AUTOMATION_HOLD)) {
+            if (!turbo_mode && turbo_slow_cycles > 0 && automation == AUTOMATION_FREE &&
+                skip_passes++ < turbo_slow_cycles) {
+                runctl_safe_point();
+                if (pass)
+                    pass();
+                continue;
+            }
+            skip_passes = 0;
+            /* One pc_run() per pass. No burst catch-up (a loop of quanta): it
+               overshoots after dips and amplifies <100/>100 speed oscillation. */
+#ifdef USE_INSTRUMENT
+            const uint64_t start_ns = plat_get_ns();
+#endif
+            const uint64_t batch_start = plat_get_ns();
+            const uint64_t batch_ns = (uint64_t) (turbo_batch_ms < 0 ? 100 : turbo_batch_ms ? turbo_batch_ms : 8) * 1000000ULL;
+            do {
+                pc_run();
+                automation_quantum();
+                runctl_safe_point();
+            } while (turbo_mode && automation == AUTOMATION_FREE && !dopause &&
+                     !is_quit && cpu_thread_run && (plat_get_ns() - batch_start < batch_ns));
+
+#ifdef USE_INSTRUMENT
+            if (instru_enabled) {
+                uint64_t elapsed_us       = (plat_get_ns() - start_ns) / 1000;
+                uint64_t total_elapsed_ms = (uint64_t) ((double) tsc / cpu_s->rspeed * 1000);
+                printf("[instrument] %llu, %llu\n", total_elapsed_ms, elapsed_us);
+                if (instru_run_ms && total_elapsed_ms >= instru_run_ms)
+                    debt_ns = 0;
+            }
+#endif
+            /* Every 2 emulated seconds we save the machine status. */
+            if (++frames >= (force_10ms ? 200 : 2000) && nvr_dosave) {
+                nvr_save();
+                nvr_dosave = 0;
+                frames     = 0;
+            }
+
+            if (automation == AUTOMATION_RUN)
+                debt_ns = 0; /* unpaced automation steps must not cause catch-up later */
+            else if ((runctl_mode() != RUN_MODE_FAST) && !turbo_mode && turbo_slow_cycles == 0 && (debt_ns >= quantum_ns))
+                debt_ns -= quantum_ns;
+            else
+                debt_ns = 0;
+
+            /* Drop the Turbo IDE string-I/O shortcut while the host is behind, and bring it
+               back only after it has kept up for a while, so it cannot flap every frame. */
+            if (debt_ns >= (MAX_DEBT_NS / 2)) {
+                io_turbo_throttle = 1;
+                turbo_ok_passes   = 0;
+            } else if (io_turbo_throttle && (debt_ns < quantum_ns)) {
+                if (++turbo_ok_passes >= 500)
+                    io_turbo_throttle = 0;
+            }
+        } else {
+            idle_hard_reset();
+            runctl_safe_point();
+
+            /* Keep answering a GDB client while the machine isn't running. */
+            gdbstub_poll();
+
+            /* Just so we don't overload the host OS. */
+            plat_delay_ms(1);
+        }
+
+        if (pass)
+            pass();
+    }
+
+    is_quit = 1;
+    runctl_thread_exiting();
+}
+
+void
+runctl_get_status(run_status_t *out)
+{
+    uint32_t s;
+
+    do {
+        while ((s = atomic_load_explicit(&seq, memory_order_acquire)) & 1)
+            ;
+        out->state         = ((state == RUN_RUNNING) && reasons) ? RUN_PAUSED : state;
+        out->pause_reasons = reasons;
+        out->mode          = (run_mode_t) atomic_load_explicit(&mode, memory_order_relaxed);
+        out->epoch         = epoch;
+        out->emu_us        = emu_us;
+        out->host_us       = host_us;
+        atomic_thread_fence(memory_order_acquire);
+    } while (atomic_load_explicit(&seq, memory_order_relaxed) != s);
+
+    out->seq = s;
+}
+
+int
+runctl_speed_between(const run_status_t *older, const run_status_t *newer)
+{
+    if ((older->state != RUN_RUNNING) || (newer->state != RUN_RUNNING))
+        return -1;
+    if (older->epoch != newer->epoch)
+        return -1;
+    if (newer->host_us < (older->host_us + 100000))
+        return -1;
+
+    const uint64_t host = newer->host_us - older->host_us;
+
+    return (int) (((newer->emu_us - older->emu_us) * 100 + host / 2) / host);
+}
+
+/* The published speed. Both ends of a sample are the host times at which a
+   quantum finished, not the times the sampling timer fired, so a late timer
+   callback doesn't show up as a dip followed by a rebound. */
+static atomic_int   speed = -1;
+static run_status_t speed_base; /* only touched by runctl_speed_update()'s caller */
+static int          speed_base_valid;
+
+void
+runctl_speed_update(void)
+{
+    run_status_t now;
+    int          pct = -1;
+
+    runctl_get_status(&now);
+    if (speed_base_valid)
+        pct = runctl_speed_between(&speed_base, &now);
+    speed_base       = now;
+    speed_base_valid = 1;
+
+    /* Paused, held, just resumed or switched modes: keep the last value. */
+    if (pct < 0)
+        return;
+
+#ifdef SCREENSHOT_MODE
+    pct = ((pct + 2) / 5) * 5;
+#endif
+
+    atomic_store_explicit(&speed, pct, memory_order_relaxed);
+    ui_notify(UI_NOTIFY_SPEED);
+}
+
+int
+runctl_speed(void)
+{
+    return atomic_load_explicit(&speed, memory_order_relaxed);
+}

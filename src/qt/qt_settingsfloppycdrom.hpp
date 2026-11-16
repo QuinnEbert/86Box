@@ -21,6 +21,12 @@ public:
     void restore();
     void save(int soft);
 
+public slots:
+    void onCurrentMachineChanged(int machineId);
+
+protected:
+    void showEvent(QShowEvent *event) override;
+
 signals:
     void cdromChannelChanged();
 
@@ -32,11 +38,18 @@ private slots:
     void on_comboBoxFloppyAudio_activated(int index);
 
     void onCDROMRowChanged(const QModelIndex &current);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    void onUnlimitedCapacityChanged(Qt::CheckState state);
+#else
+    void onUnlimitedCapacityChanged(int state);
+#endif
     void on_comboBoxBus_activated(int index);
     void on_comboBoxBus_currentIndexChanged(int index);
     void on_comboBoxChannel_activated(int index);
-    void on_comboBoxSpeed_activated(int index);
     void on_comboBoxCDROMType_activated(int index);
+    void on_comboBoxCDSpeed_activated(int index);
+    void on_comboBoxDVDSpeed_activated(int index);
+    void on_comboBoxHDBDSpeed_activated(int index);
     void on_checkBoxErrorCheck_stateChanged(int arg1);
 
 private:
@@ -50,7 +63,11 @@ private:
     QIcon floppy_35_icon;
     QIcon cdrom_disabled_icon;
     QIcon cdrom_icon;
+    QIcon cdr_icon;
+    QIcon cdrw_icon;
     QIcon dvdrom_icon;
+    QIcon hd_dvdrom_icon;
+    QIcon bdrom_icon;
 
     SettingsCompleter *scFloppyType;
     SettingsCompleter *scCDROMType;

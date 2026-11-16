@@ -39,6 +39,7 @@
 #include <86box/isamem.h>
 #include <86box/isarom.h>
 #include <86box/pci.h>
+#include <86box/gdbstub.h>
 #include <86box/plat_unused.h>
 
 int bios_only = 0;
@@ -68,6 +69,8 @@ machine_init_ex(int m)
 {
     int ret = 0;
 
+    is_pcjr = !!machine_has_bus(machine, MACHINE_BUS_SIDECAR);
+
     if (!bios_only) {
         machine_log("Initializing as \"%s\"\n", machine_getname(machine));
 
@@ -93,7 +96,8 @@ machine_init_ex(int m)
         pc_speed_changed();
 
         /* Reset the memory state. */
-        mem_reset();
+        if (!dump_missing)
+            mem_reset();
         smbase = is_am486dxl ? 0x00060000 : 0x00030000;
 
         if (cassette_enable)
@@ -122,8 +126,6 @@ machine_init_ex(int m)
             device_add_params(machines[m].nvr_device, (void *) (uintptr_t) machines[m].nvr_params);
     }
 
-    is_pcjr = 0;
-
     /* All good, boot the machine! */
     if (machines[m].init)
         ret = machines[m].init(&machines[m]);
@@ -143,6 +145,15 @@ machine_init(void)
 
     machine_set_p1_default(machines[machine].kbc_p1);
     machine_set_ps2();
+
+    /* Create the GDB Stub socket before gdbstub_cpu_init looks for it.
+       This is done outside of machine_init_ex so we only occupy the socket
+       if we're actually starting a machine. */
+    static int gdbstub_started = 0;
+    if (!gdbstub_started) {
+        gdbstub_started = 1;
+        gdbstub_init();
+    }
 
     (void) machine_init_ex(machine);
 }
@@ -183,20 +194,31 @@ pit_irq0_timer(int new_out, int old_out, UNUSED(void *priv))
         picintc(1);
 }
 
+/* The system devices every machine has, but for those flags says this one doesn't (MACHINE_NONSTANDARD_*). */
 void
-machine_common_init(UNUSED(const machine_t *model))
+machine_common_init_ex(UNUSED(const machine_t *model), uint32_t flags)
 {
-    uint8_t cpu_requires_fast_pit = is486 || (!is286 && is8086 && (cpu_s->rspeed >= 8000000));
-    cpu_requires_fast_pit         = cpu_requires_fast_pit && !cpu_16bitbus;
-
     /* System devices first. */
     pic_init();
-    dma_init();
+    dma_core_init();
+    if (!(flags & MACHINE_NONSTANDARD_DMA))
+        dma_init();
 
-    int pit_type = IS_AT(machine) ? PIT_8254 : PIT_8253;
-    /* Select fast PIT if needed */
-    if (((pit_mode == -1) && cpu_requires_fast_pit) || (pit_mode == 1))
-        pit_type += 2;
+    if (!(flags & MACHINE_NONSTANDARD_PIT)) {
+        uint8_t cpu_requires_fast_pit = is486 || (!is286 && is8086 && (cpu_s->rspeed >= 8000000));
+        cpu_requires_fast_pit         = cpu_requires_fast_pit && !cpu_16bitbus;
 
-    pit_common_init(pit_type, pit_irq0_timer, NULL);
+        int pit_type = IS_AT(machine) ? PIT_8254 : PIT_8253;
+        /* Select fast PIT if needed */
+        if (((pit_mode == -1) && cpu_requires_fast_pit) || (pit_mode == 1))
+            pit_type += 2;
+
+        pit_common_init(pit_type, pit_irq0_timer, NULL);
+    }
+}
+
+void
+machine_common_init(const machine_t *model)
+{
+    machine_common_init_ex(model, 0);
 }

@@ -62,6 +62,22 @@ t128_log(const char *fmt, ...)
 #    define t128_log(fmt, ...)
 #endif
 
+static int
+t128_irq_enable(void *priv, void *ext_priv, int state)
+{
+    t128_t *t128 = (t128_t *) ext_priv;
+    ncr_t *ncr = (ncr_t *) priv;
+
+    if (ncr->irq_state != state) {
+        ncr->irq_state = state;
+        t128_log("Control bit 4=%02x.\n", t128->ctrl);
+
+        if (t128->ctrl & 0x10)
+            ncr5380_irq(ncr, state);
+    }
+    return 1;
+}
+
 /* Memory-mapped I/O WRITE handler. */
 void
 t128_write(uint32_t addr, uint8_t val, void *priv)
@@ -70,13 +86,20 @@ t128_write(uint32_t addr, uint8_t val, void *priv)
     ncr_t               *ncr     = &t128->ncr;
     scsi_bus_t          *scsi_bus = &ncr->scsibus;
     const scsi_device_t *dev     = &scsi_devices[ncr->bus][scsi_bus->target_id];
+    uint8_t              old_ctrl = 0;
 
     addr &= 0x3fff;
     if ((addr >= 0x1800) && (addr < 0x1880))
         t128->ext_ram[addr & 0x7f] = val;
     else if ((addr >= 0x1c00) && (addr < 0x1c20)) {
-        t128_log("T128 ctrl write=%02x, mode=%02x.\n", val & 0x10, ncr->mode & MODE_DMA);
+        t128_log("%04X:%08X: T128 ctrl write=%02x, mode=%02x, ID=%d.\n", CS, cpu_state.pc, val & 0x10, ncr->mode & MODE_DMA, scsi_bus->target_id);
+        old_ctrl = t128->ctrl;
         t128->ctrl = val;
+
+        if ((val & 0x10) && !(old_ctrl & 0x10))
+            t128_irq_enable(ncr, t128, 1);
+        else if (!(val & 0x10) && (old_ctrl & 0x10))
+            t128_irq_enable(ncr, t128, 0);
     } else if ((addr >= 0x1d00) && (addr < 0x1e00))
         ncr5380_write((addr - 0x1d00) >> 5, val, ncr);
     else if ((addr >= 0x1e00) && (addr < 0x2000)) {
@@ -85,12 +108,12 @@ t128_write(uint32_t addr, uint8_t val, void *priv)
             t128->buffer[t128->host_pos] = val;
             t128->host_pos++;
 
-            t128_log("T128 Write transfer: pos=%i, addr=%x.\n",
-                    t128->host_pos, addr & 0x1ff);
+            //t128_log("T128 Write transfer: pos=%i, addr=%x.\n",
+            //        t128->host_pos, addr & 0x1ff);
 
             if (t128->host_pos == MIN(512, dev->buffer_length)) {
-                t128_log("T128 Transfer busy write, status=%02x, period=%lf, enabled=%d, loaded=%d.\n",
-                        t128->status, scsi_bus->period, timer_is_enabled(&t128->timer), t128->block_loaded);
+                //t128_log("T128 Transfer busy write, status=%02x, period=%lf, enabled=%d, loaded=%d.\n",
+                //        t128->status, scsi_bus->period, timer_is_enabled(&t128->timer), t128->block_loaded);
 
                 t128->status &= ~0x04;
                 timer_on_auto(&t128->timer, 1.0);
@@ -108,7 +131,7 @@ t128_read(uint32_t addr, void *priv)
     ncr_t         *ncr     = &t128->ncr;
     scsi_bus_t    *scsi_bus = &ncr->scsibus;
     scsi_device_t *dev     = &scsi_devices[ncr->bus][scsi_bus->target_id];
-    uint8_t        ret     = 0xff;
+    uint8_t        ret     = 0x00;
 
     addr &= 0x3fff;
     if (t128->bios_enabled && (addr >= 0) && (addr < 0x1800))
@@ -117,10 +140,10 @@ t128_read(uint32_t addr, void *priv)
         ret = t128->ext_ram[addr & 0x7f];
     else if ((addr >= 0x1c00) && (addr < 0x1c20)) {
         ret = t128->ctrl;
-        t128_log("T128 ctrl read=%02x, dma=%02x, load=%d, cnt=%d.\n", ret, ncr->mode & MODE_DMA, t128->block_loaded, t128->block_count);
+        t128_log("%04X:%08X: T128 ctrl read=%02x, dma=%02x, load=%d, cnt=%d, ID=%d.\n", CS, cpu_state.pc, ret, ncr->mode & MODE_DMA, t128->block_loaded, t128->block_count, scsi_bus->target_id);
     } else if ((addr >= 0x1c20) && (addr < 0x1c40)) {
         ret = t128->status;
-        t128_log("T128 status read=%02x, dma=%02x, blockload=%d, timer=%d.\n", ret, ncr->mode & MODE_DMA, t128->block_loaded, timer_is_enabled(&t128->timer));
+        t128_log("%04X:%08X: T128 status read=%02x, dma=%02x, blockload=%d, timer=%d, ID=%d.\n", CS, cpu_state.pc, ret, ncr->mode & MODE_DMA, t128->block_loaded, timer_is_enabled(&t128->timer), scsi_bus->target_id);
     } else if ((addr >= 0x1d00) && (addr < 0x1e00))
         ret = ncr5380_read((addr - 0x1d00) >> 5, ncr);
     else if (addr >= 0x1e00 && addr < 0x2000) {
@@ -140,7 +163,7 @@ t128_read(uint32_t addr, void *priv)
                     ncr->isr |= STATUS_END_OF_DMA;
                     if (ncr->mode & MODE_ENA_EOP_INT) {
                         t128_log("T128 read irq\n");
-                        ncr5380_irq(ncr, 1);
+                        t128_irq_enable(ncr, t128, 1);
                         ncr->isr |= STATUS_INT;
                     }
                     scsi_bus->bus_out |= BUS_CD;
@@ -174,7 +197,7 @@ t128_dma_mode_ext(void *priv, void *ext_priv, uint8_t val)
             ncr->tcr &= ~TCR_LAST_BYTE_SENT;
             ncr->isr &= ~STATUS_END_OF_DMA;
             scsi_bus->tx_mode = PIO_TX_BUS;
-            t128_log("End of DMA.\n");
+            t128_log("%04X:%08X: End of DMA, ID=%d.\n", CS, cpu_state.pc, scsi_bus->target_id);
         }
     }
 }
@@ -187,8 +210,8 @@ t128_dma_send_ext(void *priv, void *ext_priv)
     scsi_bus_t      *scsi_bus = &ncr->scsibus;
     scsi_device_t   *dev    = &scsi_devices[ncr->bus][scsi_bus->target_id];
 
+    t128_log("%04X:%08X: T128 DMA OUT, len=%d, ID=%d.\n", CS, cpu_state.pc, dev->buffer_length, scsi_bus->target_id);
     if ((ncr->mode & MODE_DMA) && (dev->buffer_length > 0)) {
-        t128_log("T128 DMA OUT, len=%d.\n", dev->buffer_length);
         memset(t128->buffer, 0, MIN(512, dev->buffer_length));
         t128->host_pos = 0;
 
@@ -206,8 +229,8 @@ t128_dma_initiator_receive_ext(void *priv, void *ext_priv)
     scsi_bus_t      *scsi_bus = &ncr->scsibus;
     scsi_device_t   *dev    = &scsi_devices[ncr->bus][scsi_bus->target_id];
 
+    t128_log("%04X:%08X: T128 DMA IN, len=%d, ID=%d.\n", CS, cpu_state.pc, dev->buffer_length, scsi_bus->target_id);
     if ((ncr->mode & MODE_DMA) && (dev->buffer_length > 0)) {
-        t128_log("T128 DMA IN, len=%d.\n", dev->buffer_length);
         memset(t128->buffer, 0, MIN(512, dev->buffer_length));
         t128->host_pos = MIN(512, dev->buffer_length);
 
@@ -240,7 +263,7 @@ t128_callback(void *priv)
     uint8_t         c;
     uint8_t         temp;
     uint8_t         status;
-    double          period     = scsi_bus->period / 60.0;
+    double          period     = scsi_bus->period / ((dev->buffer_length > 2048) ? 60.0 : 3.0);
 
     if (scsi_bus->tx_mode != PIO_TX_BUS) {
         if (period >= 10.0)
@@ -298,7 +321,7 @@ t128_callback(void *priv)
                         ncr->isr |= STATUS_END_OF_DMA;
                         if (ncr->mode & MODE_ENA_EOP_INT) {
                             t128_log("T128 write irq\n");
-                            ncr5380_irq(ncr, 1);
+                            t128_irq_enable(ncr, t128, 1);
                             ncr->isr |= STATUS_INT;
                         }
                         scsi_bus->tx_mode = PIO_TX_BUS;
@@ -344,8 +367,7 @@ t128_callback(void *priv)
                     if (scsi_bus->data_pos >= dev->buffer_length) {
                         scsi_bus->bus_out |= BUS_REQ;
                         t128->block_loaded = 0;
-                        timer_on_auto(&t128->timer, 10.0);
-                        t128_log("IO End of read transfer\n");
+                        t128_log("%04X:%08X: IO End of read transfer\n", CS, cpu_state.pc);
                     }
                     break;
                 }
@@ -499,7 +521,7 @@ t128_init(const device_t *info)
     ncr->dma_send_ext               = t128_dma_send_ext;
     ncr->dma_initiator_receive_ext  = t128_dma_initiator_receive_ext;
     ncr->timer                      = t128_timer_on_auto;
-    ncr->irq_ena                    = NULL;
+    ncr->irq_ena                    = t128_irq_enable;
     scsi_bus->bus_device            = ncr->bus;
     scsi_bus->timer                 = ncr->timer;
     scsi_bus->priv                  = ncr->priv;
@@ -612,7 +634,8 @@ const device_t scsi_t128_device = {
     .available     = t128_available,
     .speed_changed = NULL,
     .force_redraw  = NULL,
-    .config        = t128_config
+    .config        = t128_config,
+    .short_name    = "T128"
 };
 
 const device_t scsi_t228_device = {
@@ -626,7 +649,8 @@ const device_t scsi_t228_device = {
     .available     = t128_available,
     .speed_changed = NULL,
     .force_redraw  = NULL,
-    .config        = NULL
+    .config        = NULL,
+    .short_name    = "T228"
 };
 
 const device_t scsi_pas_device = {

@@ -93,7 +93,7 @@ typedef struct voodoo_state_t {
 
     int lod_frac[2];
 
-    int stipple;
+    uint32_t stipple;
 } voodoo_state_t;
 
 #ifdef ENABLE_VOODOO_RENDER_LOG
@@ -132,6 +132,10 @@ static uint8_t logtable[256] = {
     0xe8, 0xe8, 0xe9, 0xea, 0xeb, 0xeb, 0xec, 0xed, 0xee, 0xef, 0xef, 0xf0, 0xf1, 0xf2, 0xf2, 0xf3,
     0xf4, 0xf5, 0xf5, 0xf6, 0xf7, 0xf7, 0xf8, 0xf9, 0xfa, 0xfa, 0xfb, 0xfc, 0xfd, 0xfd, 0xfe, 0xff
 };
+
+/*voodoo_tmu_fetch() computes _w = (1 << 48) / W, where W carries 32 fraction bits.
+  That makes log2(_w) = 16 + log2(1 / W), so this offset is subtracted to get the per-pixel LOD term.*/
+#define W_RECIPROCAL_LOG2_OFFSET 16
 
 static __inline int
 fastlog(uint64_t val)
@@ -204,6 +208,154 @@ voodoo_fls(uint16_t val)
     voodoo_render_log("%i %04x\n", num, val);
 #endif
     return num;
+}
+
+/*S/T/W values and their gradients carry 32 fraction bits.*/
+#define VOODOO_STW_FIXED_POINT_ONE 4294967296.0
+
+/*log2(1 + i / 256) for i = 0..256, for voodoo_fast_log2().*/
+static double voodoo_log2_table[257];
+
+void
+voodoo_lod_table_init(void)
+{
+    for (int i = 0; i <= 256; i++)
+        voodoo_log2_table[i] = log2(1.0 + i / 256.0);
+}
+
+/*log2 of a positive double: the exponent from its bits, the mantissa from the table, linearly interpolated.
+  Perspective-corrected textures need a new LOD every few pixels, so this is called far more often than libm's log2() can afford.
+  The result stays within 3e-6 of log2(); one step of the 8.8 LOD is 1/128 of log2(gradient_squared), so at most a value right on a step changes by 1.*/
+static inline double
+voodoo_fast_log2(double val)
+{
+    const int    mantissa_bits_below_index = 44;
+    const double index_fraction_scale      = 1.0 / (double) (1ULL << mantissa_bits_below_index);
+    uint64_t     bits;
+    int          exponent;
+    int          index;
+    double       fraction;
+
+    memcpy(&bits, &val, sizeof(bits));
+    exponent = (int) ((bits >> 52) & 0x7ff) - 1023;
+    index    = (int) ((bits >> mantissa_bits_below_index) & 0xff);
+    fraction = (double) (bits & ((1ULL << mantissa_bits_below_index) - 1)) * index_fraction_scale;
+
+    return exponent + voodoo_log2_table[index] + (voodoo_log2_table[index + 1] - voodoo_log2_table[index]) * fraction;
+}
+
+/*LOD in 8.8 fixed point from screen-space texture gradients: log2 of the longer of the X and Y gradient vectors.
+  For perspective-corrected textures the gradients are still multiplied by W; voodoo_tmu_fetch() adds log2(1 / W) per pixel.*/
+static int
+voodoo_lod_from_gradients(double dsdx, double dtdx, double dsdy, double dtdy)
+{
+    const double lod_fixed_point_one       = 256.0;      /*LOD values are 8.8 fixed point*/
+    const int    lod_base_without_gradient = -(64 << 8); /*log2(0) is undefined; this is far below any lod_min, so the LOD clamps to lod_min*/
+    double       gradient_squared_x        = dsdx * dsdx + dtdx * dtdx;
+    double       gradient_squared_y        = dsdy * dsdy + dtdy * dtdy;
+    double       gradient_squared          = (gradient_squared_x > gradient_squared_y) ? gradient_squared_x : gradient_squared_y;
+    double       log2_gradient;
+
+    if (gradient_squared <= 0.0)
+        return lod_base_without_gradient;
+
+    /*log2(sqrt(x)) = log2(x) / 2*/
+    log2_gradient = voodoo_fast_log2(gradient_squared) / 2.0;
+
+    return (int) (log2_gradient * lod_fixed_point_one);
+}
+
+/*Per-triangle base LOD in 8.8 fixed point from the S/W and T/W gradients.
+  This is exact for textures without perspective correction, perspective-corrected textures refine it for short parts of each span with voodoo_span_part_lod_base().*/
+static int
+voodoo_triangle_lod_base(const voodoo_params_t *params, int tmu)
+{
+    double dsdx = (double) params->tmu[tmu].dSdX / VOODOO_STW_FIXED_POINT_ONE;
+    double dtdx = (double) params->tmu[tmu].dTdX / VOODOO_STW_FIXED_POINT_ONE;
+    double dsdy = (double) params->tmu[tmu].dSdY / VOODOO_STW_FIXED_POINT_ONE;
+    double dtdy = (double) params->tmu[tmu].dTdY / VOODOO_STW_FIXED_POINT_ONE;
+
+    return voodoo_lod_from_gradients(dsdx, dtdx, dsdy, dtdy);
+}
+
+/*Base LOD in 8.8 fixed point for a part of a span with perspective-corrected textures.
+  The S/W and T/W gradients contain an extra s * d(1/W) term that grows with the absolute texture coordinate.
+  Games like Unreal send coordinates thousands of texels away from the origin, which selected mip levels that were far too blurry (issue #5067).
+  Removing that term with s and t taken at the middle of the span part leaves the real texel footprint (still multiplied by W) for that part.*/
+static int
+voodoo_span_part_lod_base(const voodoo_params_t *params, int tmu, int64_t span_middle_s, int64_t span_middle_t, int64_t span_middle_w, int triangle_lod_base)
+{
+    double texel_s;
+    double texel_t;
+    double dsdx;
+    double dtdx;
+    double dsdy;
+    double dtdy;
+
+    if (span_middle_w <= 0)
+        return triangle_lod_base;
+
+    texel_s = (double) span_middle_s / (double) span_middle_w;
+    texel_t = (double) span_middle_t / (double) span_middle_w;
+
+    dsdx = ((double) params->tmu[tmu].dSdX - texel_s * (double) params->tmu[tmu].dWdX) / VOODOO_STW_FIXED_POINT_ONE;
+    dtdx = ((double) params->tmu[tmu].dTdX - texel_t * (double) params->tmu[tmu].dWdX) / VOODOO_STW_FIXED_POINT_ONE;
+    dsdy = ((double) params->tmu[tmu].dSdY - texel_s * (double) params->tmu[tmu].dWdY) / VOODOO_STW_FIXED_POINT_ONE;
+    dtdy = ((double) params->tmu[tmu].dTdY - texel_t * (double) params->tmu[tmu].dWdY) / VOODOO_STW_FIXED_POINT_ONE;
+
+    return voodoo_lod_from_gradients(dsdx, dtdx, dsdy, dtdy);
+}
+
+/*tLOD lodbias (4.2 signed) converted to the 8.8 fixed point LOD format.*/
+static int
+voodoo_lod_bias(const voodoo_params_t *params, int tmu)
+{
+    const int lod_bias_shift         = 12;
+    const int lod_bias_mask          = 0x3f;
+    const int lod_bias_sign_bit      = 0x20;
+    const int lod_bias_to_lod_scale  = 1 << 6; /*4.2 fixed point to 8.8 fixed point*/
+    int       lod_bias               = (params->tLOD[tmu] >> lod_bias_shift) & lod_bias_mask;
+
+    if (lod_bias & lod_bias_sign_bit)
+        lod_bias -= lod_bias_mask + 1;
+
+    return lod_bias * lod_bias_to_lod_scale;
+}
+
+/*Number of pixels drawn with one base LOD when perspective-corrected textures are used.
+  With trilinear filtering even fractional LOD steps between neighbouring triangles are visible; 8 pixels keep the error below 0.2 mip levels in traces from Unreal and Forsaken.*/
+#define VOODOO_LOD_SPAN_PART_PIXELS 8
+
+/*Sets state->tmu[].lod for the span part that starts at the current state position and ends span_part_offset pixels further in drawing direction.*/
+static void
+voodoo_update_span_part_lod(const voodoo_t *voodoo, const voodoo_params_t *params, voodoo_state_t *state, int span_part_offset, const int triangle_lod_base[2], const int lod_bias[2])
+{
+    for (uint8_t tmu = 0; tmu < 2; tmu++) {
+        int64_t part_start_s;
+        int64_t part_start_t;
+        int64_t part_start_w;
+        int64_t part_half_offset;
+        int64_t part_middle_s;
+        int64_t part_middle_t;
+        int64_t part_middle_w;
+        int     part_lod_base;
+
+        if (!(params->textureMode[tmu] & TEXTUREMODE_TPERSP_ST))
+            continue;
+        if (tmu == 1 && !voodoo->dual_tmus)
+            continue;
+
+        part_start_s     = tmu ? state->tmu1_s : state->tmu0_s;
+        part_start_t     = tmu ? state->tmu1_t : state->tmu0_t;
+        part_start_w     = tmu ? state->tmu1_w : state->tmu0_w;
+        part_half_offset = span_part_offset / 2;
+        part_middle_s    = part_start_s + params->tmu[tmu].dSdX * part_half_offset;
+        part_middle_t    = part_start_t + params->tmu[tmu].dTdX * part_half_offset;
+        part_middle_w    = part_start_w + params->tmu[tmu].dWdX * part_half_offset;
+
+        part_lod_base       = voodoo_span_part_lod_base(params, tmu, part_middle_s, part_middle_t, part_middle_w, triangle_lod_base[tmu]);
+        state->tmu[tmu].lod = part_lod_base + lod_bias[tmu];
+    }
 }
 
 typedef struct voodoo_texture_state_t {
@@ -399,7 +551,9 @@ voodoo_tmu_fetch(voodoo_t *voodoo, voodoo_params_t *params, voodoo_state_t *stat
             state->tex_t = (int32_t) (((((state->tmu0_t + (1 << 13)) >> 14) * _w) + (1 << 29)) >> 30);
         }
 
-        state->lod = state->tmu[tmu].lod + (fastlog(_w) - (19 << 8));
+        int w_reciprocal_log2 = fastlog(_w);
+
+        state->lod = state->tmu[tmu].lod + (w_reciprocal_log2 - (W_RECIPROCAL_LOG2_OFFSET << 8));
     } else {
         if (tmu) {
             state->tex_s = (int32_t) (state->tmu1_s >> (14 + 14));
@@ -442,12 +596,13 @@ voodoo_tmu_fetch_and_blend(voodoo_t *voodoo, voodoo_params_t *params, voodoo_sta
 
     voodoo_tmu_fetch(voodoo, params, state, 1, x);
 
+    /*TMU1 blends with its own reverse blend bits*/
     if ((params->textureMode[1] & TEXTUREMODE_TRILINEAR) && (state->lod & 1)) {
-        c_reverse = tc_reverse_blend;
-        a_reverse = tca_reverse_blend;
+        c_reverse = tc_reverse_blend_1;
+        a_reverse = tca_reverse_blend_1;
     } else {
-        c_reverse = !tc_reverse_blend;
-        a_reverse = !tca_reverse_blend;
+        c_reverse = !tc_reverse_blend_1;
+        a_reverse = !tca_reverse_blend_1;
     }
 #if 0
     c_reverse1 = c_reverse;
@@ -531,9 +686,9 @@ voodoo_tmu_fetch_and_blend(voodoo_t *voodoo, voodoo_params_t *params, voodoo_sta
                 break;
         }
         if (!a_reverse)
-            a = (-state->tex_a[1] * ((factor_a ^ 0xff) + 1)) >> 8;
-        else
             a = (-state->tex_a[1] * (factor_a + 1)) >> 8;
+        else
+            a = (-state->tex_a[1] * ((factor_a ^ 0xff) + 1)) >> 8;
         if (tca_add_clocal_1 || tca_add_alocal_1)
             a += state->tex_a[1];
         state->tex_a[1] = CLAMP(a);
@@ -659,7 +814,36 @@ voodoo_tmu_fetch_and_blend(voodoo_t *voodoo, voodoo_params_t *params, voodoo_sta
         state->tex_a[0] ^= 0xff;
 }
 
+/*Register state the recompilers bake into a block besides the mode registers, part of the block cache key.*/
+static inline uint32_t
+voodoo_codegen_detail_key(const voodoo_params_t *params, int tmu)
+{
+    return params->detail_max[tmu] | (params->detail_bias[tmu] << 8) | (params->detail_scale[tmu] << 14);
+}
+
+static inline int
+voodoo_codegen_tiled_key(const voodoo_params_t *params)
+{
+    return (params->col_tiled ? 1 : 0) | (params->aux_tiled ? 2 : 0);
+}
+
 #if (defined __amd64__ || defined _M_X64)
+/*Whether a block needs a_other, a_local and the combined alpha: for the alpha test, alpha blending,
+  the alpha mask, the colour combine, or the alpha planes.*/
+static inline int
+voodoo_codegen_alpha_used(const voodoo_params_t *params)
+{
+    if (params->alphaMode & ((1 << 0) | (1 << 4)))
+        return 1;
+    if (params->fbzMode & FBZ_ALPHA_MASK)
+        return 1;
+    if (!(cc_mselect == 0 && cc_reverse_blend == 0) && (cc_mselect == CC_MSELECT_AOTHER || cc_mselect == CC_MSELECT_ALOCAL))
+        return 1;
+    if (cc_add == CC_ADD_ALOCAL)
+        return 1;
+    return (params->fbzMode & (FBZ_DEPTH_WMASK | FBZ_ALPHA_ENABLE)) == (FBZ_DEPTH_WMASK | FBZ_ALPHA_ENABLE);
+}
+
 #    include <86box/vid_voodoo_codegen_x86-64.h>
 #elif (defined __aarch64__ || defined _M_ARM64)
 #    include <86box/vid_voodoo_codegen_arm64.h>
@@ -697,6 +881,9 @@ voodoo_half_triangle(voodoo_t *voodoo, voodoo_params_t *params, voodoo_state_t *
     int dither                  = params->fbzMode & FBZ_DITHER;*/
 #endif
     int texels;
+    int triangle_lod_base[2];
+    int lod_bias[2];
+    int lod_per_span_part;
 #ifndef NO_CODEGEN
     uint8_t (*voodoo_draw)(voodoo_state_t * state, voodoo_params_t * params, int x, int real_y);
 #endif
@@ -730,6 +917,13 @@ voodoo_half_triangle(voodoo_t *voodoo, voodoo_params_t *params, voodoo_state_t *
     state->tex_h_mask[1] = params->tex_h_mask[1];
     state->tex_shift[1]  = params->tex_shift[1];
     state->tex_lod[1]    = params->tex_lod[1];
+
+    for (uint8_t tmu = 0; tmu < 2; tmu++) {
+        triangle_lod_base[tmu] = voodoo_triangle_lod_base(params, tmu);
+        lod_bias[tmu]          = voodoo_lod_bias(params, tmu);
+    }
+
+    lod_per_span_part = (params->fbzColorPath & FBZCP_TEXTURE_ENABLED) && ((params->textureMode[0] & TEXTUREMODE_TPERSP_ST) || (voodoo->dual_tmus && (params->textureMode[1] & TEXTUREMODE_TPERSP_ST)));
 
     if ((params->fbzMode & 1) && (ystart < params->clipLowY)) {
         int dy = params->clipLowY - ystart;
@@ -804,7 +998,10 @@ voodoo_half_triangle(voodoo_t *voodoo, voodoo_params_t *params, voodoo_state_t *
         int       x2;
         int       real_y = (state->y << 4) + 8;
         int       start_x;
+        int       span_end_x;
         int       dx;
+        int       clip_left;
+        int       clip_right;
         uint16_t *fb_mem;
         uint16_t *aux_mem;
 
@@ -868,10 +1065,14 @@ voodoo_half_triangle(voodoo_t *voodoo, voodoo_params_t *params, voodoo_state_t *
 
         voodoo_render_log("%08llx %lli %lli\n", state->tmu0_t, state->tmu0_t >> (18 + state->lod), (state->tmu0_t + (1 << (17 + state->lod))) >> (18 + state->lod));
 
-        if (params->fbzMode & 1) {
+        /*With clipping off only the vertices limit the span, it still has to stay inside fb_mem*/
+        clip_left  = (params->fbzMode & 1) ? params->clipLeft : 0;
+        clip_right = (params->fbzMode & 1) ? params->clipRight : 4096;
+
+        if ((params->fbzMode & 1) || ((x | x2) & ~0xfff)) {
             if (state->xdir > 0) {
-                if (x < params->clipLeft) {
-                    int dx = params->clipLeft - x;
+                if (x < clip_left) {
+                    int dx = clip_left - x;
 
                     state->ir += params->dRdX * dx;
                     state->ig += params->dGdX * dx;
@@ -886,13 +1087,13 @@ voodoo_half_triangle(voodoo_t *voodoo, voodoo_params_t *params, voodoo_state_t *
                     state->tmu1_w += params->tmu[1].dWdX * dx;
                     state->w += params->dWdX * dx;
 
-                    x = params->clipLeft;
+                    x = clip_left;
                 }
-                if (x2 >= params->clipRight)
-                    x2 = params->clipRight - 1;
+                if (x2 >= clip_right)
+                    x2 = clip_right - 1;
             } else {
-                if (x >= params->clipRight) {
-                    int dx = (params->clipRight - 1) - x;
+                if (x >= clip_right) {
+                    int dx = (clip_right - 1) - x;
 
                     state->ir += params->dRdX * dx;
                     state->ig += params->dGdX * dx;
@@ -907,10 +1108,10 @@ voodoo_half_triangle(voodoo_t *voodoo, voodoo_params_t *params, voodoo_state_t *
                     state->tmu1_w += params->tmu[1].dWdX * dx;
                     state->w += params->dWdX * dx;
 
-                    x = params->clipRight - 1;
+                    x = clip_right - 1;
                 }
-                if (x2 < params->clipLeft)
-                    x2 = params->clipLeft;
+                if (x2 < clip_left)
+                    x2 = clip_left;
             }
         }
 
@@ -920,13 +1121,13 @@ voodoo_half_triangle(voodoo_t *voodoo, voodoo_params_t *params, voodoo_state_t *
             goto next_line;
 
         if (SLI_ENABLED) {
-            state->fb_mem = fb_mem = (uint16_t *) &voodoo->fb_mem[params->draw_offset + ((real_y >> 1) * params->row_width)];
+            state->fb_mem = fb_mem = (uint16_t *) &voodoo->fb_mem[(params->draw_offset + ((real_y >> 1) * params->row_width)) & voodoo->fb_mask];
             state->aux_mem = aux_mem = (uint16_t *) &voodoo->fb_mem[(params->aux_offset + ((real_y >> 1) * params->row_width)) & voodoo->fb_mask];
         } else {
             if (params->col_tiled)
-                state->fb_mem = fb_mem = (uint16_t *) &voodoo->fb_mem[params->draw_offset + (real_y >> 5) * params->row_width + (real_y & 31) * 128];
+                state->fb_mem = fb_mem = (uint16_t *) &voodoo->fb_mem[(params->draw_offset + (real_y >> 5) * params->row_width + (real_y & 31) * 128) & voodoo->fb_mask];
             else
-                state->fb_mem = fb_mem = (uint16_t *) &voodoo->fb_mem[params->draw_offset + (real_y * params->row_width)];
+                state->fb_mem = fb_mem = (uint16_t *) &voodoo->fb_mem[(params->draw_offset + (real_y * params->row_width)) & voodoo->fb_mask];
             if (params->aux_tiled)
                 state->aux_mem = aux_mem = (uint16_t *) &voodoo->fb_mem[(params->aux_offset + (real_y >> 5) * params->aux_row_width + (real_y & 31) * 128) & voodoo->fb_mask];
             else
@@ -937,13 +1138,30 @@ voodoo_half_triangle(voodoo_t *voodoo, voodoo_params_t *params, voodoo_state_t *
 
         state->pixel_count = 0;
         state->texel_count = 0;
-        state->x           = x;
-        state->x2          = x2;
+        span_end_x         = x2;
+
+        /*Draw the span in parts, perspective-corrected textures get a base LOD for every part, see voodoo_update_span_part_lod().
+          The recompiled code reads state->x, state->x2 and state->tmu[].lod on every call, so it draws one part per call.*/
+        do {
+            if (lod_per_span_part) {
+                const int span_part_last_offset = VOODOO_LOD_SPAN_PART_PIXELS - 1;
+
+                if (state->xdir > 0)
+                    x2 = (x + span_part_last_offset < span_end_x) ? (x + span_part_last_offset) : span_end_x;
+                else
+                    x2 = (x - span_part_last_offset > span_end_x) ? (x - span_part_last_offset) : span_end_x;
+
+                voodoo_update_span_part_lod(voodoo, params, state, x2 - x, triangle_lod_base, lod_bias);
+            } else
+                x2 = span_end_x;
+
+            state->x  = x;
+            state->x2 = x2;
 
 #ifndef NO_CODEGEN
-        {
             if (voodoo->use_recompiler && voodoo_draw) {
                 voodoo_draw(state, params, x, real_y);
+                x = x2 + state->xdir;
             } else
 #endif
             do {
@@ -1004,7 +1222,7 @@ voodoo_half_triangle(voodoo_t *voodoo, voodoo_params_t *params, voodoo_state_t *
                         if (params->fbzMode & FBZ_STIPPLE_PATT) {
                             int index = ((real_y & 3) << 3) | (~x & 7);
 
-                            if (!(state->stipple & (1 << index)))
+                            if (!(state->stipple & (1U << index)))
                                 goto skip_pixel;
                         } else {
                             state->stipple = (state->stipple << 1) | (state->stipple >> 31);
@@ -1027,12 +1245,12 @@ voodoo_half_triangle(voodoo_t *voodoo, voodoo_params_t *params, voodoo_state_t *
                         new_depth = CLAMP16(new_depth + (int16_t) params->zaColor);
 
                     if (params->fbzMode & FBZ_DEPTH_ENABLE) {
-                        uint16_t old_depth = voodoo->params.aux_tiled ? aux_mem[x_tiled] : aux_mem[x];
+                        uint16_t old_depth = params->aux_tiled ? aux_mem[x_tiled] : aux_mem[x];
 
                         DEPTH_TEST((params->fbzMode & FBZ_DEPTH_SOURCE) ? (params->zaColor & 0xffff) : new_depth);
                     }
 
-                    dat    = voodoo->params.col_tiled ? fb_mem[x_tiled] : fb_mem[x];
+                    dat    = params->col_tiled ? fb_mem[x_tiled] : fb_mem[x];
                     dest_r = (dat >> 8) & 0xf8;
                     dest_g = (dat >> 3) & 0xfc;
                     dest_b = (dat << 3) & 0xf8;
@@ -1042,7 +1260,7 @@ voodoo_half_triangle(voodoo_t *voodoo, voodoo_params_t *params, voodoo_state_t *
                     dest_a = 0xff;
 
                     if (params->fbzMode & FBZ_ALPHA_ENABLE) {
-                        if (voodoo->params.aux_tiled)
+                        if (params->aux_tiled)
                             dest_a = aux_mem[x_tiled];
                         else
                             dest_a = aux_mem[x];
@@ -1133,7 +1351,7 @@ voodoo_half_triangle(voodoo_t *voodoo, voodoo_params_t *params, voodoo_state_t *
                             break;
 
                         default:
-                            fatal("Bad cca_localselect %i\n", cca_localselect);
+                            voodoo_render_log("Bad cca_localselect %i\n", cca_localselect);
                             alocal = 0xff;
                             break;
                     }
@@ -1149,7 +1367,7 @@ voodoo_half_triangle(voodoo_t *voodoo, voodoo_params_t *params, voodoo_state_t *
                             aother = (params->color1 >> 24) & 0xff;
                             break;
                         default:
-                            fatal("Bad a_sel %i\n", a_sel);
+                            voodoo_render_log("Bad a_sel %i\n", a_sel);
                             aother = 0;
                             break;
                     }
@@ -1215,7 +1433,7 @@ voodoo_half_triangle(voodoo_t *voodoo, voodoo_params_t *params, voodoo_state_t *
                             break;
 
                         default:
-                            fatal("Bad cc_mselect %i\n", cc_mselect);
+                            voodoo_render_log("Bad cc_mselect %i\n", cc_mselect);
                             msel_r = 0;
                             msel_g = 0;
                             msel_b = 0;
@@ -1240,7 +1458,7 @@ voodoo_half_triangle(voodoo_t *voodoo, voodoo_params_t *params, voodoo_state_t *
                             break;
 
                         default:
-                            fatal("Bad cca_mselect %i\n", cca_mselect);
+                            voodoo_render_log("Bad cca_mselect %i\n", cca_mselect);
                             msel_a = 0;
                             break;
                     }
@@ -1277,7 +1495,7 @@ voodoo_half_triangle(voodoo_t *voodoo, voodoo_params_t *params, voodoo_state_t *
                         case 0:
                             break;
                         default:
-                            fatal("Bad cc_add %i\n", cc_add);
+                            voodoo_render_log("Bad cc_add %i\n", cc_add);
                     }
 
                     if (cca_add)
@@ -1341,19 +1559,19 @@ voodoo_half_triangle(voodoo_t *voodoo, voodoo_params_t *params, voodoo_state_t *
                         }
 
                         if (params->fbzMode & FBZ_RGB_WMASK) {
-                            if (voodoo->params.col_tiled)
+                            if (params->col_tiled)
                                 fb_mem[x_tiled] = src_b | (src_g << 5) | (src_r << 11);
                             else
                                 fb_mem[x] = src_b | (src_g << 5) | (src_r << 11);
                         }
                         if ((params->fbzMode & (FBZ_DEPTH_WMASK | FBZ_ALPHA_ENABLE)) == (FBZ_DEPTH_WMASK | FBZ_ALPHA_ENABLE)) {
-                            if (voodoo->params.aux_tiled)
+                            if (params->aux_tiled)
                                 aux_mem[x_tiled] = src_a;
                             else
                                 aux_mem[x] = src_a;
                         }
                         else if ((params->fbzMode & (FBZ_DEPTH_WMASK | FBZ_DEPTH_ENABLE)) == (FBZ_DEPTH_WMASK | FBZ_DEPTH_ENABLE)) {
-                            if (voodoo->params.aux_tiled)
+                            if (params->aux_tiled)
                                 aux_mem[x_tiled] = new_depth;
                             else
                                 aux_mem[x] = new_depth;
@@ -1392,17 +1610,14 @@ skip_pixel:
 
                 x += state->xdir;
             } while (start_x != x2);
-
-#ifndef NO_CODEGEN
-        }
-#endif
+        } while (x2 != span_end_x);
 
         voodoo->pixel_count[odd_even] += state->pixel_count;
         voodoo->texel_count[odd_even] += state->texel_count;
         voodoo->fbiPixelsIn += state->pixel_count;
 
         if (voodoo->params.draw_offset == voodoo->params.front_offset && !SLI_ENABLED) {
-            if (real_y < 2048)
+            if ((real_y >= 0) && (real_y < 2048))
                 voodoo->dirty_line[real_y] = 1;
         }
 
@@ -1452,9 +1667,6 @@ voodoo_triangle(voodoo_t *voodoo, voodoo_params_t *params, int odd_even)
     int            dx;
     int            dy;
 
-    uint64_t tempdx;
-    uint64_t tempdy;
-    uint64_t tempLOD;
     int      LOD;
     int      lodbias;
 
@@ -1546,10 +1758,14 @@ voodoo_render_log("voodoo_triangle %i %i %i : vA %f, %f  vB %f, %f  vC %f, %f f 
 
     state.lod_min[0] = (params->tLOD[0] & 0x3f) << 6;
     state.lod_max[0] = ((params->tLOD[0] >> 6) & 0x3f) << 6;
+    if (state.lod_min[0] > 0x800)
+        state.lod_min[0] = 0x800;
     if (state.lod_max[0] > 0x800)
         state.lod_max[0] = 0x800;
     state.lod_min[1] = (params->tLOD[1] & 0x3f) << 6;
     state.lod_max[1] = ((params->tLOD[1] >> 6) & 0x3f) << 6;
+    if (state.lod_min[1] > 0x800)
+        state.lod_min[1] = 0x800;
     if (state.lod_max[1] > 0x800)
         state.lod_max[1] = 0x800;
 
@@ -1559,37 +1775,15 @@ voodoo_render_log("voodoo_triangle %i %i %i : vA %f, %f  vB %f, %f  vC %f, %f f 
     state.y    = (state.vertexAy + 8) >> 4;
     state.ydir = 1;
 
-    tempdx = (params->tmu[0].dSdX >> 14) * (params->tmu[0].dSdX >> 14) + (params->tmu[0].dTdX >> 14) * (params->tmu[0].dTdX >> 14);
-    tempdy = (params->tmu[0].dSdY >> 14) * (params->tmu[0].dSdY >> 14) + (params->tmu[0].dTdY >> 14) * (params->tmu[0].dTdY >> 14);
+    LOD     = voodoo_triangle_lod_base(params, 0);
+    lodbias = voodoo_lod_bias(params, 0);
 
-    if (tempdx > tempdy)
-        tempLOD = tempdx;
-    else
-        tempLOD = tempdy;
+    state.tmu[0].lod = LOD + lodbias;
 
-    LOD = (int) (log2((double) tempLOD / (double) (1ULL << 36)) * 256);
-    LOD >>= 2;
+    LOD     = voodoo_triangle_lod_base(params, 1);
+    lodbias = voodoo_lod_bias(params, 1);
 
-    lodbias = (params->tLOD[0] >> 12) & 0x3f;
-    if (lodbias & 0x20)
-        lodbias |= ~0x3f;
-    state.tmu[0].lod = LOD + (lodbias << 6);
-
-    tempdx = (params->tmu[1].dSdX >> 14) * (params->tmu[1].dSdX >> 14) + (params->tmu[1].dTdX >> 14) * (params->tmu[1].dTdX >> 14);
-    tempdy = (params->tmu[1].dSdY >> 14) * (params->tmu[1].dSdY >> 14) + (params->tmu[1].dTdY >> 14) * (params->tmu[1].dTdY >> 14);
-
-    if (tempdx > tempdy)
-        tempLOD = tempdx;
-    else
-        tempLOD = tempdy;
-
-    LOD = (int) (log2((double) tempLOD / (double) (1ULL << 36)) * 256);
-    LOD >>= 2;
-
-    lodbias = (params->tLOD[1] >> 12) & 0x3f;
-    if (lodbias & 0x20)
-        lodbias |= ~0x3f;
-    state.tmu[1].lod = LOD + (lodbias << 6);
+    state.tmu[1].lod = LOD + lodbias;
     state.stipple = params->stipple;
 
     voodoo_half_triangle(voodoo, params, &state, vertexAy_adjusted, vertexCy_adjusted, odd_even);

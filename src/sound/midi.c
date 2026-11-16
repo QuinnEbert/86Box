@@ -16,6 +16,7 @@
  *          Copyright 2016-2020 Bit.
  *          Copyright 2008-2020 DOSBox Team.
  */
+#include <stdatomic.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,18 +26,46 @@
 #include <86box/86box.h>
 #include <86box/device.h>
 #include <86box/midi.h>
+#include <86box/sound.h>
+#include <86box/timer.h>
 #include <86box/plat.h>
 
-#define MIDI_SYSEX_MAX_ITERATIONS 1000
 #define MIDI_SYSEX_TIMEOUT_MS 5000
 
+/* MIDI input arrives on the host MIDI API's thread, but the handlers raise
+   IRQ's and change device state, so it is queued here and delivered by a
+   timer on the emulation thread. The queue has a single producer (the host
+   thread) and a single consumer (the timer), so each side owns one index:
+   the producer advances the tail and the consumer advances the head. Both
+   count up freely and are reduced modulo the queue size, which must be a
+   power of 2 for that to survive the counters wrapping around. */
+#define MIDI_IN_QUEUE_SIZE 256
+#define MIDI_IN_POLL_US    320.0 /* one byte at 31250 baud */
+/* Polls a SysEx message may go without any handler taking a byte before the
+   handlers still waiting for room are aborted: MIDI_SYSEX_TIMEOUT_MS of
+   emulated time. */
+#define MIDI_IN_SYSEX_STALL_POLLS ((uint32_t) (MIDI_SYSEX_TIMEOUT_MS * 1000.0 / MIDI_IN_POLL_US))
+
+typedef struct midi_in_queue_entry_t {
+    uint8_t *data;
+    uint32_t len;
+} midi_in_queue_entry_t;
+
+static midi_in_queue_entry_t midi_in_queue[MIDI_IN_QUEUE_SIZE];
+static atomic_uint           midi_in_queue_head        = 0;
+static atomic_uint           midi_in_queue_tail        = 0;
+static pc_timer_t            midi_in_timer;
+static int                   midi_in_sysex_active      = 0;
+static uint32_t              midi_in_sysex_stall       = 0;
+
 int        midi_output_device_current = 0;
-static int midi_output_device_last    = 0;
 int        midi_input_device_current  = 0;
-static int midi_input_device_last     = 0;
 
 midi_t *midi_out = NULL;
 midi_t *midi_in  = NULL;
+
+const device_t *midi_out_device = NULL;
+const device_t *midi_in_device  = NULL;
 
 midi_in_handler_t *mih_first = NULL;
 midi_in_handler_t *mih_last = NULL;
@@ -84,9 +113,7 @@ static const MIDI_OUT_DEVICE midi_out_devices[] = {
     { &cm32l_device         },
     { &cm32ln_device        },
 #endif /*USE_MUNT */
-#ifdef USE_OPL4ML
     { &opl4_midi_device     },
-#endif /* USE_OPL4ML */
 #ifdef USE_SOUNDCANVAS
     { &soundcanvas_device   },
 #endif /* USE_SOUNDCANVAS */
@@ -153,9 +180,10 @@ midi_out_device_get_from_internal_name(char *s)
 void
 midi_out_device_init(void)
 {
-    if ((midi_output_device_current > 0) && midi_out_devices[midi_output_device_current].device)
-        device_add(midi_out_devices[midi_output_device_current].device);
-    midi_output_device_last = midi_output_device_current;
+    if ((midi_output_device_current > 0) && midi_out_devices[midi_output_device_current].device) {
+        midi_out_device = midi_out_devices[midi_output_device_current].device;
+        device_add(midi_out_device);
+    }
 }
 
 void
@@ -166,12 +194,34 @@ midi_out_init(midi_device_t *device)
     midi_out->m_out_device = device;
 }
 
+static void midi_in_poll(void *priv);
+
 void
 midi_in_init(midi_device_t *device, midi_t **mididev)
 {
     *mididev = (midi_t *) calloc(1, sizeof(midi_t));
 
     (*mididev)->m_in_device = device;
+
+    /* Do not reset the queue here: the host MIDI API may already be
+       delivering input. */
+    timer_add(&midi_in_timer, midi_in_poll, NULL, 0);
+    timer_on_auto(&midi_in_timer, MIDI_IN_POLL_US);
+}
+
+/* Only called once the MIDI input device is closed, so nothing is producing. */
+static void
+midi_in_queue_clear(void)
+{
+    unsigned int head = atomic_load_explicit(&midi_in_queue_head, memory_order_relaxed);
+    unsigned int tail = atomic_load_explicit(&midi_in_queue_tail, memory_order_acquire);
+
+    for (; head != tail; head++) {
+        free(midi_in_queue[head % MIDI_IN_QUEUE_SIZE].data);
+        midi_in_queue[head % MIDI_IN_QUEUE_SIZE].data = NULL;
+    }
+    atomic_store_explicit(&midi_in_queue_head, head, memory_order_release);
+    midi_in_sysex_active = 0;
 }
 
 void
@@ -191,6 +241,9 @@ midi_out_close(void)
 void
 midi_in_close(void)
 {
+    timer_disable(&midi_in_timer);
+    midi_in_queue_clear();
+
     if (midi_in && midi_in->m_in_device) {
         free(midi_in->m_in_device);
         midi_in->m_in_device = NULL;
@@ -269,19 +322,37 @@ midi_in_device_get_from_internal_name(char *s)
 void
 midi_in_device_init(void)
 {
-    if ((midi_input_device_current > 0) && midi_in_devices[midi_input_device_current].device)
-        device_add(midi_in_devices[midi_input_device_current].device);
-    midi_input_device_last = midi_input_device_current;
+    if ((midi_input_device_current > 0) && midi_in_devices[midi_input_device_current].device) {
+        midi_in_device = midi_in_devices[midi_input_device_current].device;
+        device_add(midi_in_device);
+    }
 }
 
 void
 midi_config_changed(void)
 {
+    if (midi_out_device) {
+        device_close(midi_out_device);
+        midi_out_device = NULL;
+    }
+
     midi_out_close();
+
+    if (midi_in_device) {
+        device_close(midi_in_device);
+        midi_in_device = NULL;
+    }
+
     midi_in_close();
 
+    closeal();
+
+    /* The new device sets the MIDI stream's sample rate and buffer size
+       (al_set_midi) when it opens, so open it before the output. */
     midi_out_device_init();
     midi_in_device_init();
+
+    inital();
 }
 
 void
@@ -296,9 +367,11 @@ midi_raw_out_rt_byte(uint8_t val)
     if (!midi_in->midi_clockout && (val == 0xf8))
         return;
 
-    midi_in->midi_cmd_r = val << 24;
-    /* pclog("Play RT Byte msg\n"); */
-    play_msg((uint8_t *) &midi_in->midi_cmd_r);
+    if (!midi_out || !midi_out->m_out_device)
+        return;
+
+    midi_out->midi_rt_buf[0] = val;
+    play_msg(midi_out->midi_rt_buf);
 }
 
 void
@@ -393,7 +466,11 @@ midi_clear_buffer(void)
 }
 
 void
-midi_in_handler(int set, void (*msg)(void *priv, uint8_t *msg, uint32_t len), int (*sysex)(void *priv, uint8_t *buffer, uint32_t len, int abort), void *priv)
+midi_in_handler(int set,
+                void (*msg)(void *priv, uint8_t *msg, uint32_t len),
+                int (*sysex)(void *priv, uint8_t *buffer, uint32_t len, int abort),
+                int (*remain)(void *priv),
+                void *priv)
 {
     midi_in_handler_t *temp = NULL;
     midi_in_handler_t *next;
@@ -407,9 +484,10 @@ midi_in_handler(int set, void (*msg)(void *priv, uint8_t *msg, uint32_t len), in
             fatal("First MIDI IN handler present with no last MIDI IN handler\n");
 
         temp = (midi_in_handler_t *) calloc(1, sizeof(midi_in_handler_t));
-        temp->msg   = msg;
-        temp->sysex = sysex;
-        temp->priv  = priv;
+        temp->msg    = msg;
+        temp->sysex  = sysex;
+        temp->remain = remain;
+        temp->priv   = priv;
 
         if (mih_last == NULL)
             mih_first = mih_last = temp;
@@ -474,155 +552,183 @@ midi_in_handlers_clear(void)
     mih_first = mih_last = NULL;
 }
 
+/* Called on the host MIDI API's thread. */
+static void
+midi_in_queue_add(uint8_t *data, uint32_t len)
+{
+    uint32_t     start_time = plat_get_ticks();
+    unsigned int tail;
+
+    if ((data == NULL) || (len == 0))
+        return;
+
+    tail = atomic_load_explicit(&midi_in_queue_tail, memory_order_relaxed);
+
+    /* Wait for the emulation thread to make room, giving up after a while
+       so a paused or stuck guest cannot hang the host MIDI API's thread.
+       Acquire pairs with the release in midi_in_poll(), so the consumer is
+       done with the entry before it is reused. */
+    while ((tail - atomic_load_explicit(&midi_in_queue_head, memory_order_acquire)) >= MIDI_IN_QUEUE_SIZE) {
+        if ((plat_get_ticks() - start_time) > MIDI_SYSEX_TIMEOUT_MS)
+            return;
+
+        plat_delay_ms(1); /* msec */
+    }
+
+    midi_in_queue_entry_t *entry = &midi_in_queue[tail % MIDI_IN_QUEUE_SIZE];
+
+    entry->data = (uint8_t *) malloc(len);
+    memcpy(entry->data, data, len);
+    entry->len = len;
+
+    /* Release publishes the entry's contents together with the new tail. */
+    atomic_store_explicit(&midi_in_queue_tail, tail + 1, memory_order_release);
+}
+
 void
 midi_in_msg(uint8_t *msg, uint32_t len)
 {
-    midi_in_handler_t *temp = mih_first;
+    midi_in_queue_add(msg, len);
+}
 
-    while (1) {
-        if (temp == NULL)
-            break;
+static int
+midi_in_handlers_have_room(uint32_t len)
+{
+    for (midi_in_handler_t *temp = mih_first; temp != NULL; temp = temp->next) {
+        if (temp->msg && temp->remain && (temp->remain(temp->priv) < (len + 1)))
+            return 0;
+    }
 
+    return 1;
+}
+
+static void
+midi_in_deliver_msg(uint8_t *msg, uint32_t len)
+{
+    for (midi_in_handler_t *temp = mih_first; temp != NULL; temp = temp->next) {
         if (temp->msg)
             temp->msg(temp->priv, msg, len);
-
-        temp = temp->next;
-
-        if (temp == NULL)
-            break;
     }
 }
 
 static void
 midi_start_sysex(uint8_t *buffer, uint32_t len)
 {
-    midi_in_handler_t *temp = mih_first;
-
-    while (1) {
-        if (temp == NULL)
-            break;
-
-        temp->cnt = 5;
+    for (midi_in_handler_t *temp = mih_first; temp != NULL; temp = temp->next) {
         temp->buf = buffer;
         temp->len = len;
-
-        temp = temp->next;
-
-        if (temp == NULL)
-            break;
     }
 }
 
-/* Returns:
-    0 = All handlers have returnd 0;
+/* Offer each handler that hasn't taken the whole message yet its next byte,
+   one byte per poll as it would arrive on the wire. A handler returns how
+   many of the bytes it was given it didn't take, as there was no room for
+   them. Sets *progress if any handler took its byte.
+   Returns:
+    0 = All handlers have taken the whole message;
     1 = There are still handlers to go. */
 static int
-midi_do_sysex(void)
+midi_do_sysex(int *progress)
 {
-    midi_in_handler_t *temp = mih_first;
-    int                ret;
-    int                cnt_acc = 0;
+    int pending = 0;
 
-    while (1) {
-        if (temp == NULL)
-            break;
+    for (midi_in_handler_t *temp = mih_first; temp != NULL; temp = temp->next) {
+        if (temp->len == 0)
+            continue;
 
-        /* Do nothing if the handler has a zero count. */
-        if ((temp->cnt > 0) || (temp->len > 0)) {
-            ret = 0;
-            if (temp->sysex) {
-                if (temp->cnt == 0)
-                    ret = temp->sysex(temp->priv, temp->buf, 0, 0);
-                else
-                    ret = temp->sysex(temp->priv, temp->buf, temp->len, 0);
-            }
-
-            /* If count is 0 and length is 0, then this is just a finishing
-               call to temp->sysex(), so skip this entire block. */
-            if (temp->cnt > 0) {
-                if (ret) {
-                    /* Decrease or reset the counter. */
-                    if (temp->len == ret)
-                        temp->cnt--;
-                    else
-                        temp->cnt = 5;
-
-                    /* Advance the buffer pointer and remember the
-                       remaining length. */
-                    temp->buf += (temp->len - ret);
-                    temp->len = ret;
-                } else {
-                    /* Set count to 0 so that this handler will be
-                       ignored on the next interation. */
-                    temp->cnt = 0;
-
-                    /* Reset the buffer pointer and length. */
-                    temp->buf = NULL;
-                    temp->len = 0;
-                }
-
-                /* If the remaining count is above zero, add it to the
-                   accumulator. */
-                if (temp->cnt > 0)
-                    cnt_acc |= temp->cnt;
-            }
+        if (!temp->sysex || !temp->sysex(temp->priv, temp->buf, 1, 0)) {
+            temp->buf++;
+            temp->len--;
+            *progress = 1;
         }
 
-        temp = temp->next;
-
-        if (temp == NULL)
-            break;
+        if (temp->len > 0)
+            pending = 1;
+        else
+            temp->buf = NULL;
     }
 
-    /* Return 0 if all handlers have returned 0 or all the counts are otherwise 0. */
-    if (cnt_acc == 0)
-        return 0;
-    else
-        return 1;
+    return pending;
 }
 
 void
 midi_in_sysex(uint8_t *buffer, uint32_t len)
 {
-    int max_iterations = MIDI_SYSEX_MAX_ITERATIONS;
-    int iteration_count = 0;
-    uint32_t start_time = plat_get_ticks();
-    uint32_t max_timeout_ms = MIDI_SYSEX_TIMEOUT_MS;
+    midi_in_queue_add(buffer, len);
+}
 
-    /* Input validation */
-    if (!buffer || len == 0) {
-        return;
+/* Returns 1 once the SysEx message has been delivered or abandoned. */
+static int
+midi_in_deliver_sysex(uint8_t *buffer, uint32_t len)
+{
+    int progress = 0;
+
+    if (!midi_in_sysex_active) {
+        midi_start_sysex(buffer, len);
+        midi_in_sysex_active = 1;
+        midi_in_sysex_stall  = 0;
     }
 
-    midi_start_sysex(buffer, len);
+    if (midi_do_sysex(&progress)) {
+        /* A long message takes a while at wire speed, so only give up once
+           no handler has taken a byte for a while, not after a fixed time
+           from the start. */
+        if (progress)
+            midi_in_sysex_stall = 0;
+        if (++midi_in_sysex_stall <= MIDI_IN_SYSEX_STALL_POLLS)
+            return 0; /* try again on the next poll */
 
-    while (iteration_count < max_iterations) {
-        /* Check for timeout */
-        uint32_t elapsed_time = plat_get_ticks() - start_time;
-        if (elapsed_time > max_timeout_ms) {
-            /* Force abort all handlers on timeout */
-            midi_in_handler_t *temp = mih_first;
-            while (temp != NULL) {
-                if (temp->sysex) {
-                    temp->sysex(temp->priv, NULL, 0, 1); /* Call with abort=1 */
-                }
-                temp->cnt = 0;
-                temp->len = 0;
-                temp = temp->next;
-            }
-            /* pclog("MIDI: SYSEX processing timed out after %d ms\n", elapsed_time); */
-            break;
+        /* Abort the handlers that are still waiting for room. */
+        for (midi_in_handler_t *temp = mih_first; temp != NULL; temp = temp->next) {
+            if (temp->len == 0)
+                continue;
+            if (temp->sysex)
+                temp->sysex(temp->priv, NULL, 0, 1); /* Call with abort=1 */
+            temp->buf = NULL;
+            temp->len = 0;
         }
+    }
 
-        /* This will return 0 if all the handlers have either
-           timed out or otherwise indicated it is time to stop. */
-        if (midi_do_sysex()) {
-            plat_delay_ms(5); /* msec */
-            iteration_count++;
+    midi_in_sysex_active = 0;
+    return 1;
+}
+
+static void
+midi_in_poll(UNUSED(void *priv))
+{
+    unsigned int head  = atomic_load_explicit(&midi_in_queue_head, memory_order_relaxed);
+    uint32_t     bytes = 1;
+
+    /* Acquire pairs with the release in midi_in_queue_add(), so the entry's
+       contents are visible before it is read. */
+    if (head != atomic_load_explicit(&midi_in_queue_tail, memory_order_acquire)) {
+        midi_in_queue_entry_t *entry = &midi_in_queue[head % MIDI_IN_QUEUE_SIZE];
+
+        if (entry->data[0] == 0xf0) {
+            if (!midi_in_deliver_sysex(entry->data, entry->len))
+                goto next;
         } else {
-            break;
+            if (!midi_in_handlers_have_room(entry->len))
+                goto next;
+            midi_in_deliver_msg(entry->data, entry->len);
+            /* Hold the next message back for as long as this one takes on
+               the wire. The host MIDI API hands over a chord or a burst all
+               at once, and handing it to the device as fast as it arrives
+               lets the device's queue fill faster than any real MIDI port
+               could. A handler that services one byte per interrupt and
+               re-enables interrupts before returning then nests once per
+               queued byte, which overflowed MIDIMAN's MIDI TOOLS viewer's
+               stack on IRQ 2. */
+            bytes = entry->len;
         }
+
+        free(entry->data);
+        entry->data = NULL;
+        atomic_store_explicit(&midi_in_queue_head, head + 1, memory_order_release);
     }
+
+next:
+    timer_advance_u64(&midi_in_timer, (uint64_t) (bytes * MIDI_IN_POLL_US * TIMER_USEC));
 }
 
 void
@@ -630,4 +736,77 @@ midi_reset(void)
 {
     if (midi_out && midi_out->m_out_device && midi_out->m_out_device->reset)
         midi_out->m_out_device->reset();
+}
+
+/* Whether an output device is open: the configured one can fail to open,
+   for example when its ROMs or its plugin are missing. */
+int
+midi_out_device_is_open(void)
+{
+    return midi_out && midi_out->m_out_device;
+}
+
+/* Reset messages a sequencer would send down the MIDI cable. A module only
+   acts on those for its own family and ignores the others. */
+static const uint8_t midi_reset_gm[]   = { 0xf0, 0x7e, 0x7f, 0x09, 0x01, 0xf7 };                               /* GM System On */
+static const uint8_t midi_reset_gs[]   = { 0xf0, 0x41, 0x10, 0x42, 0x12, 0x40, 0x00, 0x7f, 0x00, 0x41, 0xf7 }; /* GS Reset */
+static const uint8_t midi_reset_xg[]   = { 0xf0, 0x43, 0x10, 0x4c, 0x00, 0x00, 0x7e, 0x00, 0xf7 };             /* XG System On */
+static const uint8_t midi_reset_mt32[] = { 0xf0, 0x41, 0x10, 0x16, 0x12, 0x7f, 0x00, 0x00, 0x00, 0x01, 0xf7 }; /* All parameters reset */
+
+static void
+midi_out_send_sysex(const uint8_t *sysex, unsigned int len)
+{
+    uint8_t buf[16];
+
+    if (midi_out->m_out_device->play_sysex && (len <= sizeof(buf))) {
+        memcpy(buf, sysex, len);
+        midi_out->m_out_device->play_sysex(buf, len);
+    }
+}
+
+/* Sends a command (a reset or All notes off) to the MIDI output device, from
+   outside the guest. The messages go straight to the device, past the parser that assembles the
+   guest's bytes, so a message the guest is in the middle of sending is
+   neither cut nor mixed with them. The caller must have the emulation paused,
+   as the device takes its messages from one thread at a time. */
+void
+midi_out_send_command(int cmd)
+{
+    uint8_t msg[4] = { 0 };
+
+    if (!midi_out || !midi_out->m_out_device)
+        return;
+
+    switch (cmd) {
+        case MIDI_CMD_GM_ON:
+            midi_out_send_sysex(midi_reset_gm, sizeof(midi_reset_gm));
+            break;
+        case MIDI_CMD_GS_RESET:
+            midi_out_send_sysex(midi_reset_gs, sizeof(midi_reset_gs));
+            break;
+        case MIDI_CMD_XG_ON:
+            midi_out_send_sysex(midi_reset_xg, sizeof(midi_reset_xg));
+            break;
+        case MIDI_CMD_MT32_RESET:
+            midi_out_send_sysex(midi_reset_mt32, sizeof(midi_reset_mt32));
+            break;
+        case MIDI_CMD_ALL_NOTES_OFF:
+            if (!midi_out->m_out_device->play_msg)
+                break;
+            /* Sustain off, All Sound Off, Reset All Controllers and All Notes
+               Off on every channel, as a sequencer's panic button does. */
+            for (uint8_t chan = 0; chan < 16; chan++) {
+                static const uint8_t controllers[] = { 0x40, 0x78, 0x79, 0x7b };
+
+                for (uint8_t i = 0; i < sizeof(controllers); i++) {
+                    msg[0] = 0xb0 | chan;
+                    msg[1] = controllers[i];
+                    msg[2] = 0x00;
+                    midi_out->m_out_device->play_msg(msg);
+                }
+            }
+            break;
+        default:
+            break;
+    }
 }

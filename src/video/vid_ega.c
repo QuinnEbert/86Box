@@ -33,6 +33,7 @@
 #include <86box/video.h>
 #include <86box/vid_ati_eeprom.h>
 #include <86box/vid_ega.h>
+#include <86box/plat_unused.h>
 
 void ega_doblit(int wx, int wy, ega_t *ega);
 
@@ -49,7 +50,6 @@ static int             active             = 0;
 uint32_t               pallook16[256];
 uint32_t               pallook64[256];
 static int             ega_type           = EGA_TYPE_IBM;
-static int             old_overscan_color = 0;
 
 /* 3C2 controls default mode on EGA. On VGA, it determines monitor type (mono or colour):
     7=CGA mode (200 lines), 9=EGA mode (350 lines), 8=EGA mode (200 lines). */
@@ -890,6 +890,7 @@ ega_poll(void *priv)
                 ega->lastline = ega->displine;
         }
 
+        video_lightpen_check_trigger_strobe(8, ega->displine, 0, ega->firstline, (1. / (ega->dot_clock / (cpuclock * (double) (1ULL << 32)))) * ((ega->seqregs[1] & 1) ? 8.0 : 9.0), 0);
         ega->displine++;
         if (ega->interlace)
             ega->displine++;
@@ -910,6 +911,7 @@ ega_poll(void *priv)
         }
     } else {
         timer_advance_u64(&ega->timer, ega->dispontime);
+        video_lightpen_hsync();
 
         if (ega->dispon)
             ega->status &= ~1;
@@ -990,6 +992,7 @@ ega_poll(void *priv)
 #endif
 //            x = ega->hdisp;
 
+            video_lightpen_vsync();
             if (ega->interlace && !ega->oddeven)
                 ega->lastline++;
             if (ega->interlace && ega->oddeven)
@@ -1386,6 +1389,26 @@ ega_write(uint32_t addr, uint8_t val, void *priv)
     }
 }
 
+/* For the memory viewer: the byte ega_read() returns in read mode 0, found
+   without loading the latches or taking wait states. */
+static uint8_t *
+ega_debug_ptr(uint32_t addr, UNUSED(int write), void *priv)
+{
+    ega_t *ega       = (ega_t *) priv;
+    int    readplane = ega->readplane;
+
+    if (ega->chain2_read)
+        readplane = (readplane & 2) | (addr & 1);
+
+    addr = ega_remap_cpu_addr(addr, ega) << 2;
+    if (addr >= ega->vram_limit)
+        return NULL;
+    if ((ega_type == EGA_TYPE_COMPAQ) && (ega->gdcreg[4] & 0x04))
+        return NULL;
+
+    return &ega->vram[addr | readplane];
+}
+
 uint8_t
 ega_read(uint32_t addr, void *priv)
 {
@@ -1437,6 +1460,10 @@ ega_read(uint32_t addr, void *priv)
 void
 ega_init(ega_t *ega, int monitor_type, int is_mono)
 {
+    /* For the memory viewer; here, as machines with the card built in map
+       the same handlers. */
+    mem_debug_add(ega_read, ega_write, ega_debug_ptr);
+
     ega->vram     = calloc(1, 0x40000);
     ega->vrammask = 0x3ffff;
 
@@ -1505,13 +1532,6 @@ ega_init(ega_t *ega, int monitor_type, int is_mono)
                         break;
                 }
         }
-
-        uint16_t base_addr = 0x03a0;
-#ifdef EGA_ALT_ADDR_SUPPORT
-        if (ega->alt_addr == 1)
-            base_addr = 0x02a0;
-#endif
-        io_sethandler(base_addr, 0x0020, ega_in, NULL, NULL, ega_out, NULL, NULL, ega);
     } else {
         for (uint16_t c = 0; c < 256; c++) {
             pallook64[c] = makecol32(((c >> 2) & 1) * 0xaa, ((c >> 1) & 1) * 0xaa, (c & 1) * 0xaa);
@@ -1521,8 +1541,6 @@ ega_init(ega_t *ega, int monitor_type, int is_mono)
             if ((c & 0x17) == 6)
                 pallook16[c] = makecol32(0xaa, 0x55, 0);
         }
-
-        ega->miscout |= 1;
     }
 
     ega->pallook = pallook16;
@@ -1552,7 +1570,9 @@ ega_init(ega_t *ega, int monitor_type, int is_mono)
     ega->vram_limit = 256 * 1024;
     ega->vrammask   = ega->vram_limit - 1;
 
-    old_overscan_color = 0;
+    /* Color Plane Enable defaults to all four planes enabled. */
+    ega->attrregs[0x12] = 0x0f;
+    ega->plane_mask     = 0x0f;
 
     ega->miscout |= 0x22;
     ega->oddeven_page = 0;
@@ -1666,15 +1686,15 @@ ega_standalone_init(const device_t *info)
     mem_mapping_add(&ega->mapping, 0xa0000, 0x20000, ega_read, NULL, NULL, ega_write, NULL, NULL, NULL, MEM_MAPPING_EXTERNAL, ega);
     if (ega_type == EGA_TYPE_COMPAQ)
         mem_mapping_disable(&ega->mapping);
-    uint16_t addr = 0x03c0;
+    uint16_t addr = 0x03a0;
 #ifdef EGA_ALT_ADDR_SUPPORT
     if (ega_type == EGA_TYPE_IBM) {
-        addr = device_get_config_hex16("base");
-        if (addr == 0x02c0)
+        addr = device_get_config_hex16("base") - 0x0020;
+        if (addr == 0x02a0)
             ega->alt_addr = 1;
     }
 #endif
-    io_sethandler(addr, 0x0020, ega_in, NULL, NULL, ega_out, NULL, NULL, ega);
+    io_sethandler(addr, 0x0040, ega_in, NULL, NULL, ega_out, NULL, NULL, ega);
 
     if (ega->chipset) {
         io_sethandler(0x01ce, 0x0002, ega_in, NULL, NULL, ega_out, NULL, NULL, ega);
@@ -1799,12 +1819,12 @@ static const device_config_t ega_ibm_config[] = {
         .description    = "Address",
         .type           = CONFIG_HEX16,
         .default_string = NULL,
-        .default_int    = 0x03c0,
+        .default_int    = 0x03a0,
         .file_filter    = NULL,
         .spinner        = { 0 },
         .selection      = {
-            { .description = "0x3C0", .value = 0x03c0 },
-            { .description = "0x2C0", .value = 0x02c0 },
+            { .description = "0x3C0", .value = 0x03a0 },
+            { .description = "0x2C0", .value = 0x02a0 },
             { .description = ""                       }
         },
         .bios           = { { 0 } }

@@ -2,6 +2,7 @@
  * 86Box - Host shared folder settings page
  */
 #include "qt_settingshostfs.hpp"
+#include "qt_defs.hpp"
 #include "ui_qt_settingshostfs.h"
 
 extern "C" {
@@ -19,12 +20,17 @@ extern "C" {
 
 #include "qt_harddrive_common.hpp"
 #include "qt_settings_bus_tracking.hpp"
+#include <86box/ui.h>
 
 SettingsHostFS::SettingsHostFS(QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::SettingsHostFS)
 {
     ui->setupUi(this);
+    for (int i = 0; i < HDD_NUM; ++i) {
+        disks[i] = hdd[i];
+        disks[i].override_model = hdd[i].override_model ? qstrdup(hdd[i].override_model) : nullptr;
+    }
 
     // Setup table model
     auto *model = new QStandardItemModel(0, 3, this);
@@ -71,6 +77,10 @@ SettingsHostFS::SettingsHostFS(QWidget *parent)
     connect(ui->lineEditCapacity, &QLineEdit::textChanged, this, &SettingsHostFS::on_capacity_textChanged);
     connect(ui->lineEditDevName,  &QLineEdit::textChanged, this, &SettingsHostFS::on_devname_textChanged);
 
+    connect(model, &QAbstractItemModel::dataChanged, this, [this] {
+        modified = true;
+    });
+
     // Bus/channel selectors
     Harddrives::populateBuses(ui->comboBoxBus->model());
     // Default-select IDE if present and pre-populate channels so the dropdown isn't empty
@@ -93,6 +103,8 @@ SettingsHostFS::SettingsHostFS(QWidget *parent)
 
 SettingsHostFS::~SettingsHostFS()
 {
+    for (auto &disk : disks)
+        free((void *) disk.override_model);
     delete ui;
 }
 
@@ -102,33 +114,33 @@ void SettingsHostFS::populate()
     model->removeRows(0, model->rowCount());
     int row = 0;
     for (int i = 0; i < HDD_NUM; ++i) {
-        if (hdd[i].bus_type == HDD_BUS_DISABLED) continue;
-        QString fileName = QString::fromUtf8(hdd[i].fn);
+        if (disks[i].bus_type == HDD_BUS_DISABLED) continue;
+        QString fileName = QString::fromUtf8(disks[i].fn);
         QFileInfo fi(fileName);
         if (!fi.isDir()) continue;
 
         model->insertRow(row);
         model->setData(model->index(row, ColumnIndex), tr("HDD %1").arg(i + 1));
         model->setData(model->index(row, ColumnFolder), fileName);
-        uint32_t size_mb = hdd[i].shared_fake_size_mb ? hdd[i].shared_fake_size_mb : ((hdd[i].tracks * hdd[i].hpc * hdd[i].spt) >> 11);
+        uint32_t size_mb = disks[i].shared_fake_size_mb ? disks[i].shared_fake_size_mb : ((disks[i].tracks * disks[i].hpc * disks[i].spt) >> 11);
         if (size_mb == 0) size_mb = 1920;
         if (size_mb > 1920) size_mb = 1920;
         model->setData(model->index(row, ColumnMiB), (int)size_mb);
         // Roles
         model->setData(model->index(row, ColumnIndex), i, DataHddIndex);
-        model->setData(model->index(row, ColumnFolder), (int)hdd[i].shared_fs_type, DataFsType);
-        model->setData(model->index(row, ColumnFolder), (int)hdd[i].shared_os_level, DataOsLevel);
-        model->setData(model->index(row, ColumnFolder), (int)hdd[i].shared_layout, DataLayout);
+        model->setData(model->index(row, ColumnFolder), (int)disks[i].shared_fs_type, DataFsType);
+        model->setData(model->index(row, ColumnFolder), (int)disks[i].shared_os_level, DataOsLevel);
+        model->setData(model->index(row, ColumnFolder), (int)disks[i].shared_layout, DataLayout);
         // Custom reported device name (override)
-        if (hdd[i].override_model && hdd[i].override_model[0])
-            model->setData(model->index(row, ColumnFolder), QString::fromUtf8(hdd[i].override_model), DataDevName);
+        if (disks[i].override_model && disks[i].override_model[0])
+            model->setData(model->index(row, ColumnFolder), QString::fromUtf8(disks[i].override_model), DataDevName);
         else
             model->setData(model->index(row, ColumnFolder), QString(), DataDevName);
         // Initial hard disk type from existing CHS, else Auto (-1)
         int typeIdx = -1;
-        if (hdd[i].tracks && hdd[i].hpc && hdd[i].spt) {
+        if (disks[i].tracks && disks[i].hpc && disks[i].spt) {
             for (int t = 0; t < 127; ++t) {
-                if (hdd_table[t][0] == hdd[i].tracks && hdd_table[t][1] == hdd[i].hpc && hdd_table[t][2] == hdd[i].spt) { typeIdx = t; break; }
+                if (hdd_table[t][0] == disks[i].tracks && hdd_table[t][1] == disks[i].hpc && hdd_table[t][2] == disks[i].spt) { typeIdx = t; break; }
             }
         }
         model->setData(model->index(row, ColumnFolder), typeIdx, DataHdType);
@@ -234,6 +246,11 @@ void SettingsHostFS::on_devname_textChanged(const QString &text)
     updateDevNameCounter();
 }
 
+int SettingsHostFS::changed() const
+{
+    return modified ? (SETTINGS_CHANGED | SETTINGS_REQUIRE_HARD_RESET) : 0;
+}
+
 void SettingsHostFS::save()
 {
     auto *model = ui->tableView->model();
@@ -242,40 +259,54 @@ void SettingsHostFS::save()
         int i = model->index(r, ColumnIndex).data(DataHddIndex).toInt();
         if (i < 0 || i >= HDD_NUM) continue;
         uint32_t cap = (uint32_t)model->index(r, ColumnMiB).data().toUInt();
-        hdd[i].shared_fake_size_mb = cap;
+        disks[i].shared_fake_size_mb = cap;
         int fs = model->index(r, ColumnFolder).data(DataFsType).toInt();
         if (cap >= 2048 && (fs == 0 || fs == 16)) fs = 32; // prefer FAT32 automatically
-        hdd[i].shared_fs_type      = (uint8_t)fs;
-        hdd[i].shared_os_level     = (uint8_t)model->index(r, ColumnFolder).data(DataOsLevel).toInt();
-        hdd[i].shared_layout       = (uint8_t)model->index(r, ColumnFolder).data(DataLayout).toInt();
+        disks[i].shared_fs_type      = (uint8_t)fs;
+        disks[i].shared_os_level     = (uint8_t)model->index(r, ColumnFolder).data(DataOsLevel).toInt();
+        disks[i].shared_layout       = (uint8_t)model->index(r, ColumnFolder).data(DataLayout).toInt();
         // Apply override device name if provided
         {
             QString dn = model->index(r, ColumnFolder).data(DataDevName).toString();
             if (!dn.isEmpty()) {
                 QByteArray ba = dn.toUtf8();
                 // Free previous override if any (allocated via strdup/qstrdup)
-                if (hdd[i].override_model) free((void*)hdd[i].override_model);
-                hdd[i].override_model = qstrdup(ba.constData());
+                if (disks[i].override_model) free((void*)disks[i].override_model);
+                disks[i].override_model = qstrdup(ba.constData());
             } else {
-                if (hdd[i].override_model) { free((void*)hdd[i].override_model); hdd[i].override_model = NULL; }
+                if (disks[i].override_model) { free((void*)disks[i].override_model); disks[i].override_model = NULL; }
             }
         }
         // Apply CHS geometry depending on layout and selected type
         int typeIdx = model->index(r, ColumnFolder).data(DataHdType).toInt();
-        if (hdd[i].shared_layout == 1) {
+        if (disks[i].shared_layout == 1) {
             if (typeIdx >= 0 && typeIdx <= 126) {
-                hdd[i].tracks = hdd_table[typeIdx][0];
-                hdd[i].hpc    = hdd_table[typeIdx][1];
-                hdd[i].spt    = hdd_table[typeIdx][2];
+                disks[i].tracks = hdd_table[typeIdx][0];
+                disks[i].hpc    = hdd_table[typeIdx][1];
+                disks[i].spt    = hdd_table[typeIdx][2];
             } else {
                 uint32_t c=0,h=0,s=0; hdd_image_calc_chs(&c,&h,&s, cap);
-                hdd[i].tracks = c; hdd[i].hpc = h; hdd[i].spt = s;
+                disks[i].tracks = c; disks[i].hpc = h; disks[i].spt = s;
             }
         } else {
             uint32_t c=0,h=0,s=0; hdd_image_calc_chs(&c,&h,&s, cap);
-            hdd[i].tracks = c; hdd[i].hpc = h; hdd[i].spt = s;
+            disks[i].tracks = c; disks[i].hpc = h; disks[i].spt = s;
         }
     }
+    // The hard-disk page has saved ordinary images; append only the shared disks.
+    for (int r = 0; r < rows; ++r) {
+        int source = model->index(r, ColumnIndex).data(DataHddIndex).toInt();
+        if (source < 0 || source >= HDD_NUM)
+            continue;
+        for (int slot = 0; slot < HDD_NUM; ++slot) {
+            if (hdd[slot].bus_type == HDD_BUS_DISABLED) {
+                hdd[slot] = disks[source];
+                hdd[slot].override_model = disks[source].override_model ? qstrdup(disks[source].override_model) : nullptr;
+                break;
+            }
+        }
+    }
+
 }
 
 void SettingsHostFS::on_buttonBrowse_clicked()
@@ -288,7 +319,7 @@ void SettingsHostFS::on_buttonBrowse_clicked()
     // Write into HDD and model
     int hidx = ui->tableView->model()->index(idx.row(), ColumnIndex).data(DataHddIndex).toInt();
     if (hidx >= 0 && hidx < HDD_NUM) {
-        strncpy(hdd[hidx].fn, dir.toUtf8().constData(), sizeof(hdd[hidx].fn) - 1);
+        strncpy(disks[hidx].fn, dir.toUtf8().constData(), sizeof(disks[hidx].fn) - 1);
     }
     ui->tableView->model()->setData(idx.siblingAtColumn(ColumnFolder), dir);
 }
@@ -296,7 +327,7 @@ void SettingsHostFS::on_buttonBrowse_clicked()
 int SettingsHostFS::findFreeHddSlot() const
 {
     for (int i = 0; i < HDD_NUM; ++i) {
-        if (hdd[i].bus_type == HDD_BUS_DISABLED || hdd[i].fn[0] == '\0') {
+        if (disks[i].bus_type == HDD_BUS_DISABLED || disks[i].fn[0] == '\0') {
             return i;
         }
     }
@@ -319,13 +350,17 @@ void SettingsHostFS::on_buttonAdd_clicked()
     uint8_t bus_ui = BUS_IDE;        // bus enum for UI tracking helper
     uint8_t bus_hw = HDD_BUS_IDE;    // actual hardware bus enum
     uint8_t channel = Harddrives::busTrackClass ? Harddrives::busTrackClass->next_free_ide_channel() : 0;
-    if (channel == CHANNEL_NONE) channel = 0;
+    if (channel == CHANNEL_NONE) {
+        QMessageBox::warning(this, tr("No free IDE channels"), tr("All IDE channels are in use."));
+        return;
+    }
 
-    memset(&hdd[slot], 0, sizeof(hard_disk_t));
-    hdd[slot].bus_type = bus_hw;
-    hdd[slot].channel  = channel;
-    strncpy(hdd[slot].fn, dir.toUtf8().constData(), sizeof(hdd[slot].fn) - 1);
-    hdd[slot].shared_fake_size_mb = 1920; // default
+    free((void *) disks[slot].override_model);
+    memset(&disks[slot], 0, sizeof(hard_disk_t));
+    disks[slot].bus_type = bus_hw;
+    disks[slot].channel  = channel;
+    strncpy(disks[slot].fn, dir.toUtf8().constData(), sizeof(disks[slot].fn) - 1);
+    disks[slot].shared_fake_size_mb = 1920; // default
 
     if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_SET, DEV_HDD, bus_ui, channel);
 
@@ -335,11 +370,11 @@ void SettingsHostFS::on_buttonAdd_clicked()
     model->insertRow(row);
     model->setData(model->index(row, ColumnIndex), tr("HDD %1").arg(slot + 1));
     model->setData(model->index(row, ColumnFolder), dir);
-    model->setData(model->index(row, ColumnMiB), (int)hdd[slot].shared_fake_size_mb);
+    model->setData(model->index(row, ColumnMiB), (int)disks[slot].shared_fake_size_mb);
     model->setData(model->index(row, ColumnIndex), slot, DataHddIndex);
-    model->setData(model->index(row, ColumnFolder), (int)hdd[slot].shared_fs_type, DataFsType);
-    model->setData(model->index(row, ColumnFolder), (int)hdd[slot].shared_os_level, DataOsLevel);
-    model->setData(model->index(row, ColumnFolder), (int)hdd[slot].shared_layout, DataLayout);
+    model->setData(model->index(row, ColumnFolder), (int)disks[slot].shared_fs_type, DataFsType);
+    model->setData(model->index(row, ColumnFolder), (int)disks[slot].shared_os_level, DataOsLevel);
+    model->setData(model->index(row, ColumnFolder), (int)disks[slot].shared_layout, DataLayout);
     model->setData(model->index(row, ColumnFolder), -1, DataHdType);
 
     ui->tableView->selectRow(row);
@@ -353,10 +388,13 @@ void SettingsHostFS::on_buttonRemove_clicked()
     int row = idx.row();
     int hidx = ui->tableView->model()->index(row, ColumnIndex).data(DataHddIndex).toInt();
     if (hidx >= 0 && hidx < HDD_NUM) {
-        if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_CLEAR, DEV_HDD, hdd[hidx].bus_type, hdd[hidx].channel);
-        memset(&hdd[hidx], 0, sizeof(hard_disk_t));
-        hdd[hidx].bus_type = HDD_BUS_DISABLED;
+        if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_CLEAR, DEV_HDD, (disks[hidx].bus_type == HDD_BUS_IDE ? BUS_IDE : BUS_SCSI), disks[hidx].channel);
+        free((void *) disks[hidx].override_model);
+        memset(&disks[hidx], 0, sizeof(hard_disk_t));
+        disks[hidx].bus_type = HDD_BUS_DISABLED;
     }
+    modified = true;
+    emit driveChannelChanged();
     qobject_cast<QStandardItemModel *>(ui->tableView->model())->removeRow(row);
     if (ui->tableView->model()->rowCount() > 0) ui->tableView->selectRow(0);
 }
@@ -367,12 +405,12 @@ void SettingsHostFS::refreshBusAndChannelCombos(int hddIndex)
     // Set bus combo
     auto *busModel = ui->comboBoxBus->model();
     // Find row where UserRole equals current bus
-    auto matches = busModel->match(busModel->index(0,0), Qt::UserRole, (int)hdd[hddIndex].bus_type);
+    auto matches = busModel->match(busModel->index(0,0), Qt::UserRole, (int)disks[hddIndex].bus_type);
     if (!matches.isEmpty()) ui->comboBoxBus->setCurrentIndex(matches.first().row());
     // Populate channels for this bus and select
-    Harddrives::populateBusChannels(ui->comboBoxChannel->model(), hdd[hddIndex].bus_type, Harddrives::busTrackClass);
+    Harddrives::populateBusChannels(ui->comboBoxChannel->model(), disks[hddIndex].bus_type, Harddrives::busTrackClass);
     auto *chanModel = ui->comboBoxChannel->model();
-    auto cm = chanModel->match(chanModel->index(0,0), Qt::UserRole, (int)hdd[hddIndex].channel);
+    auto cm = chanModel->match(chanModel->index(0,0), Qt::UserRole, (int)disks[hddIndex].channel);
     if (!cm.isEmpty()) ui->comboBoxChannel->setCurrentIndex(cm.first().row());
 }
 
@@ -388,10 +426,10 @@ void SettingsHostFS::on_comboBoxBus_currentIndexChanged(int)
     if (hidx < 0 || hidx >= HDD_NUM) return;
 
     // Untrack old
-    if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_CLEAR, DEV_HDD, hdd[hidx].bus_type, hdd[hidx].channel);
+    if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_CLEAR, DEV_HDD, (disks[hidx].bus_type == HDD_BUS_IDE ? BUS_IDE : BUS_SCSI), disks[hidx].channel);
 
     int newBusHw = ui->comboBoxBus->currentData().toInt(); // HDD_BUS_*
-    hdd[hidx].bus_type = newBusHw;
+    disks[hidx].bus_type = newBusHw;
     // Repopulate channels for bus and pick next free as default
     Harddrives::populateBusChannels(ui->comboBoxChannel->model(), newBusHw, Harddrives::busTrackClass);
     int defaultChan = 0;
@@ -420,8 +458,8 @@ void SettingsHostFS::on_comboBoxBus_currentIndexChanged(int)
     ui->comboBoxChannel->setCurrentIndex(cm.isEmpty() ? 0 : cm.first().row());
 
     // Track new
-    hdd[hidx].channel = ui->comboBoxChannel->currentData().toUInt();
-    if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_SET, DEV_HDD, hdd[hidx].bus_type, hdd[hidx].channel);
+    disks[hidx].channel = ui->comboBoxChannel->currentData().toUInt();
+    if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_SET, DEV_HDD, (disks[hidx].bus_type == HDD_BUS_IDE ? BUS_IDE : BUS_SCSI), disks[hidx].channel);
     updateDevNameCounter();
 }
 
@@ -432,9 +470,9 @@ void SettingsHostFS::on_comboBoxChannel_currentIndexChanged(int)
     int hidx = ui->tableView->model()->index(idx.row(), ColumnIndex).data(DataHddIndex).toInt();
     if (hidx < 0 || hidx >= HDD_NUM) return;
     // Update tracking: clear old, set new
-    if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_CLEAR, DEV_HDD, hdd[hidx].bus_type, hdd[hidx].channel);
-    hdd[hidx].channel = ui->comboBoxChannel->currentData().toUInt();
-    if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_SET, DEV_HDD, hdd[hidx].bus_type, hdd[hidx].channel);
+    if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_CLEAR, DEV_HDD, (disks[hidx].bus_type == HDD_BUS_IDE ? BUS_IDE : BUS_SCSI), disks[hidx].channel);
+    disks[hidx].channel = ui->comboBoxChannel->currentData().toUInt();
+    if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_SET, DEV_HDD, (disks[hidx].bus_type == HDD_BUS_IDE ? BUS_IDE : BUS_SCSI), disks[hidx].channel);
 }
 
 void SettingsHostFS::on_hddtype_currentIndexChanged(int)

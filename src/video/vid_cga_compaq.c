@@ -60,6 +60,8 @@ compaq_cga_log(const char *fmt, ...)
 #    define compaq_cga_log(fmt, ...)
 #endif
 
+static video_timings_t timing_compaq_cga = { .type = VIDEO_ISA, .write_b = 8, .write_w = 16, .write_l = 32, .read_b = 8, .read_w = 16, .read_l = 32 };
+
 static void
 compaq_cga_recalctimings(cga_t *dev)
 {
@@ -97,10 +99,16 @@ compaq_cga_poll(void *priv)
 
     int32_t  highres_graphics_flag = (CGA_MODE_FLAG_HIGHRES_GRAPHICS | CGA_MODE_FLAG_GRAPHICS);
 
+    /* Bind the monitor macros to this card's own display. */
+    const int prev_monitor_index = monitor_index_global;
+
+    monitor_index_global = dev->monitor_used;
+
     /* If in graphics mode or character height is not 13, behave as CGA */
     if ((dev->cgamode & highres_graphics_flag) || (dev->crtc[CGA_CRTC_MAX_SCANLINE_ADDR] != 13)) {
         overscan_x = overscan_y = 16;
         cga_poll(dev);
+        monitor_index_global = prev_monitor_index;
         return;
     } else
         overscan_x = overscan_y = 0;
@@ -255,6 +263,8 @@ compaq_cga_poll(void *priv)
         } else
             video_process_8(x, dev->displine);
 
+        video_lightpen_check_trigger_strobe(8, dev->displine * (dev->double_type ? 2 : 1), 0, dev->firstline + 8, 8. * (1. / (CGACONST / (cpuclock * (double) (1ULL << 32)))), dev->monitor_used);
+
         dev->scanline = scanline_old;
         if (dev->vc == dev->crtc[CGA_CRTC_VSYNC] && !dev->scanline)
             dev->cgastat |= 8;
@@ -263,6 +273,7 @@ compaq_cga_poll(void *priv)
             dev->displine = 0;
     } else {
         timer_advance_u64(&dev->timer, dev->dispontime);
+        video_lightpen_hsync();
         dev->linepos = 0;
         if (dev->vsynctime) {
             dev->vsynctime--;
@@ -315,6 +326,7 @@ compaq_cga_poll(void *priv)
                 dev->cgadispon = 0;
                 dev->displine  = 0;
                 dev->vsynctime = 16;
+                video_lightpen_vsync();
 
                 if (dev->crtc[7]) {
                     compaq_cga_log("Lastline %i Firstline %i  %i\n", dev->lastline,
@@ -396,6 +408,8 @@ compaq_cga_poll(void *priv)
                 dev->charbuffer[x] = dev->vram[((dev->memaddr << 1) + x) & 0x3fff];
         }
     }
+
+    monitor_index_global = prev_monitor_index;
 }
 
 static void *
@@ -410,6 +424,8 @@ compaq_cga_init(const device_t *info)
     dev->snow_enabled   = device_get_config_int("snow_enabled");
 
     dev->vram           = calloc(1, 0x4000);
+
+    video_inform(VIDEO_FLAG_TYPE_CGA, &timing_compaq_cga);
 
     cga_comp_init(dev->revision);
     timer_add(&dev->timer, compaq_cga_poll, dev, 1);
@@ -456,6 +472,7 @@ compaq_cga_init(const device_t *info)
     dev->crtc[9] = 13;
 
     monitors[monitor_index_global].mon_composite = !!dev->composite;
+    dev->monitor_used                            = monitor_index_global;
 
     return dev;
 }

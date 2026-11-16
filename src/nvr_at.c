@@ -307,6 +307,14 @@ typedef struct local_t {
     uint8_t  bank[8];
     uint8_t *lock;
 
+    /* National PC873xx RTC: registers 40h-7Fh of banks 1 and 2, unless the
+       Super I/O owns them (nvr_at_set_pc873xx_banks()). */
+    uint8_t  rtc_bank_regs[2][64];
+    uint8_t  (*bank_read)(int bank, uint8_t reg, void *priv);
+    void     (*bank_write)(int bank, uint8_t reg, uint8_t val, void *priv);
+    int      (*bank_alarm)(void *priv);
+    void      *bank_priv;
+
     int16_t count;
     int16_t state;
 
@@ -378,7 +386,7 @@ time_set(nvr_t *nvr, struct tm *tm)
         nvr->regs[RTC_DOM]     = tm->tm_mday;
         nvr->regs[RTC_MONTH]   = (tm->tm_mon + 1);
         nvr->regs[RTC_YEAR]    = (year % 100);
-        if (local->cent != 0xFF)
+        if (local->cent != 0xff)
             nvr->regs[local->cent] = (year / 100);
 
         if (nvr->regs[RTC_REGB] & REGB_2412) {
@@ -469,12 +477,25 @@ timer_update(void *priv)
         /* Get the current time from the internal clock. */
         nvr_time_get(&tm);
 
-        /* Update registers with current time. */
-        time_set(nvr, &tm);
+        /*
+           Update registers with the current time.  The PS/2 century byte is
+           ordinary battery-backed RAM maintained by firmware, rather than a
+           live RTC field.  Rewriting it every second also corrupts the Model
+           70/80 reference-disk NVRAM test while it exercises CMOS 0Eh-3Fh.
 
-        /* Check for any alarms we need to handle. */
+           This is actually true for all the AT+ machines - the century byte
+           is ordinary batter-backed RAM.
+         */
+        const uint8_t old_cent = (local->cent == 0xff) ? 0x00 : nvr->regs[local->cent];
+        time_set(nvr, &tm);
+        if (local->cent != 0xff)
+            nvr->regs[local->cent] = old_cent;
+
+        /* Check for any alarms we need to handle. The PC873xx's date and
+           month alarms are relocatable, so its Super I/O checks them. */
         if (check_alarm(nvr, RTC_SECONDS) && check_alarm(nvr, RTC_MINUTES) && check_alarm(nvr, RTC_HOURS) &&
-            check_alarm_via(nvr, RTC_DOM, RTC_ALDAY) && check_alarm_via(nvr, RTC_MONTH, RTC_ALMONTH) /* &&
+            ((local->bank_alarm != NULL) ? local->bank_alarm(local->bank_priv) :
+             (check_alarm_via(nvr, RTC_DOM, RTC_ALDAY) && check_alarm_via(nvr, RTC_MONTH, RTC_ALMONTH))) /* &&
             check_alarm_via(nvr, RTC_DOM, RTC_ALDAY_SIS) && check_alarm_via(nvr, RTC_MONTH, RTC_ALMONTH_SIS) */) {
             nvr->regs[RTC_REGC] |= REGC_AF;
             timer_update_irq(nvr);
@@ -498,6 +519,33 @@ timer_update(void *priv)
     }
 }
 
+/* The National PC873xx RTC (PC87307, PC97317) also selects its register
+   bank with DV2-DV0: DV0 selects bank 1, and DV2:DV1 = 10 bank 2 (the APC
+   registers); the oscillator runs in all of them. */
+static int
+nvr_rtc_bank(const nvr_t *nvr, const local_t *local)
+{
+    if (!(local->flags & FLAG_PC873XX_BANKS))
+        return 0;
+
+    if ((nvr->regs[RTC_REGA] & (REGA_DV2 | REGA_DV1)) == REGA_DV2)
+        return 2;
+
+    return !!(nvr->regs[RTC_REGA] & REGA_DV0);
+}
+
+static int
+nvr_osc_running(const nvr_t *nvr)
+{
+    const local_t *local = (local_t *) nvr->data;
+    uint8_t        dv    = nvr->regs[RTC_REGA] & REGA_DV;
+
+    if (local->flags & FLAG_PC873XX_BANKS)
+        return ((dv & (REGA_DV2 | REGA_DV1)) == REGA_DV1) || ((dv & (REGA_DV2 | REGA_DV1)) == REGA_DV2);
+
+    return dv == 0x20;
+}
+
 static void
 timer_load_count(nvr_t *nvr)
 {
@@ -506,7 +554,7 @@ timer_load_count(nvr_t *nvr)
 
     timer_disable(&local->rtc_timer);
 
-    if ((nvr->regs[RTC_REGA] & 0x70) != 0x20) {
+    if (!nvr_osc_running(nvr)) {
         local->state = 0;
         return;
     }
@@ -551,7 +599,7 @@ timer_tick(nvr_t *nvr)
 
     /* Only update it there is no SET in progress.
        Also avoid updating it is DV2-DV0 are not set to 0, 1, 0. */
-    if (((nvr->regs[RTC_REGA] & 0x70) == 0x20) && !(nvr->regs[RTC_REGB] & REGB_SET)) {
+    if (nvr_osc_running(nvr) && !(nvr->regs[RTC_REGB] & REGB_SET)) {
         /* Set the UIP bit, announcing the update. */
         local->stat = REGA_UIP;
 
@@ -559,6 +607,15 @@ timer_tick(nvr_t *nvr)
         local->ecount = 244ULL * TIMER_USEC;
         timer_set_delay_u64(&local->update_timer, local->ecount);
     }
+}
+
+/* The RAM Lock of 38h-3Fh in the lower (wp[0]) or upper (wp[1]) 128 bytes:
+   writes are ignored and reads return FFh. */
+static int
+nvr_wp_locked(const local_t *local, uint16_t reg)
+{
+    return ((reg >= 0x38) && (reg <= 0x3f) && local->wp[0]) ||
+           ((reg >= 0xb8) && (reg <= 0xbf) && local->wp[1]);
 }
 
 static void
@@ -576,15 +633,27 @@ nvr_reg_common_write(uint16_t reg, uint8_t val, nvr_t *nvr, local_t *local)
         nvr->is_new = 0;
     if ((reg == 0x55) && (local->flags & FLAG_AMI_1999J_HACK))
         nvr->is_new = 0;
-    if ((reg >= 0x38) && (reg <= 0x3f) && local->wp[0])
-        return;
-    if ((reg >= 0xb8) && (reg <= 0xbf) && local->wp[1])
+    if (nvr_wp_locked(local, reg))
         return;
     if (nvr->regs[reg] != val) {
         nvr->regs[reg] = val;
         if ((reg >= 0x0d) && ((local->cent == 0xff) || (reg != local->cent)))
             nvr_dosave     = 1;
     }
+}
+
+/* Banks 1 and 2 of the PC873xx RTC share 00h-3Fh with bank 0; 40h-7Fh are
+   the bank's own registers (the alarm/century registers in bank 1, the APC
+   in bank 2), not bank 0's RAM. */
+static uint8_t *
+nvr_rtc_bank_reg(nvr_t *nvr, local_t *local, uint16_t reg)
+{
+    int bank = nvr_rtc_bank(nvr, local);
+
+    if (!bank || (reg < 0x40) || (reg > 0x7f))
+        return NULL;
+
+    return &local->rtc_bank_regs[bank - 1][reg & 0x3f];
 }
 
 /* This must be exposed because ACPI uses it. */
@@ -626,7 +695,7 @@ nvr_reg_write(uint16_t reg, uint8_t val, void *priv)
         case RTC_REGD: /* R/O */
             /* This is needed for VIA, where writing to this register changes a write-only
                bit whose value is read from power management register 42. */
-            nvr->regs[RTC_REGD] = val & 0x80;
+            nvr->regs[RTC_REGD] = (nvr->regs[RTC_REGD] & 0xbf) | ((val & 0x80) >> 1);
             break;
 
         case 0x32:
@@ -649,8 +718,9 @@ nvr_reg_write(uint16_t reg, uint8_t val, void *priv)
 
     if ((reg < RTC_REGA) || ((local->cent != 0xff) && (reg == local->cent))) {
         if ((reg != 1) && (reg != 3) && (reg != 5)) {
-            if ((old != val) && !(time_sync & TIME_SYNC_ENABLED)) {
-                /* Update internal clock. */
+            if (old != val) {
+                /* Host synchronization seeds the RTC; guest writes must still
+                   update the running clock just as they do on real hardware. */
                 time_get(nvr, &tm);
                 nvr_time_set(&tm);
                 // nvr_dosave = 1;
@@ -677,7 +747,14 @@ nvr_write(uint16_t addr, uint8_t val, void *priv)
         if (local->bank[addr_id] == 0xff)
             return;
 #endif
-        nvr_reg_write(local->addr[addr_id], val, priv);
+        uint8_t *bank_reg = nvr_rtc_bank_reg(nvr, local, local->addr[addr_id]);
+
+        if ((bank_reg != NULL) && (local->bank_write != NULL))
+            local->bank_write(nvr_rtc_bank(nvr, local), local->addr[addr_id], val, local->bank_priv);
+        else if (bank_reg != NULL)
+            *bank_reg = val;
+        else
+            nvr_reg_write(local->addr[addr_id], val, priv);
     } else {
         local->addr[addr_id] = (val & (nvr->size - 1));
         /* Some chipsets use a 256 byte NVRAM but ports 70h and 71h always access only 128 bytes. */
@@ -723,6 +800,14 @@ nvr_read(uint16_t addr, void *priv)
 
     if (local->bank[addr_id] == 0xff)
         ret = 0xff;
+    else if ((addr & 1) && (nvr_rtc_bank_reg(nvr, (local_t *) local, local->addr[addr_id]) != NULL)) {
+        if (local->bank_read != NULL)
+            ret = local->bank_read(nvr_rtc_bank(nvr, local), local->addr[addr_id], local->bank_priv);
+        else
+            ret = *nvr_rtc_bank_reg(nvr, (local_t *) local, local->addr[addr_id]);
+    }
+    else if ((addr & 1) && nvr_wp_locked(local, local->addr[addr_id]))
+        ret = 0xff;
     else if (addr & 1)
         switch (local->addr[addr_id]) {
             case RTC_REGA:
@@ -736,9 +821,15 @@ nvr_read(uint16_t addr, void *priv)
                 break;
 
             case RTC_REGD:
-                /* Bits 6-0 of this register always read 0. Bit 7 is battery state,
-                   we should always return it set, as that means the battery is OK. */
-                ret = REGD_VRT;
+                /* Bits 6-0 of this register always read 0. Bit 7 is the battery state
+                   (VRT): it can only be set by reading Register D and only cleared by
+                   pulling the PS pin low, so a battery/power-loss event is reported
+                   for exactly once. */
+                ret = nvr->regs[RTC_REGD] & REGD_VRT;
+                if ((nvr->regs[RTC_REGD] & REGD_VRT) != REGD_VRT) {
+                    nvr->regs[RTC_REGD] = (nvr->regs[RTC_REGD] & 0x7f) | REGD_VRT;
+                    nvr_dosave          = 1;
+                }
                 break;
 
             case 0x11:
@@ -939,13 +1030,24 @@ nvr_reset(nvr_t *nvr)
     memset(nvr->regs, local->def, RTC_REGS);
 #endif
     memset(nvr->regs, local->def, nvr->size);
-    nvr->regs[RTC_DOM]   = 1;
-    nvr->regs[RTC_MONTH] = 1;
-    nvr->regs[RTC_YEAR]  = RTC_BCD(80);
+    nvr->regs[RTC_SECONDS] = 0;
+    nvr->regs[RTC_MINUTES] = 0;
+    nvr->regs[RTC_HOURS]   = 0;
+    nvr->regs[RTC_DOW]     = 3; /* Tuesday */
+    nvr->regs[RTC_DOM]     = 1;
+    nvr->regs[RTC_MONTH]   = 1;
+    nvr->regs[RTC_YEAR]    = RTC_BCD(80);
     if (local->cent != 0xFF)
         nvr->regs[local->cent] = RTC_BCD(19);
+    /* The time above is BCD, so say so: nvr_start() reads and writes the
+       time, century included, in the mode register B selects, and a fill of
+       FFh would select binary. */
+    nvr->regs[RTC_REGB] = REGB_2412;
 
-    nvr->regs[RTC_REGD] = REGD_VRT;
+    /* A power loss pulls the PS pin low, which clears VRT on real hardware; the first
+       read of Register D latches it back to 1, so a machine with no saved NVR reports
+       a battery/configuration error exactly once. */
+    nvr->regs[RTC_REGD] = 0x00;
 }
 
 /* Process after loading from file. */
@@ -965,12 +1067,29 @@ nvr_start(nvr_t *nvr)
     if (default_found == nvr->size)
         nvr->regs[0x0e] = 0xff; /* If load failed or it loaded an uninitialized NVR,
                                    mark everything as bad. */
+    else if (!nvr->is_new && !(nvr->regs[0x0d] & REGD_VRT))
+        nvr->regs[0x0d] = REGD_VRT; /* If it is not new and the VRT bit is clear,
+                                       then set the VRT bit to valid. */
 
     /* Initialize the internal and chip times. */
     if (time_sync & TIME_SYNC_ENABLED) {
-        /* Use the internal clock's time. */
+        /* Use the internal clock's time. As in timer_update(), leave the
+           century byte alone unless the NVR is new or uninitialized: it is
+           ordinary RAM maintained by the firmware, and some firmware checksums
+           it. A new NVR's century comes from nvr_reset(), not the firmware. */
+        const int     seed_cent = (local->cent == 0xff) || nvr->is_new || (default_found == nvr->size)
+                                  || (time_offset_years != 0) || (time_fixed_year != 0); /* force century update */
+        const uint8_t old_cent  = seed_cent ? 0x00 : nvr->regs[local->cent];
+
+        if (time_keep_date) {
+            /* Keep the chip's own date. */
+            time_get(nvr, &tm);
+            nvr_time_set_date(&tm);
+        }
         nvr_time_get(&tm);
         time_set(nvr, &tm);
+        if (!seed_cent)
+            nvr->regs[local->cent] = old_cent;
     } else {
         /* Set the internal clock from the chip time. */
         time_get(nvr, &tm);
@@ -999,27 +1118,30 @@ nvr_at_speed_changed(void *priv)
 }
 
 void
+nvr_at_handler_ex(int set, uint16_t base, int flags, nvr_t *nvr)
+{
+    if (flags & NVR_AT_INDEX_WO) {
+        io_handler(set, base, 1,
+                   NULL, NULL, NULL, nvr_write, NULL, NULL, nvr);
+        io_handler(set, base + 1, 1,
+                   nvr_read, NULL, NULL, nvr_write, NULL, NULL, nvr);
+    } else
+        io_handler(set, base, 2,
+                   nvr_read, NULL, NULL, nvr_write, NULL, NULL, nvr);
+}
+
+void
 nvr_at_handler(int set, uint16_t base, nvr_t *nvr)
 {
-    io_handler(set, base, 2,
-               nvr_read, NULL, NULL, nvr_write, NULL, NULL, nvr);
+    nvr_at_handler_ex(set, base, 0, nvr);
 }
 
 void
 nvr_at_index_read_handler(int set, uint16_t base, nvr_t *nvr)
 {
-    io_handler(0, base, 1,
-               NULL, NULL, NULL, nvr_write, NULL, NULL, nvr);
-    nvr_at_handler(0, base, nvr);
-
-    if (set)
-        nvr_at_handler(1, base, nvr);
-    else {
-        io_handler(1, base, 1,
-                   NULL, NULL, NULL, nvr_write, NULL, NULL, nvr);
-        io_handler(1, base + 1, 1,
-                   nvr_read, NULL, NULL, nvr_write, NULL, NULL, nvr);
-    }
+    nvr_at_handler_ex(0, base, 0, nvr);
+    nvr_at_handler_ex(0, base, NVR_AT_INDEX_WO, nvr);
+    nvr_at_handler_ex(1, base, set ? 0 : NVR_AT_INDEX_WO, nvr);
 }
 
 void
@@ -1088,6 +1210,25 @@ void
 nvr_irq_set(int irq, nvr_t *nvr)
 {
     nvr->irq = irq;
+}
+
+/* The National PC873xx Super I/O implements registers 40h-7Fh of the RTC's
+   banks 1 and 2 (the date/month alarms, the century and the upper RAM ports
+   in bank 1, the APC in bank 2) and the relocatable date and month alarms;
+   alarm() is called when the time alarm matches and says whether those
+   match too. */
+void
+nvr_at_set_pc873xx_banks(nvr_t *nvr,
+                         uint8_t (*read)(int bank, uint8_t reg, void *priv),
+                         void (*write)(int bank, uint8_t reg, uint8_t val, void *priv),
+                         int (*alarm)(void *priv), void *priv)
+{
+    local_t *local = (local_t *) nvr->data;
+
+    local->bank_read  = read;
+    local->bank_write = write;
+    local->bank_alarm = alarm;
+    local->bank_priv  = priv;
 }
 
 void
@@ -1166,6 +1307,11 @@ nvr_at_init(const device_t *info)
 
     if (nvr->is_new && (machines[machine].init == machine_at_bx6_init))
         local->flags |= FLAG_BX6_HACK;
+
+    if (machines[machine].init == machine_at_cobalt3k_init) {
+        local->def  = 0xff; /* BIOS expects FF init to load defaults on first boot... */
+        local->cent = 0xff; /* ...and uses century for storage instead */
+    }
 
     local->read_addr = 1;
 

@@ -19,12 +19,17 @@
 #
 
 add_library(fdd OBJECT
-    fdd.c
-    fdc.c
+    fdc_common_upd765.c
+    fdc_common_ctrl.c
     fdc_compaticard.c
     fdc_magitronic.c
     fdc_monster.c
+    fdc_qd6500.c
     fdc_pii15xb.c
+    fdd.c
+    fdd_folder.c
+    vendor/fatfs/ff.c
+    vendor/fatfs/ffunicode.c
     fdi2raw.c
     fdd_common.c
     fdd_86f.c
@@ -34,6 +39,7 @@ add_library(fdd OBJECT
     fdd_pcjs.c
     fdd_mfm.c
     fdd_td0.c
+    fdd_tape.c
     fdd_audio.c
 )
 

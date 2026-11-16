@@ -1,5 +1,10 @@
+#ifdef USE_SDL2_LIB
 #include <SDL.h>
+#else
+#include <SDL3/SDL.h>
+#endif
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -14,12 +19,16 @@
 #include <86box/timer.h>
 #include <86box/nvr.h>
 #include <86box/config.h>
+#include <86box/hdc_ide.h>
 #include <86box/hdd.h>
 #include <86box/path.h>
 #include <86box/plat.h>
+#include <86box/runctl.h>
 #include <86box/ui.h>
 #include <86box/version.h>
 #include "cpu.h"
+
+#include "sdl_render.h"
 
 /*
  * File system manipulation
@@ -91,34 +100,150 @@ char *
 plat_get_string(int i)
 {
     switch (i) {
-        case STRING_MOUSE_CAPTURE:
-            return "Click to capture mouse";
-        case STRING_MOUSE_RELEASE:
-            return "Press CTRL-END to release mouse";
-        case STRING_MOUSE_RELEASE_MMB:
-            return "Press CTRL-END or middle button to release mouse";
         case STRING_PCAP_ERROR_NO_DEVICES:
-            return "No PCap devices found";
+            return "No PCap devices found. Make sure libpcap is installed and that you are on a libpcap-compatible network connection.";
         case STRING_PCAP_ERROR_INVALID_DEVICE:
-            return "Invalid PCap device";
-        case STRING_GHOSTSCRIPT_ERROR_DESC:
-            return "libgs is required for automatic conversion of PostScript files to PDF.\n\nAny documents sent to the generic PostScript printer will be saved as PostScript (.ps) files.";
-        case STRING_PCAP_ERROR_DESC:
-            return "Make sure libpcap is installed and that you are on a libpcap-compatible network connection.";
-        case STRING_GHOSTSCRIPT_ERROR_TITLE:
-            return "Unable to initialize Ghostscript";
-        case STRING_GHOSTPCL_ERROR_TITLE:
-            return "Unable to initialize GhostPCL";
-        case STRING_GHOSTPCL_ERROR_DESC:
-            return "libgpcl6 is required for automatic conversion of PCL files to PDF.\n\nAny documents sent to the generic PCL printer will be saved as Printer Command Language (.pcl) files.";
+            return "Invalid PCap device. Make sure libpcap is installed and that you are on a libpcap-compatible network connection.";
+        case STRING_GHOSTSCRIPT_ERROR:
+            return "Unable to initialize Ghostscript. libgs is required for automatic conversion of PostScript files to PDF.\n\nAny documents sent to the generic PostScript printer will be saved as PostScript (.ps) files.";
+        case STRING_GHOSTPCL_ERROR:
+            return "Unable to initialize GhostPCL. libgpcl6 is required for automatic conversion of PCL files to PDF.\n\nAny documents sent to the generic PCL printer will be saved as Printer Command Language (.pcl) files.";
         case STRING_HW_NOT_AVAILABLE_MACHINE:
             return "Machine \"%s\" is not available due to missing ROMs in the roms/machines directory. Switching to an available machine.";
         case STRING_HW_NOT_AVAILABLE_VIDEO:
             return "Video card \"%s\" is not available due to missing ROMs in the roms/video directory. Switching to an available video card.";
+        case STRING_HW_NOT_AVAILABLE_DEVICE:
+            return "Device \"%s\" is not available due to missing ROMs. Ignoring the device.";
         case STRING_HW_NOT_AVAILABLE_TITLE:
             return "Hardware not available";
+        case STRING_UNSUPPORTED_TITLE:
+            return "Unsupported Hardware";
+        case STRING_UNSUPPORTED_TEXT:
+            return "Hardware in this machine profile is not supported by this current build of 86Box.";
+        case STRING_UNSUPPORTED_OTHERS:
+            return "(and %i others)";
+        case STRING_UNSUPPORTED_REPLACE:
+            return "Loading the configuration anyway will replace the machine and overwrite the existing configuration.";
+        case STRING_UNSUPPORTED_REMOVE:
+            return "Loading the configuration anyway will remove these components and overwrite the existing configuration.";
+        case STRING_UNSUPPORTED_REPLACE_REMOVE:
+            return "Loading the configuration anyway will replace the machine, remove the other components and overwrite the existing configuration.";
+        case STRING_UNSUPPORTED_CONTINUE:
+            return "Do you want to continue?";
+        case STRING_UNSUPPORTED_MACHINE:
+            return "Machine type \"%s\"";
+        case STRING_UNSUPPORTED_VIDEO:
+            return "Video card \"%s\"";
+        case STRING_UNSUPPORTED_KEYBOARD:
+            return "Keyboard \"%s\"";
+        case STRING_UNSUPPORTED_MOUSE:
+            return "Mouse \"%s\"";
+        case STRING_UNSUPPORTED_TABLET:
+            return "Tablet \"%s\"";
+        case STRING_UNSUPPORTED_JOYSTICK:
+            return "Joystick \"%s\"";
+        case STRING_UNSUPPORTED_SOUND:
+            return "Sound card \"%s\"";
+        case STRING_UNSUPPORTED_MIDI_OUT:
+            return "MIDI output device \"%s\"";
+        case STRING_UNSUPPORTED_MIDI_IN:
+            return "MIDI input device \"%s\"";
+        case STRING_UNSUPPORTED_NETWORK:
+            return "Network card \"%s\"";
+        case STRING_UNSUPPORTED_SERIAL:
+            return "Serial port device \"%s\"";
+        case STRING_UNSUPPORTED_PARALLEL:
+            return "Parallel port device \"%s\"";
+        case STRING_UNSUPPORTED_GAMEPORT:
+            return "Game port \"%s\"";
+        case STRING_UNSUPPORTED_SCSI:
+            return "SCSI card \"%s\"";
+        case STRING_UNSUPPORTED_FDC:
+            return "Floppy controller \"%s\"";
+        case STRING_UNSUPPORTED_HDC:
+            return "Disk controller \"%s\"";
+        case STRING_UNSUPPORTED_CDROM_INTERFACE:
+            return "CD-ROM interface \"%s\"";
+        case STRING_UNSUPPORTED_MEMORY:
+            return "Memory expansion card \"%s\"";
+        case STRING_UNSUPPORTED_ROM:
+            return "ROM expansion card \"%s\"";
+        case STRING_UNSUPPORTED_RTC:
+            return "RTC card \"%s\"";
+        case STRING_NET_ERROR:
+            return "Failed to initialize network driver:\n\n%s\n\nThe network configuration will be switched to the null driver.";
+        case STRING_ESCP_ERROR:
+            return "Unable to find Dot-Matrix fonts. TrueType fonts in the \"roms/printer/fonts\" directory are required for the emulation of the Generic ESC/P 2 Dot-Matrix Printer.";
+        case STRING_EDID_READ_ERROR:
+            return "EDID file \"%s\" is invalid.";
         case STRING_EDID_TOO_LARGE:
             return "EDID file \"%s\" is too large.";
+        case STRING_CDROM_OPEN_ISO_ERROR:
+            return "Unable to open image or folder \"%s\".";
+        case STRING_CDROM_OPEN_CUE_ERROR:
+            return "Unable to open cue sheet \"%s\".";
+        case STRING_CDROM_OPEN_MDS_ERROR:
+            return "Unable to open MDS file \"%s\".";
+        case STRING_CDROM_LOAD_IMAGE_ERROR:
+            return "Unable to load CD-ROM image \"%s\".";
+        case STRING_CDROM_LOAD_MDSX_ERROR:
+            return "Unable to load image \"%s\": mdsx.so is missing, which is required for Daemon Tools MDS v2 and MDX image support.";
+        case STRING_CDROM_LOAD_AARU_ERROR:
+            return "Unable to load image \"%s\": libaaruformat.so is missing, which is required for Aaru format image support.";
+        case STRING_CDROM_DVD_IN_CD_DRIVE:
+            return "The DVD image \"%s\" has been inserted into a drive that does not support DVD media and will be ignored.";
+        case STRING_CDROM_IMAGE_TOO_LARGE:
+            return "The image \"%s\" exceeds the maximum capacity of this drive and will be ignored.";
+        case STRING_CHARDEV_CONNECT_ERROR:
+            return "%s: Could not connect to %s: %s";
+        case STRING_CHARDEV_CREATE_ERROR:
+            return "%s: Could not create %s: %s";
+        case STRING_CHARDEV_ATTACHED:
+            return "%s: Attached to %s";
+        case STRING_CHARDEV_VCON_IN_USE:
+            return "%s: Virtual console already in use by %s";
+        case STRING_CHARDEV_TERMINAL_ERROR:
+            return "%s: Could not create terminal: %s";
+        case STRING_USB_NO_PORT:
+            return "%s was not connected: every USB port of this machine is in use.";
+        case STRING_USB_NO_CONTROLLER:
+            return "%s was not connected: this machine has no USB controller that can take devices.";
+#ifdef USE_VFIO
+        case STRING_VFIO_NO_CONTAINER:
+            return "VFIO: Could not open /dev/vfio/vfio: %s. Make sure the vfio-pci module is loaded.";
+        case STRING_VFIO_INVALID_LOCATION:
+            return "VFIO %s: Invalid device location.";
+        case STRING_VFIO_DEVICE_NOT_FOUND:
+            return "VFIO %s: Device not found.";
+        case STRING_VFIO_NO_IOMMU_GROUP:
+            return "VFIO %s: Device has no IOMMU group. Make sure VT-d or IOMMU is enabled on your system.";
+        case STRING_VFIO_NOT_BOUND:
+            return "VFIO %s: Device is not bound to vfio-pci.";
+        case STRING_VFIO_GROUP_OPEN_ERROR:
+            return "VFIO %s: Could not open IOMMU group %d: %s";
+        case STRING_VFIO_GROUP_NOT_VIABLE:
+            return "VFIO %s: IOMMU group %d is not viable. All devices in the group must be bound to vfio-pci.";
+        case STRING_VFIO_DMA_ERROR:
+            return "VFIO: Could not map guest memory for DMA: %s. The locked memory limit (ulimit -l) may be too low.";
+        case STRING_VFIO_ROM_FILE_FALLBACK:
+            return "VFIO %s: Could not read ROM file \"%s\"; using the device's own ROM.";
+        case STRING_VFIO_ROM_FILE_DISABLED:
+            return "VFIO %s: Could not read ROM file \"%s\"; the ROM is disabled.";
+        case STRING_VFIO_ROM_INVALID:
+            return "VFIO %s: The ROM looks invalid. A custom ROM can be loaded through the VFIO settings.";
+        case STRING_VFIO_SETUP_QUESTION:
+            return "VFIO: These devices must be bound to vfio-pci, which requires administrator rights:\n\n%s\nBind them now?";
+        case STRING_VFIO_SETUP_ACCESS:
+            return "VFIO: Administrator rights are required to give 86Box access to the passed-through devices. Continue?";
+        case STRING_VFIO_SETUP_GROUP:
+            return "These devices were not selected, but share an IOMMU group with a selected device, so they will be bound as well:";
+        case STRING_VFIO_SETUP_REFUSED:
+            return "VFIO %s: IOMMU group %d also contains %s, which the host needs. The group will not be bound to vfio-pci.";
+        case STRING_VFIO_SETUP_FAILED:
+            return "VFIO: Could not prepare the devices for passthrough:\n%s";
+        case STRING_VFIO_SETUP_MANUAL:
+            return "VFIO: Administrator rights could not be requested. To prepare the devices for passthrough, run this command, then hard reset:\n\n%s";
+#endif
     }
     return "";
 }
@@ -244,7 +369,7 @@ path_get_dirname(char *dest, const char *path)
 void
 plat_get_exe_name(char *s, int size)
 {
-    char *basepath = SDL_GetBasePath();
+    const char *basepath = SDL_GetBasePath();
 
     snprintf(s, size, "%s%s", basepath, basepath[strlen(basepath) - 1] == '/' ? EMU_NAME : "/" EMU_NAME);
 }
@@ -300,6 +425,23 @@ plat_get_ticks(void)
     return (uint32_t) (plat_get_ticks_common() / 1000);
 }
 
+uint64_t
+plat_get_ns(void)
+{
+    static uint64_t start;
+    static uint64_t freq;
+
+    if (!freq) {
+        start = SDL_GetPerformanceCounter();
+        freq  = SDL_GetPerformanceFrequency();
+    }
+
+    const uint64_t t = SDL_GetPerformanceCounter() - start;
+
+    /* Split, so t * 1e9 can't overflow. */
+    return ((t / freq) * 1000000000ULL) + (((t % freq) * 1000000000ULL) / freq);
+}
+
 void
 plat_delay_ms(uint32_t count)
 {
@@ -314,6 +456,7 @@ void
 plat_power_off(void)
 {
     confirm_exit_cmdl = 0;
+    ide_wait_for_async_reads();
     hdd_image_sync_all();
     nvr_save();
     config_save();
@@ -322,23 +465,30 @@ plat_power_off(void)
        run before the main thread is terminated */
     cycles -= 99999999;
 
-    cpu_thread_run = 0;
+    runctl_request_stop();
 }
 
+/* Run state changes (runctl.h): mark the title while paused. */
 void
-plat_pause(int p)
+ui_notify(int what)
 {
     static char oldtitle[512];
+    static int  was_paused = 0;
     char        title[512];
 
-    if ((!!p) == dopause)
+    if (what == UI_NOTIFY_SPEED) {
+        ui_emu_status(runctl_speed());
+        return;
+    }
+    if (what != UI_NOTIFY_RUN_STATE)
         return;
 
-    if ((p == 0) && (time_sync & TIME_SYNC_ENABLED))
-        nvr_time_sync();
+    const int paused = (runctl_state() == RUN_PAUSED);
+    if (paused == was_paused)
+        return;
+    was_paused = paused;
 
-    do_pause(p);
-    if (p) {
+    if (paused) {
         strncpy(oldtitle, ui_window_title(NULL), sizeof(oldtitle) - 1);
         strcpy(title, oldtitle);
         strcat(title, " - PAUSED");

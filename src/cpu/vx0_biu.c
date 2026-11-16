@@ -38,7 +38,7 @@
 #include <86box/plat_unused.h>
 #include "vx0_biu.h"
 
-#define do_cycle()           wait_vx0(1)
+#define do_cycle()           wait_vx0(1, 0)
 #define do_cycle_i()         do_cycle()
 
 uint8_t            biu_preload_byte      = 0x00;
@@ -55,28 +55,23 @@ static uint16_t    pfq_in                = 0x0000;
 /* Variables to aid with the prefetch queue operation. */
 static int         pfq_size              = 0;
 
-static int         cycles_ex             = 0;
-
 /* The prefetch queue (4 bytes for 8088, 6 bytes for 8086). */
 static uint8_t     pfq[6];
 
 static int         biu_cycles            = 0;
 static int         biu_wait              = 0;
 static int         biu_wait_length       = 0;
-static int         refresh               = 0;
 static uint16_t    mem_data              = 0;
 static uint32_t    mem_seg               = 0;
 static uint16_t    mem_addr              = 0;
 static int         biu_state             = 0;
 static int         biu_next_state        = 0;
-static int         biu_scheduled_state   = 0;
 static int         biu_state_length      = 0;
 static int         biu_state_total_len   = 0;
 static int         dma_state             = 0;
 static int         dma_state_length      = 0;
 static int         wait_states           = 0;
 static int         fetch_suspended       = 0;
-static int         ready                 = 1;
 static int         dma_wait_states       = 0;
 
 #define BUS_CYCLE       (biu_cycles & 3)
@@ -103,6 +98,48 @@ vx0_biu_log(const char *fmt, ...)
 #else
 #    define vx0_biu_log(fmt, ...)
 #endif
+
+void
+biu_pfq_set_pos(int pos)
+{
+    pfq_pos = pos;
+}
+
+void
+biu_pfq_set_ip(uint16_t ip)
+{
+    pfq_ip = ip;
+}
+
+void
+biu_pfq_set_prefetching(int p)
+{
+    fetch_suspended = !p;
+}
+
+int
+biu_pfq_get_pos(void)
+{
+    return pfq_pos;
+}
+
+uint16_t
+biu_pfq_get_ip(void)
+{
+    return pfq_ip;
+}
+
+int
+biu_pfq_get_prefetching(void)
+{
+    return !fetch_suspended;
+}
+
+int
+biu_pfq_get_size(void)
+{
+    return pfq_size;
+}
 
 void
 biu_set_bus_cycle(int bus_cycle)
@@ -215,7 +252,6 @@ biu_reset(void)
     BUS_CYCLE_T1;
     biu_cycles          = 0;
     biu_wait            = 0;
-    refresh             = 0;
     bus_request_type    = 0;
     biu_queue_preload   = 0;
     pic_data            = -1;
@@ -227,7 +263,6 @@ biu_reset(void)
     dma_state_length    = 0;
     biu_state           = BIU_STATE_IDLE;
     biu_next_state      = BIU_STATE_IDLE;
-    biu_scheduled_state = BIU_STATE_IDLE;
     biu_state_length    = 0;
     pfq_size            = is8086 ? 6 : 4;
     pfq_in              = 0x0000;
@@ -251,8 +286,6 @@ cycles_forward(int c)
         if (!is286)
             process_timers();
     }
-
-    cycles_ex++;
 }
 
 static void
@@ -301,7 +334,9 @@ bus_do_io(int io_type)
 {
     int      old_cycles = cycles;
 
-    vx0_biu_log("(%02X) bus_do_io(%02X): %04X\n", opcode, io_type, cpu_state.eaaddr);
+    if ((CS == DEBUG_SEG) && (cpu_state.pc >= DEBUG_OFF_L) && (cpu_state.pc <= DEBUG_OFF_H)) {
+        vx0_biu_log("(%02X) bus_do_io(%02X): %04X\n", opcode, io_type, cpu_state.eaaddr);
+    }
 
     if (io_type & BUS_OUT) {
         if (io_type & BUS_WIDE)
@@ -442,8 +477,11 @@ run_dma_cycle(void)
         case DMA_STATE_OPERATING:
             dma_state_length--;
             if (dma_state_length == 3) {
-                dma_wait_states = 7;
-                ready = 0;
+                if ((strcmp(machine_get_internal_name(), "ibmps2_m25") == 0) ||
+                    (strcmp(machine_get_internal_name(), "ibmps2_m30") == 0))
+                    dma_wait_states = 12;    /* 3 + 9 */
+                else
+                    dma_wait_states = 7;     /* 3 + 4 */
             } else if (dma_state_length == 0) {
                 dma_state = DMA_STATE_IDLE;
                 dma_state_length = 1;
@@ -493,7 +531,9 @@ do_bus_access(void)
 {
     int io_type = (biu_state == BIU_STATE_EU) ? bus_request_type : BUS_CODE;
 
-    vx0_biu_log("[%04X:%04X] %02X bus access %02X\n", CS, cpu_state.pc, opcode, io_type);
+    if ((CS == DEBUG_SEG) && (cpu_state.pc >= DEBUG_OFF_L) && (cpu_state.pc <= DEBUG_OFF_H)) {
+        vx0_biu_log("[%04X:%04X] %02X bus access %02X\n", CS, cpu_state.pc, opcode, io_type);
+    }
 
     if (io_type != 0) {
         wait_states = 0;
@@ -594,8 +634,15 @@ biu_do_cycle(void)
                 }
 
                 if ((BUS_CYCLE == BUS_T3) && (biu_state == BIU_STATE_EU)) {
-                    if ((bus_request_type != 0) && ((bus_request_type & BUS_ACCESS_TYPE) == BUS_IO))
-                        wait_states++;
+                    if ((bus_request_type != 0) && ((bus_request_type & BUS_ACCESS_TYPE) == BUS_IO)) {
+                        int board_ws = 1;
+
+                        if ((strcmp(machine_get_internal_name(), "ibmps2_m25") == 0) ||
+                            (strcmp(machine_get_internal_name(), "ibmps2_m30") == 0))
+                            board_ws = 4;
+
+                        wait_states += board_ws;
+                    }
                 }
 
                 if ((BUS_CYCLE == BUS_T3) && ((wait_states != 0) || (dma_wait_states != 0)))
@@ -651,6 +698,9 @@ biu_cycle(void)
 static void
 biu_eu_request(void)
 {
+    if ((CS == DEBUG_SEG) && (cpu_state.pc >= DEBUG_OFF_L) && (cpu_state.pc <= DEBUG_OFF_H)) {
+        vx0_biu_log("[%04X:%04X] EU request, biu_state = %02X\n", CS, cpu_state.pc, biu_state);
+    }
     switch (biu_state) {
         default:
             fatal("Invalid BIU state: %02X\n", biu_state);
@@ -705,11 +755,13 @@ biu_eu_request(void)
 }
 
 void
-wait_vx0(int c)
+wait_vx0(int c, UNUSED(int bus))
 {
-    vx0_biu_log("[%04X:%04X] %02X %i cycles\n", CS, cpu_state.pc, opcode, c);
+    if ((CS == DEBUG_SEG) && (cpu_state.pc >= DEBUG_OFF_L) && (cpu_state.pc <= DEBUG_OFF_H)) {
+        vx0_biu_log("[%04X:%04X] %02X %i cycles\n", CS, cpu_state.pc, opcode, c);
+    }
 
-    for (uint8_t i = 0; i < c; i++)
+    for (uint16_t i = 0; i < c; i++)
         biu_cycle();
 }
 
@@ -809,6 +861,10 @@ readmemb_vx0(uint32_t s, uint16_t a)
 {
     uint8_t ret;
 
+    if ((CS == DEBUG_SEG) && (cpu_state.pc >= DEBUG_OFF_L) && (cpu_state.pc <= DEBUG_OFF_H)) {
+        vx0_biu_log("[%04X:%04X] readmemb_vx0\n", CS, cpu_state.pc);
+    }
+
     mem_seg          = s;
     mem_addr         = a;
     /* Do this, otherwise, the first half of the operation never happens. */
@@ -828,6 +884,10 @@ uint16_t
 readmemw_vx0(uint32_t s, uint16_t a)
 {
     uint16_t ret;
+
+    if ((CS == DEBUG_SEG) && (cpu_state.pc >= DEBUG_OFF_L) && (cpu_state.pc <= DEBUG_OFF_H)) {
+        vx0_biu_log("[%04X:%04X] readmemw_vx0\n", CS, cpu_state.pc);
+    }
 
     mem_seg  = s;
     mem_addr = a;
@@ -862,26 +922,108 @@ readmem_vx0(uint32_t s)
         return (uint16_t) readmemb_vx0(s, cpu_state.eaaddr);
 }
 
+#include <inttypes.h>
+
 uint32_t
 readmeml_vx0(uint32_t s, uint16_t a)
 {
-    uint32_t temp;
+    uint32_t ret = 0;
 
-    temp = (uint32_t) (readmemw_vx0(s, a + 2)) << 16;
-    temp |= readmemw_vx0(s, a);
+    if ((CS == DEBUG_SEG) && (cpu_state.pc >= DEBUG_OFF_L) && (cpu_state.pc <= DEBUG_OFF_H)) {
+        vx0_biu_log("[%04X:%04X] readmeml_vx0\n", CS, cpu_state.pc);
+    }
 
-    return temp;
+    mem_seg  = s;
+    mem_addr = a;
+    /* Do this, otherwise, the first half of the operation never happens. */
+    if ((BUS_CYCLE == BUS_T4) && (biu_state == BIU_STATE_EU))
+        BUS_CYCLE_T1;
+    int i = 0;
+    int shift = 0;
+    int len = 0;
+    while (i < 4) {
+        if (i == 3) {
+            bus_request_type = BUS_MEM;
+            biu_begin_eu();
+            biu_wait_for_read_finish();
+            len = 1;
+        } else {
+            if (is8086 && !(a & 1)) {
+                bus_request_type = BUS_MEM | BUS_WIDE;
+                biu_begin_eu();
+                biu_wait_for_read_finish();
+            } else {
+                bus_request_type = BUS_MEM | BUS_HIGH;
+                biu_begin_eu();
+                biu_wait_for_read_finish();
+                biu_state = BIU_STATE_EU;
+                biu_state_length = 0;
+                bus_request_type = BUS_MEM;
+                biu_wait_for_read_finish();
+            }
+            len = 2;
+        }
+        ret |= ((uint32_t) mem_data << shift);
+        shift += (8 * len);
+        i += len;
+        mem_addr = (mem_addr + len) & 0xffff;
+        biu_state = BIU_STATE_EU;
+        biu_state_length = 0;
+    }
+    bus_request_type = 0;
+
+    return ret;
 }
 
 uint64_t
 readmemq_vx0(uint32_t s, uint16_t a)
 {
-    uint64_t temp;
+    uint64_t ret = 0;
 
-    temp = (uint64_t) (readmeml_vx0(s, a + 4)) << 32;
-    temp |= readmeml_vx0(s, a);
+    if ((CS == DEBUG_SEG) && (cpu_state.pc >= DEBUG_OFF_L) && (cpu_state.pc <= DEBUG_OFF_H)) {
+        vx0_biu_log("[%04X:%04X] readmemq_vx0\n", CS, cpu_state.pc);
+    }
 
-    return temp;
+    mem_seg  = s;
+    mem_addr = a;
+    /* Do this, otherwise, the first half of the operation never happens. */
+    if ((BUS_CYCLE == BUS_T4) && (biu_state == BIU_STATE_EU))
+        BUS_CYCLE_T1;
+    int i = 0;
+    int shift = 0;
+    int len = 0;
+    while (i < 8) {
+        if (i == 7) {
+            bus_request_type = BUS_MEM;
+            biu_begin_eu();
+            biu_wait_for_read_finish();
+            len = 1;
+        } else {
+            if (is8086 && !(a & 1)) {
+                bus_request_type = BUS_MEM | BUS_WIDE;
+                biu_begin_eu();
+                biu_wait_for_read_finish();
+            } else {
+                bus_request_type = BUS_MEM | BUS_HIGH;
+                biu_begin_eu();
+                biu_wait_for_read_finish();
+                biu_state = BIU_STATE_EU;
+                biu_state_length = 0;
+                bus_request_type = BUS_MEM;
+                biu_wait_for_read_finish();
+            }
+            len = 2;
+        }
+        ret |= ((uint64_t) mem_data << shift);
+        shift += (8 * len);
+        i += len;
+        mem_addr = (mem_addr + len) & 0xffff;
+        biu_state = BIU_STATE_EU;
+        biu_state_length = 0;
+    }
+    bus_request_type = 0;
+
+    return ret;
 }
 
 /* Writes a byte to the memory and advances the BIU. */
@@ -889,6 +1031,10 @@ void
 writememb_vx0(uint32_t s, uint32_t a, uint8_t v)
 {
     uint32_t addr = s + a;
+
+    if ((CS == DEBUG_SEG) && (cpu_state.pc >= DEBUG_OFF_L) && (cpu_state.pc <= DEBUG_OFF_H)) {
+        vx0_biu_log("[%04X:%04X] writememb_vx0\n", CS, cpu_state.pc);
+    }
 
     mem_seg          = s;
     mem_addr         = a;
@@ -910,6 +1056,10 @@ void
 writememw_vx0(uint32_t s, uint32_t a, uint16_t v)
 {
     uint32_t addr = s + a;
+
+    if ((CS == DEBUG_SEG) && (cpu_state.pc >= DEBUG_OFF_L) && (cpu_state.pc <= DEBUG_OFF_H)) {
+        vx0_biu_log("[%04X:%04X] writememw_vx0\n", CS, cpu_state.pc);
+    }
 
     mem_seg  = s;
     mem_addr = a;
@@ -949,15 +1099,111 @@ writemem_vx0(uint32_t s, uint16_t v)
 void
 writememl_vx0(uint32_t s, uint32_t a, uint32_t v)
 {
-    writememw_vx0(s, a, v & 0xffff);
-    writememw_vx0(s, a + 2, v >> 16);
+    uint32_t addr = s + a;
+
+    if ((CS == DEBUG_SEG) && (cpu_state.pc >= DEBUG_OFF_L) && (cpu_state.pc <= DEBUG_OFF_H)) {
+        vx0_biu_log("[%04X:%04X] writememl_vx0\n", CS, cpu_state.pc);
+    }
+
+    mem_seg  = s;
+    mem_addr = a;
+    mem_data = v;
+    /* Do this, otherwise, the first half of the operation never happens. */
+    if ((BUS_CYCLE == BUS_T4) && (biu_state == BIU_STATE_EU))
+        BUS_CYCLE_T1;
+    int i = 0;
+    int shift = 0;
+    int len = 0;
+    while (i < 4) {
+        if (i == 3) {
+            bus_request_type = BUS_MEM | BUS_OUT;
+            biu_begin_eu();
+            biu_wait_for_write_finish();
+            len = 1;
+        } else {
+            if (is8086 && !(a & 1)) {
+                bus_request_type = BUS_MEM | BUS_OUT | BUS_WIDE;
+                biu_begin_eu();
+                biu_wait_for_write_finish();
+            } else {
+                bus_request_type = BUS_MEM | BUS_OUT | BUS_HIGH;
+                biu_begin_eu();
+                biu_wait_for_write_finish();
+                biu_cycle();
+                biu_state = BIU_STATE_EU;
+                biu_state_length = 0;
+                bus_request_type = BUS_MEM | BUS_OUT;
+                biu_wait_for_write_finish();
+            }
+            len = 2;
+        }
+        shift += (8 * len);
+        mem_data = v >> shift;
+        i += len;
+        mem_addr = (mem_addr + len) & 0xffff;
+        biu_cycle();
+        biu_state = BIU_STATE_EU;
+        biu_state_length = 0;
+    }
+    bus_request_type = 0;
+
+    if ((addr >= 0xf0000) && (addr <= 0xfffff))
+        last_addr = addr & 0xffff;
 }
 
 void
 writememq_vx0(uint32_t s, uint32_t a, uint64_t v)
 {
-    writememl_vx0(s, a, v & 0xffffffff);
-    writememl_vx0(s, a + 4, v >> 32);
+    uint32_t addr = s + a;
+
+    if ((CS == DEBUG_SEG) && (cpu_state.pc >= DEBUG_OFF_L) && (cpu_state.pc <= DEBUG_OFF_H)) {
+        vx0_biu_log("[%04X:%04X] writememq_vx0\n", CS, cpu_state.pc);
+    }
+
+    mem_seg  = s;
+    mem_addr = a;
+    mem_data = v;
+    /* Do this, otherwise, the first half of the operation never happens. */
+    if ((BUS_CYCLE == BUS_T4) && (biu_state == BIU_STATE_EU))
+        BUS_CYCLE_T1;
+    int i = 0;
+    int shift = 0;
+    int len = 0;
+    while (i < 8) {
+        if (i == 7) {
+            bus_request_type = BUS_MEM | BUS_OUT;
+            biu_begin_eu();
+            biu_wait_for_write_finish();
+            len = 1;
+        } else {
+            if (is8086 && !(a & 1)) {
+                bus_request_type = BUS_MEM | BUS_OUT | BUS_WIDE;
+                biu_begin_eu();
+                biu_wait_for_write_finish();
+            } else {
+                bus_request_type = BUS_MEM | BUS_OUT | BUS_HIGH;
+                biu_begin_eu();
+                biu_wait_for_write_finish();
+                biu_cycle();
+                biu_state = BIU_STATE_EU;
+                biu_state_length = 0;
+                bus_request_type = BUS_MEM | BUS_OUT;
+                biu_wait_for_write_finish();
+            }
+            len = 2;
+        }
+        shift += (8 * len);
+        mem_data = v >> shift;
+        i += len;
+        mem_addr = (mem_addr + len) & 0xffff;
+        biu_cycle();
+        biu_state = BIU_STATE_EU;
+        biu_state_length = 0;
+    }
+    bus_request_type = 0;
+
+    if ((addr >= 0xf0000) && (addr <= 0xfffff))
+        last_addr = addr & 0xffff;
 }
 
 static void
@@ -985,6 +1231,22 @@ pfq_write(void)
 
     if (pfq_pos >= pfq_size)
         pfq_pos = pfq_size;
+}
+
+/* The bytes the BIU holds for the next instruction, oldest first: an opcode
+   already taken from the queue, then the queue. Changes nothing; for
+   debuggers, as the processor runs these bytes rather than memory's. */
+int
+biu_pfq_peek(uint8_t *buf, int max)
+{
+    int n = 0;
+
+    if (biu_queue_preload && (n < max))
+        buf[n++] = biu_preload_byte;
+    for (int i = 0; (i < pfq_pos) && (n < max); i++)
+        buf[n++] = pfq[i];
+
+    return n;
 }
 
 uint8_t

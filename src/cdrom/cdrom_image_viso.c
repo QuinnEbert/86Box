@@ -42,6 +42,8 @@
 #include <86box/version.h>
 #include <86box/nvr.h>
 
+#include "../miniz_reader.h"
+
 #define VISO_SKIP(p, n)         \
     {                           \
         memset((p), 0x00, (n)); \
@@ -66,6 +68,7 @@
 
 #define VISO_SECTOR_SIZE COOKED_SECTOR_SIZE
 #define VISO_OPEN_FILES  32
+#define VISO_ZIP_BLOCK_SIZE (64 * 1024)
 
 enum {
     VISO_CHARSET_D = 0,
@@ -88,6 +91,15 @@ enum {
     VISO_FORMAT_RR     = 4  /* Rock Ridge extensions (*nix) */
 };
 
+typedef struct viso_zip_entry {
+    struct viso_zip_entry *next, *sibling, *children;
+    mz_uint  index;
+    uint64_t size;
+    time_t   mtime;
+    int      is_dir;
+    char     name[];
+} viso_zip_entry_t;
+
 typedef struct _viso_entry_ {
     union { /* save some memory */
         uint64_t pt_offsets[4];
@@ -99,16 +111,17 @@ typedef struct _viso_entry_ {
         uint64_t data_offset;
     };
     uint16_t pt_idx;
+    const viso_zip_entry_t *zip_entry;
 
     struct {
         uint8_t is_dir : 1;
         uint32_t size;
 #ifdef PLAT_DIR_HAS_BIRTHTIME
-        time_t birthtime;
+        int64_t birthtime;
 #endif
-        time_t mtime;
-        time_t atime;
-        time_t ctime;
+        int64_t mtime;
+        int64_t atime;
+        int64_t ctime;
     } stats;
 
     struct _viso_entry_ *parent, *next, *next_dir, *first_child;
@@ -128,11 +141,21 @@ typedef struct {
     viso_entry_t  *root_dir;
     viso_entry_t **entry_map;
     viso_entry_t  *file_fifo[VISO_OPEN_FILES];
+
+    FILE                            *zip_file;
+    mz_zip_archive                   zip;
+    viso_zip_entry_t                *zip_root, *zip_entries;
+    mz_zip_reader_extract_iter_state *zip_reader;
+    const viso_zip_entry_t          *zip_cached_entry;
+    uint64_t                         zip_offset;
+    size_t                           zip_cached_size;
+    uint8_t                         *zip_block;
 } viso_t;
 
 static const char rr_eid[]   = "RRIP_1991A"; /* identifiers used in ER field for Rock Ridge */
 static const char rr_edesc[] = "THE ROCK RIDGE INTERCHANGE PROTOCOL PROVIDES SUPPORT FOR POSIX FILE SYSTEM SEMANTICS.";
-static int8_t     tz_offset  = 0;
+static int        tz_offset_sec = 0;
+static int8_t     tz_offset_iso = 0;
 
 #ifdef IMAGE_VISO_LOG
 int image_viso_do_log = IMAGE_VISO_LOG;
@@ -317,26 +340,31 @@ VISO_WRITE_STR_FUNC(viso_write_wstring, uint16_t, uint16_t, cpu_to_be16)
 static int
 viso_fill_fn_short(char *data, const viso_entry_t *entry, viso_entry_t **entries)
 {
+    /* Trim leading dots. */
+    const char *basename = entry->basename;
+    while (basename[0] == '.')
+        basename++;
+
     /* Get name and extension length. */
-    const char *ext_pos = strrchr(entry->basename, '.');
-    int         name_len;
-    int         ext_len;
+    const char *ext_pos = strrchr(basename, '.');
+    size_t      name_len;
+    size_t      ext_len;
     if (ext_pos) {
-        name_len = ext_pos - entry->basename;
+        name_len = ext_pos - basename;
         ext_len  = strlen(ext_pos);
     } else {
-        name_len = strlen(entry->basename);
+        name_len = strlen(basename);
         ext_len  = 0;
     }
 
     /* Copy name. */
     int name_copy_len = MIN(8, name_len);
-    viso_write_string((uint8_t *) data, entry->basename, name_copy_len, VISO_CHARSET_D);
+    viso_write_string((uint8_t *) data, basename, name_copy_len, VISO_CHARSET_D);
     data[name_copy_len] = '\0';
 
     /* Copy extension to temporary buffer. */
     char ext[5]     = { 0 };
-    int  force_tail = (name_len > 8) || (ext_len == 1);
+    int  force_tail = (name_len > 8) || (ext_len == 1) || (basename != entry->basename);
     if (ext_len > 1) {
         ext[0] = '.';
         if (ext_len > 4) {
@@ -440,69 +468,63 @@ viso_fill_fn_joliet(uint16_t *data, const viso_entry_t *entry, size_t max_len) /
 }
 
 static int
-viso_fill_time(uint8_t *data, time_t time, int format, int longform)
+viso_fill_time(uint8_t *data, int64_t time, int format, int longform)
 {
-    uint8_t   *p      = data;
-    struct tm time_s_buf;
-    struct tm *time_s = NULL;
-    time_t epoch      = 0;
+    /* Get time. */
+    time += tz_offset_sec;
+    int64_t secs = time % 86400;
+    int64_t days = time / 86400;
+    if (UNLIKELY(secs < 0)) {
+        secs += 86400;
+        days -= 1;
+    }
+    int hour = secs / 3600;
+    int min  = (secs % 3600) / 60;
+    int sec  = secs % 60;
+    int csec = 0;
 
-#ifdef _WIN32
-    if (LIKELY(!localtime_s(&time_s_buf, &time)))
-        time_s = &time_s_buf;
-#else
-    time_s = localtime_r(&time, &time_s_buf);
-#endif
+    /* Get date.
+       Based on: https://howardhinnant.github.io/date_algorithms.html#civil_from_days */
+    days += 719468;
+    int64_t era  = (LIKELY(days >= 0) ? days : (days - 146096)) / 146097;
+    int64_t doe  = days - (era * 146097);
+    int64_t yoe  = (doe - (doe / 1460) + (doe / 36524) - (doe / 146096)) / 365;
+    int64_t doy  = doe - ((365 * yoe) + (yoe / 4) - (yoe / 100));
+    int64_t mp   = ((5 * doy) + 2) / 153;
+    int     day  = doy - (((153 * mp) + 2) / 5) + 1;
+    int     mon  = mp + ((mp < 10) ? 3 : -9);
+    int     year = yoe + (era * 400) + (mon <= 2);
 
-    if (UNLIKELY(!time_s)) {
-        /* localtime may return NULL if time is negative or out of range */
-#ifdef _WIN32
-        if (LIKELY(!localtime_s(&time_s_buf, &epoch)))
-            time_s = &time_s_buf;
-#else
-        time_s = localtime_r(&epoch, &time_s_buf);
-#endif
-
-        /* Force year clamping for out-of-range times */
-        if (UNLIKELY(!time_s)) {
-            memset(&time_s_buf, 0, sizeof(time_s_buf));
-            time_s          = &time_s_buf;
-            time_s->tm_year = -1901;
-        }
-        if (UNLIKELY(time < (UNLIKELY(longform) ? -62135596800LL : -2208988800LL))) /* 0001-01-01 00:00:00 : 1900-01-01 00:00:00 */
-            time_s->tm_year = -1901;
-        else if (UNLIKELY(time > (UNLIKELY(longform) ? 253402300799LL : 5869583999LL))) /* 9999-12-31 23:59:59 : 2155-12-31 23:59:59 */
-            time_s->tm_year = 8100;
+    /* Clamp to supported ranges. */
+    if (UNLIKELY(year < (UNLIKELY(longform) ? 0 : 1900))) {
+        year = UNLIKELY(longform) ? 0 : 1900;
+        mon  = day = 1;
+        hour = min = sec = 0;
+    } else if (UNLIKELY(year > (UNLIKELY(longform) ? 9999 : 2155))) {
+        year = UNLIKELY(longform) ? 9999 : 2155;
+        mon  = 12;
+        day  = 31;
+        hour = 23;
+        min  = sec = 59;
+        csec = 99;
     }
 
-    /* Clamp year within supported ranges */
-    if (UNLIKELY(time_s->tm_year < (UNLIKELY(longform) ? -1900 : 0))) {
-        time_s->tm_year = UNLIKELY(longform) ? -1900 : 0;
-        time_s->tm_mon = time_s->tm_hour = time_s->tm_min = time_s->tm_sec = 0;
-        time_s->tm_mday                                                    = 1;
-    } else if (UNLIKELY(time_s->tm_year > (UNLIKELY(longform) ? 8099 : 255))) {
-        time_s->tm_year = UNLIKELY(longform) ? 8099 : 255;
-        time_s->tm_mon  = 11;
-        time_s->tm_mday = 31;
-        time_s->tm_hour = 23;
-        time_s->tm_min = time_s->tm_sec = 59;
-    }
-
-    /* Convert timestamp */
+    /* Generate timestamp. */
+    uint8_t *p = data;
     if (UNLIKELY(longform)) {
-        p += snprintf((char *) p, 17, "%04u%02u%02u%02u%02u%02u00",
-                      1900 + (unsigned) time_s->tm_year, 1 + time_s->tm_mon, time_s->tm_mday,
-                      time_s->tm_hour, time_s->tm_min, time_s->tm_sec);
+        p += 16;
+        snprintf((char *) data, p - data + 1, "%04u%02u%02u%02u%02u%02u%02u",
+                 year, mon, day, hour, min, sec, csec);
     } else {
-        *p++ = (uint8_t) time_s->tm_year;      /* year since 1900 */
-        *p++ = (uint8_t) (1 + time_s->tm_mon); /* month */
-        *p++ = (uint8_t) time_s->tm_mday;      /* day */
-        *p++ = (uint8_t) time_s->tm_hour;      /* hour */
-        *p++ = (uint8_t) time_s->tm_min;       /* minute */
-        *p++ = (uint8_t) time_s->tm_sec;       /* second */
+        *p++ = (uint8_t) (year - 1900); /* year since 1900 */
+        *p++ = (uint8_t) mon;           /* month */
+        *p++ = (uint8_t) day;           /* day */
+        *p++ = (uint8_t) hour;          /* hour */
+        *p++ = (uint8_t) min;           /* minute */
+        *p++ = (uint8_t) sec;           /* second */
     }
     if (LIKELY(format & VISO_FORMAT_ISO))
-        *p++ = tz_offset; /* timezone (ISO only) */
+        *p++ = tz_offset_iso; /* timezone (ISO only) */
 
     return p - data;
 }
@@ -591,7 +613,7 @@ viso_fill_dir_record(uint8_t *data, viso_entry_t *entry, viso_t *viso, int type)
                     *p++ = 2; /* length (added to later) */
                     *p++ = 1; /* version */
 
-                    *p++ = times; /* flags */
+                    *p++ = times; /* flags (implementation note: longform times are broken in Linux <6.16) */
 #ifdef PLAT_DIR_HAS_BIRTHTIME
                     if (times & (1 << 0))
                         p += viso_fill_time(p, entry->stats.birthtime, viso->format, 0); /* creation */
@@ -638,7 +660,7 @@ pad_susp:
     }
 
     if (UNLIKELY((p - data) > 255))
-#ifdef ENABLE_VISO_LOG
+#ifdef IMAGE_VISO_LOG
         fatal("VISO: Directory record overflow (%" PRIuPTR ") on entry %08" PRIXPTR "\n", (uintptr_t) (p - data), (uintptr_t) entry);
 #else
         data[0] = 255;
@@ -674,11 +696,157 @@ viso_compare_entries(const void *a, const void *b)
     return strcmp((*((viso_entry_t **) a))->name_short, (*((viso_entry_t **) b))->name_short);
 }
 
+static viso_zip_entry_t *
+viso_zip_add(viso_t *viso, viso_zip_entry_t *parent, const char *name, int is_dir)
+{
+    const size_t length = strlen(name) + 1;
+    viso_zip_entry_t *entry = calloc(1, sizeof(*entry) + length);
+    if (!entry)
+        return NULL;
+
+    memcpy(entry->name, name, length);
+    entry->is_dir      = is_dir;
+    entry->next        = viso->zip_entries;
+    viso->zip_entries  = entry;
+    if (parent) {
+        entry->sibling   = parent->children;
+        parent->children = entry;
+    }
+    return entry;
+}
+
+static int
+viso_zip_open(viso_t *viso, const char *filename)
+{
+    viso->zip_file = plat_fopen64(filename, "rb");
+    if (!viso->zip_file ||
+        !mz_zip_reader_init_cfile(&viso->zip, viso->zip_file, 0, MZ_ZIP_FLAG_DO_NOT_SORT_CENTRAL_DIRECTORY))
+        return 0;
+
+    viso->zip_root  = viso_zip_add(viso, NULL, "", 1);
+    viso->zip_block = malloc(VISO_ZIP_BLOCK_SIZE);
+    if (!viso->zip_root || !viso->zip_block)
+        return 0;
+
+    /* ZIP filenames have a 16-bit length field. Read the full path. */
+    char name[UINT16_MAX + 1];
+    const mz_uint count = mz_zip_reader_get_num_files(&viso->zip);
+    for (mz_uint i = 0; i < count; i++) {
+        mz_zip_archive_file_stat stat;
+        if (!mz_zip_reader_file_stat(&viso->zip, i, &stat))
+            return 0;
+
+        /* Ignore Unix symlinks and other special files. */
+        const unsigned origin = stat.m_version_made_by >> 8;
+        const unsigned type   = (stat.m_external_attr >> 16) & 0170000;
+        if ((origin == 3 || origin == 19) && type && type != 0100000 && type != 0040000)
+            continue;
+
+        const mz_uint length = mz_zip_reader_get_filename(&viso->zip, i, NULL, 0);
+        if (length < 2 || length > sizeof(name) ||
+            mz_zip_reader_get_filename(&viso->zip, i, name, length) != length ||
+            strlen(name) != length - 1 || strchr(name, '\\'))
+            return 0;
+        if (name[length - 2] == '/') {
+            name[length - 2]    = '\0';
+            stat.m_is_directory = 1;
+        }
+        if (!stat.m_is_directory &&
+            (!stat.m_is_supported || (!stat.m_comp_size && stat.m_uncomp_size)))
+            return 0;
+
+        viso_zip_entry_t *parent = viso->zip_root;
+        for (char *part = name; part;) {
+            char *next = strchr(part, '/');
+            if (next)
+                *next++ = '\0';
+            if (!*part || !strcmp(part, ".") || !strcmp(part, ".."))
+                return 0;
+
+            const int is_dir = next || stat.m_is_directory;
+            viso_zip_entry_t *entry = parent->children;
+            while (entry && strcmp(entry->name, part))
+                entry = entry->sibling;
+            if (entry) {
+                if (!is_dir || !entry->is_dir)
+                    return 0;
+            } else {
+                entry = viso_zip_add(viso, parent, part, is_dir);
+                if (!entry)
+                    return 0;
+            }
+            if (!next) {
+                entry->mtime = stat.m_time;
+                entry->index = i;
+                if (!is_dir)
+                    entry->size = stat.m_uncomp_size;
+            }
+            parent = entry;
+            part   = next;
+        }
+    }
+    return 1;
+}
+
+static int
+viso_zip_read(viso_t *viso, const viso_zip_entry_t *entry, uint8_t *buffer,
+              uint64_t offset, size_t count)
+{
+    while (count) {
+        /* Keep the last decoded block for repeated reads and small backward seeks. */
+        uint64_t start = viso->zip_offset - viso->zip_cached_size;
+        if (entry != viso->zip_cached_entry || offset < start ||
+            (offset >= viso->zip_offset && !viso->zip_reader)) {
+            if (viso->zip_reader)
+                mz_zip_reader_extract_iter_free(viso->zip_reader);
+            viso->zip_reader = mz_zip_reader_extract_iter_new(&viso->zip, entry->index, 0);
+            if (!viso->zip_reader)
+                goto error;
+            viso->zip_cached_entry = entry;
+            viso->zip_cached_size  = 0;
+            viso->zip_offset       = 0;
+        }
+        while (offset >= viso->zip_offset) {
+            const size_t size = MIN(VISO_ZIP_BLOCK_SIZE, entry->size - viso->zip_offset);
+            if (mz_zip_reader_extract_iter_read(viso->zip_reader, viso->zip_block, size) != size)
+                goto error;
+            viso->zip_cached_size = size;
+            viso->zip_offset += size;
+            if (viso->zip_offset == entry->size) {
+                /* Complete the stream to let miniz check its size and CRC. */
+                uint8_t extra;
+                const size_t extra_size = mz_zip_reader_extract_iter_read(viso->zip_reader, &extra, 1);
+                const int valid = mz_zip_reader_extract_iter_free(viso->zip_reader);
+                viso->zip_reader = NULL;
+                if (extra_size || !valid)
+                    goto error;
+            }
+        }
+        start = viso->zip_offset - viso->zip_cached_size;
+        const size_t copied = MIN(count, viso->zip_offset - offset);
+        memcpy(buffer, viso->zip_block + (offset - start), copied);
+        buffer += copied;
+        offset += copied;
+        count  -= copied;
+    }
+    return 1;
+
+error:
+    if (viso->zip_reader)
+        mz_zip_reader_extract_iter_free(viso->zip_reader);
+    viso->zip_reader       = NULL;
+    viso->zip_cached_entry = NULL;
+    return 0;
+}
+
 int
 viso_read(void *priv, uint8_t *buffer, uint64_t seek, size_t count)
 {
     track_file_t *tf   = (track_file_t *) priv;
     viso_t       *viso = (viso_t *) tf->priv;
+    const uint64_t length = viso_get_length(priv);
+    if (seek > length || count > length - seek)
+        return -1;
 
     /* Handle reads in a sector by sector basis. */
     while (count > 0) {
@@ -696,7 +864,13 @@ viso_read(void *priv, uint8_t *buffer, uint64_t seek, size_t count)
 
             /* Get the file entry corresponding to this sector. */
             viso_entry_t *entry = viso->entry_map[sector - viso->metadata_sectors];
-            if (entry) {
+            if (entry && entry->zip_entry) {
+                const uint64_t offset = seek - entry->data_offset;
+                if (offset < entry->stats.size)
+                    read = MIN(sector_remain, entry->stats.size - offset);
+                if (!viso_zip_read(viso, entry->zip_entry, buffer, offset, read))
+                    return -1;
+            } else if (entry) {
                 /* Open file if it's not already open. */
                 if (!entry->file) {
                     /* Close any existing FIFO entry's file. */
@@ -767,18 +941,22 @@ viso_close(void *priv)
     image_viso_log(viso->tf.log, "close()\n");
 
     /* De-allocate everything. */
-    if (tf->fp)
+    if (tf->fp) {
         fclose(tf->fp);
-#ifdef ENABLE_VISO_LOG
-    if (stricmp(path_get_extension(viso->tf.fn), "iso"))
+#ifdef IMAGE_VISO_LOG
+        if (stricmp(path_get_extension(viso->tf.fn), "iso"))
 #endif
-        remove(nvr_path(viso->tf.fn));
+            remove(nvr_path(viso->tf.fn));
+    }
+
+    for (size_t i = 0; i < VISO_OPEN_FILES; i++) {
+        if (viso->file_fifo[i] && viso->file_fifo[i]->file)
+            fclose(viso->file_fifo[i]->file);
+    }
 
     viso_entry_t *entry = viso->root_dir;
     viso_entry_t *next_entry;
     while (entry) {
-        if (entry->file)
-            fclose(entry->file);
         next_entry = entry->next;
         free(entry);
         entry = next_entry;
@@ -788,6 +966,19 @@ viso_close(void *priv)
         free(viso->metadata);
     if (viso->entry_map)
         free(viso->entry_map);
+
+    if (viso->zip_reader)
+        mz_zip_reader_extract_iter_free(viso->zip_reader);
+    if (viso->zip.m_pState)
+        mz_zip_reader_end(&viso->zip);
+    if (viso->zip_file)
+        fclose(viso->zip_file);
+    while (viso->zip_entries) {
+        viso_zip_entry_t *zip_entry = viso->zip_entries;
+        viso->zip_entries = zip_entry->next;
+        free(zip_entry);
+    }
+    free(viso->zip_block);
 
     if (tf->log != NULL)
         log_close(tf->log);
@@ -802,9 +993,17 @@ viso_init(const uint8_t id, const char *dirname, int *error)
     viso_t  *viso = (viso_t *) calloc(1, sizeof(viso_t));
     uint8_t *data = NULL;
     uint8_t *p;
+    plat_dir_t context = PLAT_DIR_INIT;
+    viso_entry_t **dir_entries = NULL;
+    size_t pending_entries = 0;
     *error        = 1;
 
     if (viso == NULL)
+        goto end;
+
+    const char *extension = strrchr(dirname, '.');
+    if (extension && !stricmp(extension, ".zip") && !plat_dir_check((char *) dirname) &&
+        !viso_zip_open(viso, dirname))
         goto end;
 
     char n[1024]        = { 0 };
@@ -823,13 +1022,16 @@ viso_init(const uint8_t id, const char *dirname, int *error)
     if (!data)
         goto end;
 
-        /* Open temporary file. */
+    /* Open temporary file. */
 #ifdef IMAGE_VISO_LOG
-    if (image_viso_do_log)
+    if (image_viso_do_log) {
         memcpy(viso->tf.fn, "viso-debug.iso", sizeof("viso-debug.iso"));
-    else
-#endif
+    } else {
         plat_tempfile(viso->tf.fn, "viso", ".tmp");
+    }
+#else
+    plat_tempfile(viso->tf.fn, "viso", ".tmp");
+#endif
     viso->tf.fp = plat_fopen64(nvr_path(viso->tf.fn), "w+b");
     if (!viso->tf.fp)
         goto end;
@@ -854,38 +1056,42 @@ viso_init(const uint8_t id, const char *dirname, int *error)
         goto end;
     memcpy(dir->path, dirname, dir_path_buf_size);
     dir->parent = dir; /* for the root's path table and .. entries */
+    dir->zip_entry = viso->zip_root;
     image_viso_log(viso->tf.log, "[%08X] %s => [root]\n", dir, dir->path);
 
     /* Traverse directories, starting with the root. */
-    plat_dir_t     context;
-    viso_entry_t **dir_entries     = NULL;
     size_t         dir_entries_len = 0;
     while (LIKELY(dir)) {
         /* Open directory for listing. */
-        int    have_dir       = plat_dir_open(&context, dir->path);
-        size_t children_count = 3; /* include terminator, . and .. */
+        int    have_dir       = dir->zip_entry || plat_dir_open(&context, dir->path);
+        const viso_zip_entry_t *zip_child = dir->zip_entry ? dir->zip_entry->children : NULL;
+        size_t children_count = 2; /* include . and .. (terminator is the +1 when allocating) */
         if (UNLIKELY(dir == viso->root_dir)) {
             /* Handle root directory. */
-            if (have_dir && plat_dir_is_dir(&context))
+            if (dir->zip_entry) {
+                dir->stats.is_dir = 1;
+                dir->stats.mtime  = time(NULL);
+            } else if (have_dir && plat_dir_is_dir(&context)) {
                 viso_fill_stats(dir, &context, viso->format); /* populate stats */
-            else
+            } else {
                 goto end; /* not a directory */
+            }
         }
-        if (LIKELY(have_dir)) {
+        if (have_dir && !dir->zip_entry) {
             /* Determine the entry array size. */
             children_count += plat_dir_count_children(&context);
         }
 
         /* Grow array if required. */
         if (children_count > dir_entries_len) {
-            viso_entry_t **new_dir_entries = (viso_entry_t **) calloc(children_count, sizeof(viso_entry_t *));
+            viso_entry_t **new_dir_entries = (viso_entry_t **) malloc((children_count + 1) * sizeof(viso_entry_t *));
             if (LIKELY(new_dir_entries)) {
                 if (LIKELY(dir_entries))
                     free(dir_entries);
                 dir_entries     = new_dir_entries;
                 dir_entries_len = children_count;
             } else {
-                goto next_dir;
+                goto end;
             }
         }
 
@@ -893,7 +1099,8 @@ viso_init(const uint8_t id, const char *dirname, int *error)
         for (children_count = 0; children_count < 2; children_count++) {
             entry = dir_entries[children_count] = (viso_entry_t *) calloc(1, sizeof(viso_entry_t) + 1);
             if (!entry)
-                goto next_dir;
+                goto end;
+            pending_entries++;
             entry->parent = dir;
             if (!children_count)
                 dir->first_child = entry;
@@ -911,21 +1118,46 @@ viso_init(const uint8_t id, const char *dirname, int *error)
         }
 
         /* Iterate through this directory's children again, making the entries. */
-        if (have_dir) {
-            while (plat_dir_read(&context)) {
+        if (LIKELY(have_dir)) {
+            while (dir->zip_entry ? zip_child != NULL : plat_dir_read(&context)) {
+                /* Grow array if the original size is inaccurate. */
+                if (UNLIKELY(children_count >= dir_entries_len)) {
+                    size_t         new_entries_len = dir_entries_len * 2;
+                    viso_entry_t **new_dir_entries = (viso_entry_t **) realloc(dir_entries, (new_entries_len + 1) * sizeof(viso_entry_t *));
+                    if (LIKELY(new_dir_entries)) {
+                        dir_entries     = new_dir_entries;
+                        dir_entries_len = new_entries_len;
+                    } else {
+                        goto end;
+                    }
+                }
+
                 /* Add and fill entry. */
-                const char *path = plat_dir_get_path(&context);
+                const char *path = zip_child ? zip_child->name : plat_dir_get_path(&context);
                 size_t path_buf_size = strlen(path) + 1;
                 entry = dir_entries[children_count] =
                     (viso_entry_t *) calloc(1, sizeof(viso_entry_t) + path_buf_size);
                 if (entry == NULL)
-                    continue;
+                    goto end;
                 entry->parent = dir;
                 memcpy(entry->path, path, path_buf_size);
-                entry->basename = &entry->path[context.path_dir_len + 1];
+                if (zip_child) {
+                    entry->zip_entry    = zip_child;
+                    entry->basename     = entry->path;
+                    entry->stats.is_dir = zip_child->is_dir;
+                    entry->stats.size   = MIN(zip_child->size, UINT32_MAX);
+                    entry->stats.mtime  = zip_child->mtime;
+                    zip_child           = zip_child->sibling;
+                } else {
+                    entry->basename = &entry->path[context.path_dir_len + 1];
+                    viso_fill_stats(entry, &context, viso->format);
+                }
 
-                /* Populate stats. */
-                viso_fill_stats(entry, &context, viso->format);
+                /* Set short filename and skip this file if it couldn't be disambiguated. */
+                if (viso_fill_fn_short(entry->name_short, entry, dir_entries)) {
+                    free(entry);
+                    continue;
+                }
 
                 /* Handle file size and El Torito boot code. */
                 if (!entry->stats.is_dir) {
@@ -972,13 +1204,8 @@ have_eltorito_entry:
                     eltorito_others_present = 0;
                 }
 
-                /* Set short filename and skip this file if it couldn't be disambiguated. */
-                if (viso_fill_fn_short(entry->name_short, entry, dir_entries)) {
-                    free(entry);
-                    continue;
-                }
-
                 children_count++;
+                pending_entries++;
                 image_viso_log(viso->tf.log, "[%08X] %s => [%-12s] %s\n", entry,
                                dir->path, entry->name_short, entry->basename);
             }
@@ -1004,14 +1231,14 @@ have_eltorito_entry:
             }
         }
 
-next_dir:
+        pending_entries = 0;
         /* Move on to the next directory. */
-        if (have_dir)
-            plat_dir_close(&context);
         dir = dir->next_dir;
     }
-    if (dir_entries)
-        free(dir_entries);
+    plat_dir_close(&context);
+    context = (plat_dir_t) PLAT_DIR_INIT;
+    free(dir_entries);
+    dir_entries = NULL;
 
     /* Write 16 blank sectors. */
     for (int i = 0; i < 16; i++)
@@ -1024,15 +1251,27 @@ next_dir:
     struct tm now_tm;
     if (viso->format & VISO_FORMAT_ISO) { /* timezones are ISO only */
 #ifdef _WIN32
-        gmtime_s(&now_tm, &now);  // Windows: output first param, input second
+        gmtime_s(&now_tm, &now);  /* Windows: output first param, input second */
 #else
-        gmtime_r(&now, &now_tm);  // POSIX: input first param, output second
+        gmtime_r(&now, &now_tm);  /* POSIX: input first param, output second */
 #endif
-        tz_offset = (now - mktime(&now_tm)) / (3600 / 4);
+        tz_offset_sec = now - mktime(&now_tm);
+        tz_offset_iso = tz_offset_sec / 900; /* 15-minute interval */
     }
 
     /* Get root directory basename for the volume ID. */
-    const char *basename = path_get_filename(viso->root_dir->path);
+    char  *volume_path    = viso->root_dir->path;
+    size_t path_len       = strlen(volume_path);
+    while ((path_len > 0) && ((volume_path[path_len - 1] == '/') || (volume_path[path_len - 1] == '\\')))
+        path_len--;
+    char saved_trailer    = volume_path[path_len];
+    volume_path[path_len] = '\0';
+    const char *basename  = path_get_filename(volume_path);
+    char *zip_extension = (viso->zip_root && basename) ? strrchr(basename, '.') : NULL;
+    if (zip_extension && zip_extension != basename)
+        *zip_extension = '\0';
+    else
+        zip_extension = NULL;
     if (!basename || !basename[0])
         basename = EMU_NAME;
 
@@ -1178,6 +1417,9 @@ next_dir:
             fwrite(data, viso->sector_size, 1, viso->tf.fp);
         }
     }
+    if (zip_extension)
+        *zip_extension = '.';
+    volume_path[path_len] = saved_trailer;
 
     /* Fill terminator. */
     p = data;
@@ -1467,7 +1709,7 @@ next_entry:
     while (1) {
         image_viso_log(viso->tf.log, "Allocating entry map for %zu %zu-byte sectors\n",
                        viso->entry_map_size, viso->sector_size);
-        viso->entry_map = (viso_entry_t **) calloc(viso->entry_map_size, sizeof(viso_entry_t *));
+        viso->entry_map = calloc(MAX(1, viso->entry_map_size), sizeof(viso_entry_t *));
         if (viso->entry_map) {
             /* Successfully allocated. */
             break;
@@ -1577,16 +1819,15 @@ next_entry:
     viso->metadata = (uint8_t *) calloc(viso->metadata_sectors, viso->sector_size);
     if (viso->metadata == NULL)
         goto end;
-    fseeko64(viso->tf.fp, 0, SEEK_SET);
     size_t metadata_size = viso->metadata_sectors * viso->sector_size;
-    size_t metadata_remain = metadata_size;
-    while (metadata_remain > 0)
-        metadata_remain -= fread(viso->metadata + (metadata_size - metadata_remain), 1, MIN(metadata_remain, viso->sector_size), viso->tf.fp);
+    if (fseeko64(viso->tf.fp, 0, SEEK_SET) ||
+        fread(viso->metadata, 1, metadata_size, viso->tf.fp) != metadata_size)
+        goto end;
 
     /* We no longer need the temporary file; close and delete it. */
     fclose(viso->tf.fp);
     viso->tf.fp = NULL;
-#ifdef ENABLE_VISO_LOG
+#ifdef IMAGE_VISO_LOG
     if (stricmp(path_get_extension(viso->tf.fn), "iso"))
 #endif
         remove(nvr_path(viso->tf.fn));
@@ -1595,6 +1836,14 @@ next_entry:
     *error = 0;
 
 end:
+    plat_dir_close(&context);
+    for (size_t i = 0; i < pending_entries; i++)
+        free(dir_entries[i]);
+    free(dir_entries);
+    free(data);
+    if (!viso)
+        return NULL;
+
     /* Set the function pointers. */
     viso->tf.priv = viso;
     if (!*error) {
@@ -1605,13 +1854,8 @@ end:
         viso->tf.close      = viso_close;
 
         return &viso->tf;
-    } else {
-        if (viso != NULL) {
-            image_viso_log(viso->tf.log, "Initialization failed\n");
-            if (data)
-                free(data);
-            viso_close(&viso->tf);
-        }
-        return NULL;
     }
+    image_viso_log(viso->tf.log, "Initialization failed\n");
+    viso_close(&viso->tf);
+    return NULL;
 }

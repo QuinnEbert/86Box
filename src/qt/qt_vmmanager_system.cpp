@@ -23,7 +23,6 @@
 #include <QtNetwork>
 #include <QElapsedTimer>
 #include <QMessageBox>
-#include <QProgressDialog>
 #include <QWindow>
 #include "qt_util.hpp"
 #include "qt_vmmanager_system.hpp"
@@ -98,6 +97,7 @@ VMManagerSystem::VMManagerSystem(const QString &sysconfig_file)
     setupVars();
 
     serverIsRunning = false;
+    settingsOnly    = false;
     window_obscured = false;
 
     find86BoxBinary();
@@ -125,17 +125,7 @@ VMManagerSystem::~VMManagerSystem()
 QVector<VMManagerSystem *>
 VMManagerSystem::scanForConfigs(QWidget *parent, const QString &searchPath)
 {
-    QProgressDialog progDialog(parent);
-    unsigned int    found = 0;
-    progDialog.setCancelButton(nullptr);
-    progDialog.setWindowTitle(tr("Searching for VMs…"));
-    progDialog.setMinimumDuration(0);
-    progDialog.setValue(0);
-    progDialog.setMinimum(0);
-    progDialog.setMaximum(0);
-    progDialog.setWindowFlags(progDialog.windowFlags() & ~Qt::WindowCloseButtonHint);
-    progDialog.setMinimumSize(progDialog.sizeHint());
-    progDialog.setMaximumSize(progDialog.sizeHint());
+    Q_UNUSED(parent);
     QElapsedTimer scanTimer;
     scanTimer.start();
     QVector<VMManagerSystem *> system_configs;
@@ -160,11 +150,12 @@ VMManagerSystem::scanForConfigs(QWidget *parent, const QString &searchPath)
     QElapsedTimer timer;
     timer.start();
     while (dir_iterator.hasNext()) {
-        found++;
-        progDialog.setLabelText(tr("Found %1").arg(QString::number(found)));
-        QApplication::processEvents();
         QString filename = dir_iterator.next();
-        QString root_cfg = QString("%1%2").arg(search_directory, config_file_name);
+        QString root_cfg;
+        if ((search_directory[search_directory.size() - 1] == '/') || (search_directory[search_directory.size() - 1] == '\\'))
+            root_cfg = QString("%1%2").arg(search_directory, config_file_name);
+        else
+            root_cfg = QString("%1/%2").arg(search_directory, config_file_name);
         if (filename.compare(root_cfg, Qt::CaseInsensitive) != 0)
             matches.append(filename);
     }
@@ -176,22 +167,118 @@ VMManagerSystem::scanForConfigs(QWidget *parent, const QString &searchPath)
     // foreach (QFileInfo hit, matches) {
     //     system_configs.append(new VMManagerSystem(hit));
     // }
-    progDialog.setMaximum(found);
-    progDialog.setValue(0);
-    unsigned int appended = 0;
-    for (const auto &filename : matches) {
+
+    for (const auto &filename : matches)
         system_configs.append(new VMManagerSystem(filename));
-        appended++;
-        progDialog.setLabelText(system_configs.last()->displayName);
-        progDialog.setValue(appended);
-        QApplication::processEvents();
-    }
+
     if (matches.size()) {
         auto elapsed = timer.elapsed();
         qDebug() << "Load loop took" << elapsed << "ms for" << matches.size() << "loads";
         qDebug() << "Overall scan time was" << scanTimer.elapsed() << "ms, average" << elapsed / matches.size() << "ms / load";
     }
     return system_configs;
+}
+
+
+// Case-folded canonical path for deduplication (Windows paths are case-insensitive)
+static QString normalizedConfigKey(const QString &path)
+{
+    const QFileInfo fi(path);
+    QString key = fi.canonicalFilePath();
+    if (key.isEmpty())
+        key = fi.absoluteFilePath();
+#ifdef Q_OS_WIN
+    key = key.toLower();
+#endif
+    return key;
+}
+
+QVector<VMManagerSystem *>
+VMManagerSystem::loadFromCache()
+{
+    QVector<VMManagerSystem *> cached;
+    char buf[1024] = {};
+    plat_get_global_config_dir(buf, sizeof(buf));
+    const auto vmmIni = QDir(QString::fromUtf8(buf)).filePath("vmm.ini");
+    if (!QFile::exists(vmmIni))
+        return cached;
+
+    QSettings settings(vmmIni, QSettings::IniFormat);
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    settings.setIniCodec("UTF-8");
+#endif
+    const auto groups = settings.childGroups();
+    for (const auto &uuid : groups) {
+        if (uuid.isEmpty() || uuid == "General")
+            continue;
+        settings.beginGroup(uuid);
+        const auto cfgPath = settings.value("config_file").toString();
+        settings.endGroup();
+        if (cfgPath.isEmpty())
+            continue;
+        const QFileInfo fi(cfgPath);
+        if (!fi.exists() || !fi.isFile())
+            continue;
+        // Skip the root config if it somehow got stored
+        if (fi.fileName().compare(QString(CONFIG_FILE), Qt::CaseInsensitive) != 0)
+            continue;
+        auto *sys = new VMManagerSystem(cfgPath);
+        if (sys->isValid())
+            cached.append(sys);
+        else
+            delete sys;
+    }
+    qDebug() << "Loaded" << cached.size() << "VMs from vmm.ini cache";
+    return cached;
+}
+
+QStringList
+VMManagerSystem::cachedConfigPaths()
+{
+    QStringList paths;
+    char buf[1024] = {};
+    plat_get_global_config_dir(buf, sizeof(buf));
+    const auto vmmIni = QDir(QString::fromUtf8(buf)).filePath("vmm.ini");
+    if (!QFile::exists(vmmIni))
+        return paths;
+
+    QSettings settings(vmmIni, QSettings::IniFormat);
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    settings.setIniCodec("UTF-8");
+#endif
+    const auto groups = settings.childGroups();
+    for (const auto &uuid : groups) {
+        if (uuid.isEmpty() || uuid == "General")
+            continue;
+        settings.beginGroup(uuid);
+        const auto cfgPath = settings.value("config_file").toString();
+        settings.endGroup();
+        if (cfgPath.isEmpty())
+            continue;
+        const QFileInfo fi(cfgPath);
+        if (!fi.exists() || !fi.isFile())
+            continue;
+        if (fi.fileName().compare(QString(CONFIG_FILE), Qt::CaseInsensitive) != 0)
+            continue;
+        // The section key must be the UUID derived from the config path
+        // (the same value stored in 86box.cfg). Anything else is a stale duplicate.
+        const QString expected = util::generateUuid(cfgPath);
+        if (uuid.compare(expected, Qt::CaseInsensitive) != 0)
+            continue;
+        const QString key = normalizedConfigKey(cfgPath);
+        if (key.isEmpty())
+            continue;
+        bool already = false;
+        for (const auto &existing : paths) {
+            if (normalizedConfigKey(existing) == key) {
+                already = true;
+                break;
+            }
+        }
+        if (!already)
+            paths.append(cfgPath);
+    }
+    return paths;
 }
 
 QString
@@ -306,6 +393,31 @@ VMManagerSystem::saveSettings()
         config_settings->setStringValue("timestamp", lastUsedTimestamp.toString(Qt::ISODate));
 
     config_settings->setStringValue("icon", icon);
+
+    // Drop any other vmm.ini section that points at this config under a
+    // different UUID (stale duplicates from older path casings).
+    // Operate on a separate QSettings so we do not disturb the current group.
+    const QString mine = normalizedConfigKey(config_file.absoluteFilePath());
+    if (!mine.isEmpty()) {
+        QSettings cleanup(config_settings->settings->fileName(), QSettings::IniFormat);
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+        cleanup.setIniCodec("UTF-8");
+#endif
+        const auto groups = cleanup.childGroups();
+        for (const auto &other : groups) {
+            if (other.isEmpty() || other == "General" || other.compare(uuid, Qt::CaseInsensitive) == 0)
+                continue;
+            cleanup.beginGroup(other);
+            const QString otherPath = cleanup.value("config_file").toString();
+            cleanup.endGroup();
+            if (otherPath.isEmpty())
+                continue;
+            if (normalizedConfigKey(otherPath) == mine)
+                cleanup.remove(other);
+        }
+        cleanup.sync();
+    }
+
     generateSearchTerms();
 }
 void
@@ -377,6 +489,12 @@ VMManagerSystem::processId() const
     return process->processId();
 }
 
+bool
+VMManagerSystem::isSettingsOnly() const
+{
+    return settingsOnly;
+}
+
 QHash<QString, QString>
 VMManagerSystem::getCategory(const QString &category) const
 {
@@ -427,6 +545,7 @@ VMManagerSystem::launch86Box(bool settings)
     // Otherwise, launch the system
     setProcessEnvVars();
     window_obscured     = settings;
+    settingsOnly        = settings;
     QString     program = main_binary.filePath();
     QStringList args;
     args << "--vmpath" << config_dir;
@@ -595,7 +714,7 @@ VMManagerSystem::setupVars()
 
     if ((ci != -1) && (QString(video_internal_name) == "internal")) {
         auto internal_device = machine_get_vid_device(ci);
-        if (internal_device)
+        if (internal_device && device_available(internal_device))
             display_table[VMManager::Display::Name::Video].append(QString(" (%1)").arg(DeviceConfig::DeviceName(internal_device, internal_device->internal_name, 0)));
     }
 
@@ -621,6 +740,8 @@ VMManagerSystem::setupVars()
         display_table[VMManager::Display::Name::Video].append(tr("XGA Graphics").prepend(VMManagerDetailSection::sectionSeparator));
     if (video_config.contains("da2") && (video_config["da2"].toInt() != 0))
         display_table[VMManager::Display::Name::Video].append(tr("IBM PS/55 Display Adapter Graphics").prepend(VMManagerDetailSection::sectionSeparator));
+    if (video_config.contains("powervr") && (video_config["powervr"].toInt() != 0))
+        display_table[VMManager::Display::Name::Video].append(tr("PowerVR PCX1/PCX2 Graphics").prepend(VMManagerDetailSection::sectionSeparator));
 
     // Voodoo
     QString voodoo_name = "";
@@ -745,7 +866,10 @@ VMManagerSystem::setupVars()
                 cdrom_speed = "8";
 
             if ((cdrom_bus != "NONE") && (cdrom_type != -1)) {
-                cdrom_speed = QString("%1x ").arg(cdrom_speed);
+                if (cdrom_speed.toInt() > 72)
+                    cdrom_speed = QString("%1 ").arg(tr("Turbo"));
+                else
+                    cdrom_speed = QString("%1x ").arg(cdrom_speed);
                 cdrom_bus   = QString(" (%1)").arg(cdrom_bus);
                 cdromDevices.append(QString("%1%2 %3 %4%5").arg(cdrom_speed, cdrom_drive_types[cdrom_type].vendor, cdrom_drive_types[cdrom_type].model, cdrom_drive_types[cdrom_type].revision, cdrom_bus));
             }
@@ -767,12 +891,14 @@ VMManagerSystem::setupVars()
         if (key.contains(rdisk_match) || key.contains(zip_match)) {
             auto device_number    = key.split("_").at(1);
             auto rdisk_parameters = QString(removable_config[key]);
-            auto rdisk_type       = rdisk_parameters.split(",").at(0).toInt();
+            auto rdisk_config_id  = rdisk_parameters.split(",").at(0).toInt();
             if (key.contains(zip_match))
-                rdisk_type++;
+                rdisk_config_id++;
             auto rdisk_bus = rdisk_parameters.split(",").at(1).trimmed().toUpper();
 
-            if ((rdisk_type >= 0) && (rdisk_type < KNOWN_RDISK_DRIVE_TYPES)) {
+            /* The file has the number of rdisk_type_config_ids[], not an index of rdisk_drive_types[]. */
+            const uint32_t rdisk_type = rdisk_type_from_config(rdisk_config_id);
+            if ((rdisk_type != RDISK_TYPE_GENERIC) || (rdisk_config_id == 0)) {
                 if (!rdisk_bus.isEmpty())
                     rdisk_bus = QString(" (%1)").arg(rdisk_bus);
                 rdiskDevices.append(QString("%1 %2%3").arg(rdisk_drive_types[rdisk_type].vendor, rdisk_drive_types[rdisk_type].model, rdisk_bus));
@@ -818,6 +944,11 @@ VMManagerSystem::setupVars()
             auto scsi_id            = scsi_card_get_from_internal_name(scsi_internal_name.toUtf8().data());
             auto scsi_device        = scsi_card_getdevice(scsi_id);
             auto scsi_name          = DeviceConfig::DeviceName(scsi_device, scsi_card_get_internal_name(scsi_id), 1);
+            if ((ci != -1) && (scsi_internal_name == "internal")) {
+                auto internal_device = machine_get_scsi_device(ci);
+                if (internal_device)
+                    scsi_name.append(QString(" (%1)").arg(DeviceConfig::DeviceName(internal_device, internal_device->internal_name, 0)));
+            }
             if (!scsi_name.isEmpty()) {
                 scsiControllers.append(scsi_name);
             }
@@ -978,6 +1109,14 @@ VMManagerSystem::setupVars()
     auto mouse_dev_name                            = DeviceConfig::DeviceName(mouse_get_device(mouse_dev), mouse_get_internal_name(mouse_dev), 0);
     display_table[VMManager::Display::Name::Mouse] = mouse_dev_name;
 
+    // Input (Tablet)
+    if (input_config.contains("tablet_type")) {
+        auto tablet_internal_name                       = input_config["tablet_type"];
+        auto tablet_dev                                 = tablet_get_from_internal_name(tablet_internal_name.toUtf8().data());
+        auto tablet_dev_name                            = DeviceConfig::DeviceName(tablet_get_device(tablet_dev), tablet_get_internal_name(tablet_dev), 0);
+        display_table[VMManager::Display::Name::Tablet] = tablet_dev_name;
+    }
+
     // Input (joystick)
     QString joystickDevice;
     if (input_config.contains("joystick_type")) {
@@ -1118,6 +1257,7 @@ VMManagerSystem::startServer()
         connect(socket_server, &VMManagerServerSocket::configurationChanged, this, &VMManagerSystem::configurationChangeReceived);
         connect(socket_server, &VMManagerServerSocket::globalConfigurationChanged, this, &VMManagerSystem::globalConfigurationChanged);
         connect(socket_server, &VMManagerServerSocket::winIdReceived, this, [this](WId id) { this->id = id; });
+        connect(socket_server, &VMManagerServerSocket::windowActivated, this, &VMManagerSystem::windowActivated);
         return true;
     } else
         return false;
@@ -1195,6 +1335,7 @@ VMManagerSystem::processStatusChanged()
     } else if (process->state() == QProcess::ProcessState::NotRunning) {
         process_status  = VMManagerSystem::ProcessStatus::Stopped;
         window_obscured = false;
+        settingsOnly    = false;
     }
     emit itemDataChanged();
     emit clientProcessStatusChanged();
@@ -1217,8 +1358,9 @@ VMManagerSystem::processStatusToString(VMManagerSystem::ProcessStatus status)
         case VMManagerSystem::ProcessStatus::Paused:
             return tr("Paused");
         case VMManagerSystem::ProcessStatus::PausedWaiting:
-        case VMManagerSystem::ProcessStatus::RunningWaiting:
             return QString("%1 (%2)").arg(tr("Paused"), tr("Waiting"));
+        case VMManagerSystem::ProcessStatus::RunningWaiting:
+            return QString("%1 (%2)").arg(tr("Running"), tr("Waiting"));
         default:
             return tr("Unknown Status");
     }
