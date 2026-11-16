@@ -1,0 +1,8 @@
+if(BUILD_TESTING)
+    add_executable(fdd_sfx_tests fdd_sfx_test.cpp ../../src/sound/fdd_sfx.c)
+    target_include_directories(fdd_sfx_tests PRIVATE ${PROJECT_SOURCE_DIR}/src/include)
+    target_link_libraries(fdd_sfx_tests PRIVATE GTest::gtest_main)
+    target_compile_definitions(fdd_sfx_tests PRIVATE FORK_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+    include(GoogleTest)
+    gtest_discover_tests(fdd_sfx_tests)
+endif()

@@ -67,6 +67,7 @@ extern "C" {
 #include <86box/plat.h>
 #include <86box/ui.h>
 #include <86box/runctl.h>
+#include <86box/monitor.h>
 #include <86box/video.h>
 #include <86box/version.h>
 #include <86box/renderdefs.h>
@@ -803,6 +804,7 @@ main(int argc, char *argv[])
 
         cpu_thread_running = true;
         main_thread = new std::thread(main_thread_fn);
+        monitor_init();
 
         /* Signal handlers for clean shutdown */
         signal(SIGINT, [](int) { is_quit = 1; QCoreApplication::quit(); });
@@ -992,6 +994,7 @@ main(int argc, char *argv[])
         cpu_thread_running = true;
         runctl_thread_starting();
         main_thread        = new std::thread(main_thread_fn);
+        monitor_init();
     });
 
     const auto ret = app.exec();

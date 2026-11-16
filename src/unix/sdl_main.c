@@ -34,6 +34,7 @@
 #include <86box/mouse.h>
 #include <86box/plat.h>
 #include <86box/runctl.h>
+#include <86box/monitor.h>
 #ifdef USE_VNC
 #include <86box/renderdefs.h>
 #include <86box/vnc.h>
@@ -376,6 +377,7 @@ main(int argc, char **argv)
         vnc_init(NULL);
         runctl_resume(RUN_PAUSE_USER_RESUMABLE);
         do_start();
+        monitor_init();
         SDL_AddTimer(1000, timer_onesec, NULL);
         while (!is_quit && !exit_event)
             SDL_Delay(10);
@@ -390,6 +392,7 @@ main(int argc, char **argv)
 #endif
     /* Initialize the rendering window, or fullscreen. */
     do_start();
+    monitor_init();
 
 #ifndef USE_CLI
     thread_create(monitor_thread, NULL);

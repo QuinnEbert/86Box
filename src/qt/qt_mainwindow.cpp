@@ -1550,9 +1550,6 @@ MainWindow::on_actionTurbo_mode_triggered()
         ui->actionVirtualized_CPU->setChecked(false);
     }
     update_virtualized_tooltip(ui);
-#ifndef __APPLE__
-    cpu_set_ndr_virtualize(virtualized_cpu && allowed);
-#endif
 }
 
 void
@@ -1626,9 +1623,6 @@ MainWindow::on_actionVirtualized_CPU_triggered()
 {
     virtualized_cpu ^= 1;
     ui->actionVirtualized_CPU->setChecked(virtualized_cpu > 0 ? true : false);
-#ifndef __APPLE__
-    cpu_set_ndr_virtualize(virtualized_cpu && (turbo_mode || turbo_slow_cycles > 0));
-#endif
     update_virtualized_tooltip(ui);
 }
 
@@ -2428,9 +2422,6 @@ update_slow_turbo_checkboxes(Ui::MainWindow *ui, QAction *selected, int value)
     ui->actionSlow_Turbo_4_cycles->setChecked(ui->actionSlow_Turbo_4_cycles == selected);
 
     turbo_slow_cycles = value;
-#ifndef __APPLE__
-    cpu_set_ndr_virtualize(virtualized_cpu && (turbo_mode || turbo_slow_cycles > 0));
-#endif
     const bool allowed = turbo_mode || turbo_slow_cycles > 0;
     ui->actionVirtualized_CPU->setEnabled(allowed);
     if (!allowed) {

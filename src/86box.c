@@ -1590,7 +1590,6 @@ usage:
     if (lang_init)
         lang_id = lang_init;
 
-    monitor_init();
     /* All good! */
     return 1;
 }
@@ -2263,7 +2262,7 @@ pc_run(void)
     /* Run a block of code: a millisecond (or ten) of the CPU's cycles, the
        remainder carried over (pc_block.h). */
     startblit();
-#ifdef USE_DYNAREC
+#if defined(USE_DYNAREC) && !defined(__APPLE__)
     cpu_set_ndr_virtualize(virtualized_cpu && (turbo_mode || turbo_slow_cycles > 0));
 #endif
     /* In an ACPI sleeping state the CPU stays stopped and only the timers

@@ -31,7 +31,7 @@ jobs:
           - {arch: arm64, runner: ubuntu-24.04-arm}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - name: Install dependencies
@@ -39,7 +39,7 @@ jobs:
           sudo apt-get update && sudo apt-get install -y
           build-essential ninja-build pkg-config libfreetype-dev libsdl2-dev
           libpng-dev librtmidi-dev libopenal-dev libslirp-dev libfluidsynth-dev
-          libvdeplug-dev libserialport-dev libvncserver-dev libzstd-dev
+          libvdeplug-dev libserialport-dev libvncserver-dev libzstd-dev libgtest-dev
           qt6-base-dev qt6-base-private-dev qt6-tools-dev qt6-tools-dev-tools
           qt6-l10n-tools libevdev-dev libxkbcommon-x11-dev libvulkan-dev
       - name: Configure CMake
@@ -48,10 +48,16 @@ jobs:
           -D QT=${{ matrix.ui.qt }} -D USE_QT6=ON -D SDL2=ON -D VNC=ON
       - name: Build
         run: cmake --build build --parallel 4
+      - name: Build fork regression tests
+        if: matrix.environment.arch == 'x86_64' && matrix.ui.qt == 'OFF' && matrix.build.name == 'Debug'
+        run: |
+          cmake -S . -B build-checks -G Ninja -D QT=OFF -D SDL2=ON -D BUILD_TESTING=ON
+          cmake --build build-checks --parallel 4 --target hdd_image_tests fdd_sfx_tests pc_block_tests codegen_reuse_tests ini_tests random_tests row_boundary_test
+          ctest --test-dir build-checks -R '^(FloppySfx\.|HddImage\.|PcBlock\.|CodegenReuse\.|Ini|Random|row_boundary)' --output-on-failure
       - name: Generate package
         run: cmake --install build
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: 86Box${{ matrix.ui.slug }}${{ matrix.build.slug }}-Linux-${{ matrix.environment.arch }}
           path: build/artifacts/**
@@ -59,7 +65,7 @@ jobs:
 
   macos:
     name: macOS arm64, ${{ matrix.ui.name }}, ${{ matrix.build.name }}
-    runs-on: macos-26
+    runs-on: macos-15
     strategy:
       fail-fast: false
       matrix:
@@ -71,9 +77,11 @@ jobs:
           - {name: Qt, qt: 'ON', slug: -Qt}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+      - name: Verify Apple Silicon runner
+        run: test "$(uname -m)" = arm64
       - name: Install dependencies
         run: >-
           brew install sdl3 rtmidi openal-soft fluidsynth libslirp vde libserialport
@@ -82,9 +90,9 @@ jobs:
         run: >-
           cmake -S . -B build --preset ${{ matrix.build.preset }}
           -D QT=${{ matrix.ui.qt }} -D USE_QT6=ON -D VNC=ON
-          -D CMAKE_OSX_DEPLOYMENT_TARGET=26.0
-          -D OpenAL_ROOT=$(brew --prefix openal-soft)
-          -D LIBSERIALPORT_ROOT=$(brew --prefix libserialport)
+          -D CMAKE_OSX_DEPLOYMENT_TARGET=15.0
+          -D OpenAL_ROOT="$(brew --prefix openal-soft)"
+          -D LIBSERIALPORT_ROOT="$(brew --prefix libserialport)"
       - name: Build
         run: cmake --build build --parallel 3
       - name: Generate package
@@ -99,7 +107,7 @@ jobs:
             ditto -c -k --sequesterRsrc --keepParent "$app" "build/artifacts/86Box${{ matrix.ui.slug }}${{ matrix.build.slug }}-macOS-arm64.zip"
           done
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: 86Box${{ matrix.ui.slug }}${{ matrix.build.slug }}-macOS-arm64
           path: build/artifacts/*.zip
@@ -122,7 +130,7 @@ jobs:
         shell: msys2 {0}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - name: Prepare MSYS2 environment
@@ -138,7 +146,7 @@ jobs:
       - name: Generate package
         run: cmake --install build
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: 86Box-Qt${{ matrix.build.slug }}-Windows-${{ matrix.environment.arch }}
           path: build/artifacts/**
@@ -158,7 +166,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 

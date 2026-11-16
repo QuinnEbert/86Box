@@ -90,6 +90,7 @@ SettingsMachine::SettingsMachine(QWidget *parent)
             sc->addMachine(i, j);
             auto *item = new QStandardItem(QString::fromUtf8(machines[j].name));
             item->setData(machine_types[i].id);
+            item->setData(j, Qt::UserRole + 2);
             machineListModel->appendRow(item);
 
             cur_j++;
@@ -193,13 +194,13 @@ SettingsMachine::SettingsMachine(QWidget *parent)
     connect(machineListCompleter, QOverload<const QModelIndex &>::of(&QCompleter::activated), this, [this] (const QModelIndex& idx) {
         ui->lineEditSearch->setText("");
         int machineIdType = idx.model()->data(idx, Qt::UserRole + 1).toInt();
-        auto name = idx.model()->data(idx, Qt::DisplayRole).toString();
+        int selectedMachine = idx.model()->data(idx, Qt::UserRole + 2).toInt();
         for (int i = 0; i < ui->comboBoxMachineType->model()->rowCount(); i++) {
             if (ui->comboBoxMachineType->model()->data(ui->comboBoxMachineType->model()->index(i, 0), Qt::UserRole).toInt() == machineIdType) {
                 ui->comboBoxMachineType->setCurrentIndex(i);
 
                 for (int j = 0; j < ui->comboBoxMachine->model()->rowCount(); j++) {
-                    if (ui->comboBoxMachine->model()->data(ui->comboBoxMachine->model()->index(j, 0), Qt::DisplayRole).toString() == name) {
+                    if (ui->comboBoxMachine->model()->data(ui->comboBoxMachine->model()->index(j, 0), Qt::UserRole).toInt() == selectedMachine) {
                         ui->comboBoxMachine->setCurrentIndex(j);
                         break;
                     }
@@ -392,7 +393,10 @@ SettingsMachine::on_comboBoxMachineType_currentIndexChanged(int index)
             Models::Batch rows(model);
             for (int i = 0; i < machine_count(); ++i) {
                 if ((machine_get_type(i) == ui->comboBoxMachineType->currentData().toInt()) && machine_available(i)) {
-                    int row = rows.add(machines[i].name, i);
+                    QString name = QString::fromUtf8(machines[i].name);
+                    if (machine_get_type_year(machine_get_type(i)) >= 1990)
+                        name += QString(" (%1 - %2)").arg(machine_get_typical_cpu_name(i), machine_get_supported_cpu_names(i));
+                    int row = rows.add(name, i);
                     if (i == machine)
                         selectedMachineRow = row - removeRows;
                 }

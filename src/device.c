@@ -1363,7 +1363,7 @@ machine_device_available(const device_t *dev)
                     else
                         append_missing_rom(bios->files[bf]);
                 }
-                if (i == bios->files_no)
+                if ((bios->files_no == -1) || (i == bios->files_no))
                     roms_present++;
                 bios++;
             }

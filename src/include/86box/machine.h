@@ -1942,4 +1942,8 @@ extern const device_t  xi8088_device;
 #endif
 extern int             machine_xt_xi8088_init(const machine_t *);
 
+extern int machine_get_type_year(int type);
+extern const char *machine_get_typical_cpu_name(int m);
+extern const char *machine_get_supported_cpu_names(int m);
+
 #endif /*EMU_MACHINE_H*/

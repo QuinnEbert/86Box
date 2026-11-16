@@ -11,6 +11,7 @@ extern "C" {
 }
 
 #include <QFileInfo>
+#include <QSignalBlocker>
 #include <QFileDialog>
 #include <QStandardItemModel>
 #include <QIntValidator>
@@ -347,7 +348,6 @@ void SettingsHostFS::on_buttonAdd_clicked()
     }
 
     // Default to IDE and next free channel
-    uint8_t bus_ui = BUS_IDE;        // bus enum for UI tracking helper
     uint8_t bus_hw = HDD_BUS_IDE;    // actual hardware bus enum
     uint8_t channel = Harddrives::busTrackClass ? Harddrives::busTrackClass->next_free_ide_channel() : 0;
     if (channel == CHANNEL_NONE) {
@@ -362,7 +362,7 @@ void SettingsHostFS::on_buttonAdd_clicked()
     strncpy(disks[slot].fn, dir.toUtf8().constData(), sizeof(disks[slot].fn) - 1);
     disks[slot].shared_fake_size_mb = 1920; // default
 
-    if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_SET, DEV_HDD, bus_ui, channel);
+    if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_SET, DEV_HDD, bus_hw, channel);
 
     // Append to table
     auto *model = qobject_cast<QStandardItemModel *>(ui->tableView->model());
@@ -388,7 +388,7 @@ void SettingsHostFS::on_buttonRemove_clicked()
     int row = idx.row();
     int hidx = ui->tableView->model()->index(row, ColumnIndex).data(DataHddIndex).toInt();
     if (hidx >= 0 && hidx < HDD_NUM) {
-        if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_CLEAR, DEV_HDD, (disks[hidx].bus_type == HDD_BUS_IDE ? BUS_IDE : BUS_SCSI), disks[hidx].channel);
+        if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_CLEAR, DEV_HDD, disks[hidx].bus_type, disks[hidx].channel);
         free((void *) disks[hidx].override_model);
         memset(&disks[hidx], 0, sizeof(hard_disk_t));
         disks[hidx].bus_type = HDD_BUS_DISABLED;
@@ -402,6 +402,8 @@ void SettingsHostFS::on_buttonRemove_clicked()
 void SettingsHostFS::refreshBusAndChannelCombos(int hddIndex)
 {
     if (hddIndex < 0 || hddIndex >= HDD_NUM) return;
+    const QSignalBlocker busBlocker(ui->comboBoxBus);
+    const QSignalBlocker channelBlocker(ui->comboBoxChannel);
     // Set bus combo
     auto *busModel = ui->comboBoxBus->model();
     // Find row where UserRole equals current bus
@@ -416,6 +418,7 @@ void SettingsHostFS::refreshBusAndChannelCombos(int hddIndex)
 
 void SettingsHostFS::on_comboBoxBus_currentIndexChanged(int)
 {
+    const QSignalBlocker channelBlocker(ui->comboBoxChannel);
     // Always refresh visible channel list for the selected bus so the combo isn't empty
     int visBus = ui->comboBoxBus->currentData().toInt();
     Harddrives::populateBusChannels(ui->comboBoxChannel->model(), visBus, Harddrives::busTrackClass);
@@ -426,7 +429,7 @@ void SettingsHostFS::on_comboBoxBus_currentIndexChanged(int)
     if (hidx < 0 || hidx >= HDD_NUM) return;
 
     // Untrack old
-    if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_CLEAR, DEV_HDD, (disks[hidx].bus_type == HDD_BUS_IDE ? BUS_IDE : BUS_SCSI), disks[hidx].channel);
+    if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_CLEAR, DEV_HDD, disks[hidx].bus_type, disks[hidx].channel);
 
     int newBusHw = ui->comboBoxBus->currentData().toInt(); // HDD_BUS_*
     disks[hidx].bus_type = newBusHw;
@@ -458,8 +461,12 @@ void SettingsHostFS::on_comboBoxBus_currentIndexChanged(int)
     ui->comboBoxChannel->setCurrentIndex(cm.isEmpty() ? 0 : cm.first().row());
 
     // Track new
+    modified = true;
     disks[hidx].channel = ui->comboBoxChannel->currentData().toUInt();
-    if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_SET, DEV_HDD, (disks[hidx].bus_type == HDD_BUS_IDE ? BUS_IDE : BUS_SCSI), disks[hidx].channel);
+    emit driveChannelChanged();
+    if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_SET, DEV_HDD, disks[hidx].bus_type, disks[hidx].channel);
+    modified = true;
+    emit driveChannelChanged();
     updateDevNameCounter();
 }
 
@@ -470,9 +477,11 @@ void SettingsHostFS::on_comboBoxChannel_currentIndexChanged(int)
     int hidx = ui->tableView->model()->index(idx.row(), ColumnIndex).data(DataHddIndex).toInt();
     if (hidx < 0 || hidx >= HDD_NUM) return;
     // Update tracking: clear old, set new
-    if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_CLEAR, DEV_HDD, (disks[hidx].bus_type == HDD_BUS_IDE ? BUS_IDE : BUS_SCSI), disks[hidx].channel);
+    if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_CLEAR, DEV_HDD, disks[hidx].bus_type, disks[hidx].channel);
+    modified = true;
     disks[hidx].channel = ui->comboBoxChannel->currentData().toUInt();
-    if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_SET, DEV_HDD, (disks[hidx].bus_type == HDD_BUS_IDE ? BUS_IDE : BUS_SCSI), disks[hidx].channel);
+    emit driveChannelChanged();
+    if (Harddrives::busTrackClass) Harddrives::busTrackClass->device_track(TRACK_SET, DEV_HDD, disks[hidx].bus_type, disks[hidx].channel);
 }
 
 void SettingsHostFS::on_hddtype_currentIndexChanged(int)

@@ -17,7 +17,7 @@
 #include <86box/fdd_sfx.h>
 
 #define MAX_VOICES 16
-#define MAX_DRIVES 4
+#define MAX_DRIVES FDD_NUM
 /* Hard cap for any single playback instance. */
 #define VOICE_MAX_LIFE_SAMPLES (5 * SOUND_FREQ)
 /* Short fade to avoid clicks on forced stop (~5ms at 48kHz). */
@@ -265,6 +265,9 @@ void fdd_sfx_init(void)
         sound_add_handler(fdd_sfx_get_buffer, NULL);
         voice_stop_all();
         memset(s_motor_active, 0, sizeof(s_motor_active));
+        memset(s_activity_countdown, 0, sizeof(s_activity_countdown));
+        memset(s_tick_period, 0, sizeof(s_tick_period));
+        memset(s_tick_countdown, 0, sizeof(s_tick_countdown));
         return;
     }
     memset(s_voices, 0, sizeof(s_voices));
@@ -323,8 +326,7 @@ int fdd_sfx_is_enabled(void) { return s_enabled; }
 
 void fdd_sfx_motor(int drive, int on)
 {
-    (void)drive;
-    if (!s_inited) return;
+    if (drive < 0 || drive >= MAX_DRIVES || !s_inited) return;
 
     if (on) {
         if (!s_motor_active[drive]) {
@@ -367,6 +369,7 @@ void fdd_sfx_motor(int drive, int on)
 
 void fdd_sfx_step(int drive)
 {
+    if (drive < 0 || drive >= MAX_DRIVES) return;
     if (!s_inited || !s_enabled) return;
     if (s_step.data)
         voice_start(&s_step, 0, 0.9f);
