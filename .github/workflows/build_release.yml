@@ -84,10 +84,8 @@ jobs:
           set -euo pipefail
           for ui in SDL Qt; do
             qt=OFF
-            smoke_args=()
             if [ "$ui" = Qt ]; then
               qt=ON
-              smoke_args=(--qt)
             fi
             for variant in Debug Dev; do
               preset=development
@@ -105,10 +103,10 @@ jobs:
               find "$app/Contents/MacOS" -type f -exec chmod 755 {} \;
               codesign --force --deep -s - "$app"
               codesign --verify --deep --strict "$app"
-              python3 tests/fork/headless_smoke.py --binary "$app/Contents/MacOS/86Box" \
-                --roms "$PWD/build/smoke-roms" "${smoke_args[@]}"
-              python3 tests/fork/headless_smoke.py --binary "$app/Contents/MacOS/86Box" \
-                --roms "$PWD/build/smoke-roms" "${smoke_args[@]}" --no-client
+              smoke_args=(--binary "$app/Contents/MacOS/86Box" --roms "$PWD/build/smoke-roms")
+              if [ "$ui" = Qt ]; then smoke_args+=(--qt); fi
+              python3 tests/fork/headless_smoke.py "${smoke_args[@]}"
+              python3 tests/fork/headless_smoke.py "${smoke_args[@]}" --no-client
               if [ "$ui-$variant" = Qt-Dev ]; then
                 python3 tests/fork/run_settings_roundtrip.py --build "$build_dir" --roms "$PWD/build/smoke-roms"
               fi
