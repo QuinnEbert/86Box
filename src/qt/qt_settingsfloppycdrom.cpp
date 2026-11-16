@@ -331,7 +331,7 @@ SettingsFloppyCDROM::SettingsFloppyCDROM(QWidget *parent)
 
     connect(ui->treeViewCDROM->selectionModel(), &QItemSelectionModel::currentRowChanged,
             this, &SettingsFloppyCDROM::onCDROMRowChanged);
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
     connect(ui->checkBoxUnlimitedCapacity, &QCheckBox::checkStateChanged,
             this, &SettingsFloppyCDROM::onUnlimitedCapacityChanged);
 #else
@@ -935,7 +935,7 @@ SettingsFloppyCDROM::on_comboBoxHDBDSpeed_activated(int)
 
 void
 SettingsFloppyCDROM::onUnlimitedCapacityChanged(
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
     Qt::CheckState state
 #else
     int state

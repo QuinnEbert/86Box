@@ -50,6 +50,9 @@ extern "C" {
 #include <86box/mouse.h>
 #include <86box/timer.h>
 #include <86box/86box.h>
+#ifdef USE_VNC
+#include <86box/vnc.h>
+#endif
 #include <86box/device.h>
 #include <86box/fdd.h>
 #include <86box/hdc.h>
@@ -84,6 +87,8 @@ plat_delay_ms(uint32_t count)
 void
 ui_emu_status(int speed_percent)
 {
+    if (!main_window)
+        return;
     QString str = QString::number(speed_percent);
     if ((mouse_type == MOUSE_TYPE_NONE) || (mouse_input_mode >= 1))
         str += QStringLiteral("%");
@@ -101,12 +106,16 @@ ui_emu_status(int speed_percent)
 void
 ui_hard_reset_completed()
 {
+    if (!main_window)
+        return;
     emit main_window->hardResetCompleted();
 }
 
 extern "C" void
 qt_blit(int x, int y, int w, int h, int monitor_index)
 {
+    if (!main_window)
+        return;
     main_window->blitToWidget(x, y, w, h, monitor_index);
 }
 
@@ -126,6 +135,13 @@ plat_resize_request(int w, int h, int monitor_index)
 void
 plat_resize(int w, int h, int monitor_index)
 {
+#ifdef USE_VNC
+    if (headless_mode) {
+        if (monitor_index == 0)
+            vnc_resize(w, h);
+        return;
+    }
+#endif
     if (monitor_index >= 1)
         main_window->resizeContentsMonitor(w, h, monitor_index);
     else
@@ -139,6 +155,10 @@ extern HWND rw_hwnd;
 void
 plat_mouse_capture(int on)
 {
+    if (!main_window) {
+        mouse_capture = !!on;
+        return;
+    }
     if (!kbd_req_capture && (mouse_type == MOUSE_TYPE_NONE) && !machine_has_mouse())
         return;
 
@@ -246,6 +266,8 @@ ui_confirm_unsupported_hardware(const ui_unsupported_hardware_t *items, int coun
 void
 ui_init_monitor(int monitor_index)
 {
+    if (!main_window)
+        return;
     if (QThread::currentThread() == main_window->thread()) {
         emit main_window->initRendererMonitor(monitor_index);
     } else
@@ -255,6 +277,8 @@ ui_init_monitor(int monitor_index)
 void
 ui_deinit_monitor(int monitor_index)
 {
+    if (!main_window)
+        return;
     if (QThread::currentThread() == main_window->thread()) {
         emit main_window->destroyRendererMonitor(monitor_index);
     } else
@@ -398,6 +422,8 @@ ui_progress_wait(const char *message, int total, int (*poll)(void *arg), void *a
 void
 ui_sb_update_text()
 {
+    if (!main_window)
+        return;
     QString msg;
 
     if (!sb_mt32lcdtext.isEmpty())
@@ -429,12 +455,16 @@ ui_sb_set_text(char *str)
 void
 ui_sb_update_tip(int arg)
 {
+    if (!main_window)
+        return;
     main_window->updateStatusBarTip(arg);
 }
 
 void
 ui_sb_update_panes()
 {
+    if (!main_window)
+        return;
     main_window->updateStatusBarPanes();
 }
 

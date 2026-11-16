@@ -525,6 +525,12 @@ main(int argc, char *argv[])
 #endif
     QSurfaceFormat::setDefaultFormat(fmt);
 
+#ifdef USE_VNC
+    for (int i = 1; i < argc; ++i) {
+        if (!strcasecmp(argv[i], "--headless") && qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM"))
+            qputenv("QT_QPA_PLATFORM", "offscreen");
+    }
+#endif
     QApplication app(argc, argv);
     QLocale::setDefault(QLocale::C);
     setlocale(LC_NUMERIC, "C");
@@ -783,7 +789,6 @@ main(int argc, char *argv[])
 
 #ifdef USE_VNC
     if (headless_mode) {
-        pc_init_modules();
 
         QTimer onesec;
         QObject::connect(&onesec, &QTimer::timeout, [] { pc_onesec(); });

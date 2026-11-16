@@ -201,7 +201,7 @@ hdd_is_valid(int c)
 double
 hdd_seek_get_time(hard_disk_t *hdd, uint32_t dst_addr, uint8_t operation, uint8_t continuous, double max_seek_time)
 {
-    if (!hdd->speed_preset)
+    if (!hdd->speed_preset || !hdd->rpm)
         return HDD_OVERHEAD_TIME;
 
     const hdd_zone_t *zone = NULL;
@@ -333,7 +333,7 @@ hdd_timing_write(hard_disk_t *hdd, uint32_t addr, uint32_t len)
     double   seek_time = 0.0;
     uint32_t flush_needed;
 
-    if (!hdd->speed_preset)
+    if (!hdd->speed_preset || !hdd->rpm)
         return HDD_OVERHEAD_TIME;
 
     hdd_readahead_update(hdd);
@@ -371,7 +371,7 @@ hdd_timing_read(hard_disk_t *hdd, uint32_t addr, uint32_t len)
 {
     double seek_time = 0.0;
 
-    if (!hdd->speed_preset)
+    if (!hdd->speed_preset || !hdd->rpm)
         return HDD_OVERHEAD_TIME;
 
     hdd_readahead_update(hdd);
@@ -1102,7 +1102,8 @@ static hdd_preset_t hdd_speed_presets[] = {
     { .name = "[SCSI-3] Seagate Cheetah ST318203LW",              .internal_name = "ST318203LW",  .vendor = "SEAGATE", .model = "ST318203LW",                                                  .zones = 16, .avg_spt = 299, .heads = 12, .rpm = 10000, .full_stroke_ms = 12, .track_seek_ms = 0.7, .rcache_num_seg = 16, .rcache_seg_size =  128, .max_multiple = 32 },
     { .name = "[SCSI-3] Seagate Cheetah ST318203LWV",             .internal_name = "ST318203LWV", .vendor = "SEAGATE", .model = "ST318203LWV",                                                 .zones = 16, .avg_spt = 299, .heads = 12, .rpm = 10000, .full_stroke_ms = 12, .track_seek_ms = 0.7, .rcache_num_seg = 16, .rcache_seg_size =  512, .max_multiple = 32 },
     { .name = "[SCSI-3] Seagate Cheetah ST318233LWV",             .internal_name = "ST318233LWV", .vendor = "SEAGATE", .model = "ST318233LWV",                                                 .zones = 16, .avg_spt = 299, .heads = 12, .rpm = 10000, .full_stroke_ms = 12, .track_seek_ms = 0.5, .rcache_num_seg = 16, .rcache_seg_size =  512, .max_multiple = 32 },
-    // clang-format on
+     { .name = "[Special] QUINNEHD (no speed limit)", .internal_name = "quinnehd", .model = "QUINNEHD", .rcache_num_seg = 16, .rcache_seg_size = 128, .max_multiple = 32 },
+   // clang-format on
 };
 
 int
@@ -1186,7 +1187,8 @@ hdd_preset_apply(int hdd_id)
             hd->version = hd->custom_version;
     }
 
-    if (!hd->speed_preset)
+    hd->rpm = preset->rpm;
+    if (!hd->speed_preset || !preset->rpm)
         return;
 
     hd->phy_heads = preset->heads;

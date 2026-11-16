@@ -106,7 +106,7 @@ extern bool cpu_thread_running;
 #include <QString>
 #include <QDir>
 #include <QSysInfo>
-#ifndef NO_QT_VULKAN
+#if QT_CONFIG(vulkan)
 #    include <QVulkanInstance>
 #    include <QVulkanFunctions>
 #endif
@@ -643,7 +643,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->actionVNC->setVisible(false);
 #endif
 
-#ifndef NO_QT_VULKAN
+#if QT_CONFIG(vulkan)
     bool vulkanAvailable = false;
     {
         QVulkanInstance instance;

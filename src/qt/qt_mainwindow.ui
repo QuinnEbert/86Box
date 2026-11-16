@@ -89,7 +89,6 @@
      <addaction name="actionTurbo_Batch_64ms"/>
      <addaction name="actionTurbo_Batch_Unlimited"/>
     </widget>
-    <addaction name="actionAuto_pause"/>
     <addaction name="separator"/>
     <widget class="QMenu" name="menuInput_device">
      <property name="title">
